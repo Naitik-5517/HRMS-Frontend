@@ -4,6 +4,7 @@ import LoginPage from "../pages/LoginPage";
 import DashboardPage from "../pages/DashboardPage";
 import AdminPage from "../pages/AdminPage";
 import AgentDashboard from "../components/AgentDashboard/AgentDashboard.jsx";
+import UserTrackingView from "../components/common/UserTrackingView";
 import AppLayout from "../layouts/AppLayout";
 import ProtectedRoute from "./ProtectedRoutes";
 import { useAuth } from "../context/AuthContext";
@@ -30,6 +31,18 @@ const AppRoutes = () => {
           element={
             <ProtectedRoute allowedRoles={[6]}>
               <AgentDashboard />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* User Tracking (Admin only) */}
+        <Route
+          path="/entry"
+          element={
+            <ProtectedRoute allowedRoles={[1,2]}>
+              <AppLayout>
+                <UserTrackingView />
+              </AppLayout>
             </ProtectedRoute>
           }
         />

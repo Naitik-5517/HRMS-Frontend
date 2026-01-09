@@ -112,9 +112,8 @@ const Header = ({
         const roleId = Number(currentUser.role_id);
         if (roleId === 6) return [
           { view: ViewState.DASHBOARD, label: "Analytics", icon: LayoutDashboard },
-          { view: ViewState.ENTRY, label: "Data Entry", icon: PenTool },
+          { view: ViewState.ENTRY, label: "User Tracking", icon: PenTool },
           { view: ViewState.SCHEDULER, label: "Roster", icon: CalendarClock },
-          { view: ViewState.GUIDELINES, label: "Guidelines", icon: BookOpen },
         ];
         // All other role_ids are treated as Admin for tab purposes
         return [
@@ -122,8 +121,7 @@ const Header = ({
           { view: ViewState.QUALITY, label: "Quality", icon: Award },
           { view: ViewState.SCHEDULER, label: "Scheduler", icon: CalendarClock },
           { view: ViewState.ADMIN_PANEL, label: "Manage", icon: Settings },
-          { view: ViewState.GUIDELINES, label: "Guidelines", icon: BookOpen },
-          { view: ViewState.ENTRY, label: "Data Entry (Test)", icon: PenTool },
+          { view: ViewState.ENTRY, label: "User Tracking", icon: PenTool },
         ];
       }
       return [];
@@ -135,17 +133,15 @@ const Header = ({
         { view: ViewState.QUALITY, label: "Quality", icon: Award },
         { view: ViewState.SCHEDULER, label: "Scheduler", icon: CalendarClock },
         { view: ViewState.ADMIN_PANEL, label: "Manage", icon: Settings },
-        { view: ViewState.GUIDELINES, label: "Guidelines", icon: BookOpen },
-        { view: ViewState.ENTRY, label: "Data Entry (Test)", icon: PenTool },
+        { view: ViewState.ENTRY, label: "User Tracking", icon: PenTool },
       ];
     }
     // Agent tabs
     if (role.includes('AGENT')) {
       return [
         { view: ViewState.DASHBOARD, label: "Analytics", icon: LayoutDashboard },
-        { view: ViewState.ENTRY, label: "Data Entry", icon: PenTool },
+        { view: ViewState.ENTRY, label: "User Tracking", icon: PenTool },
         { view: ViewState.SCHEDULER, label: "Roster", icon: CalendarClock },
-        { view: ViewState.GUIDELINES, label: "Guidelines", icon: BookOpen },
       ];
     }
     // Default: show nothing or fallback
