@@ -6,6 +6,7 @@ import FilterBar from '../components/dashboard/FilterBar';
 import TabsNavigation from '../components/dashboard/TabsNavigation';
 import OverviewTab from '../components/dashboard/overview/OverviewTab';
 import QATrackerReport from '../components/dashboard/QATrackerReport';
+import QAAgentList from '../components/dashboard/QAAgentList';
 import { useAuth } from '../context/AuthContext'; // Updated to use AuthContext
 import { useDeviceInfo } from '../hooks/useDeviceInfo';
 import { useUserDropdowns } from '../hooks/useUserDropdowns';
@@ -377,10 +378,7 @@ const DashboardPage = ({
   if (isQA && viewParam === 'agent-list') {
     return (
       <div className="space-y-6 max-w-6xl mx-auto pb-10">
-        <div className="bg-white p-6 rounded-lg shadow">
-          <h2 className="text-xl font-bold mb-4">Agent List</h2>
-          <p className="text-slate-600">Agent list content will go here.</p>
-        </div>
+        <QAAgentList />
       </div>
     );
   }

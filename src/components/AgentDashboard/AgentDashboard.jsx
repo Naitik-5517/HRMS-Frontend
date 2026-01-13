@@ -64,14 +64,29 @@ const AgentDashboard = ({ embedded = false }) => {
         log('[AgentDashboard] Dashboard filter payload:', payload);
         const res = await api.post("/dashboard/filter", payload);
         
-        // Extract projects from the response
+        // Extract projects and tasks from the response
         const dashboardData = res.data?.data || {};
         const assignedProjects = dashboardData.projects || [];
+        const assignedTasks = dashboardData.tasks || [];
         
         log('[AgentDashboard] Assigned projects loaded:', assignedProjects.length);
+        log('[AgentDashboard] Assigned tasks loaded:', assignedTasks.length);
         log('[AgentDashboard] Projects:', assignedProjects);
+        log('[AgentDashboard] Tasks:', assignedTasks);
         
-        setProjects(assignedProjects);
+        // Map tasks to their respective projects
+        const projectsWithTasks = assignedProjects.map(project => {
+          const projectTasks = assignedTasks.filter(
+            task => String(task.project_id) === String(project.project_id)
+          );
+          return {
+            ...project,
+            tasks: projectTasks
+          };
+        });
+        
+        log('[AgentDashboard] Projects with tasks:', projectsWithTasks);
+        setProjects(projectsWithTasks);
       } catch (error) {
         logError('[AgentDashboard] Error fetching assigned projects:', error);
         setProjects([]);
@@ -337,7 +352,7 @@ const AgentDashboard = ({ embedded = false }) => {
                   >
                     <option value="" className="font-semibold text-slate-600 text-xs">Select Task</option>
                     {tasks.map((t) => (
-                      <option key={t.task_id} value={t.task_id} className="font-normal text-slate-700 text-base">{t.label}</option>
+                      <option key={t.task_id} value={t.task_id} className="font-normal text-slate-700 text-base">{t.task_name}</option>
                     ))}
                   </select>
                   {touched.selectedTask && errors.selectedTask && (
