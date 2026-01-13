@@ -1,9 +1,11 @@
 import React, { useMemo, useState, useCallback, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { MONTHLY_GOAL, SHIFT_START_HOUR, SHIFT_HOURS_COUNT } from '../utils/constants';
 import { isWithinRange, getComparisonRange } from '../utils/dateHelpers';
 import FilterBar from '../components/dashboard/FilterBar';
 import TabsNavigation from '../components/dashboard/TabsNavigation';
 import OverviewTab from '../components/dashboard/overview/OverviewTab';
+import QATrackerReport from '../components/dashboard/QATrackerReport';
 import { useAuth } from '../context/AuthContext'; // Updated to use AuthContext
 import { useDeviceInfo } from '../hooks/useDeviceInfo';
 import { useUserDropdowns } from '../hooks/useUserDropdowns';
@@ -34,6 +36,8 @@ const DashboardPage = ({
   } = useAuth(); // Using AuthContext instead of UserContext
   const { device_id, device_type } = useDeviceInfo();
   const { dropdowns, loadDropdowns } = useUserDropdowns();
+  const [searchParams] = useSearchParams();
+  const viewParam = searchParams.get('view');
   
   const [selectedAgent, setSelectedAgent] = useState(null);
   const todayStr = new Date().toISOString().split('T')[0];
@@ -51,12 +55,10 @@ const DashboardPage = ({
   // Role ID mapping (based on database):
   // role_id: 6 = Agent
   // role_id: 1 = Admin/Super Admin
+  // role_id: 5 = QA
   const isAdmin = role === 'admin' || userRole === 'ADMIN' || designation === 'Admin' || roleId === 1;
   const isAgent = role === 'agent' || userRole === 'AGENT' || designation === 'Agent' || designation === 'AGENT' || roleId === 6;
-  const isQA = currentUser?.user_designation === 'QA' || designation === 'QA';
-  
-  console.log('[DashboardPage] role_id:', roleId, 'designation_id:', designationId);
-  console.log('[DashboardPage] isAgent:', isAgent, 'isAdmin:', isAdmin);
+  const isQA = roleId === 5 || currentUser?.user_designation === 'QA' || designation === 'QA' || role.toLowerCase().includes('qa');
   
   // Set initial active tab - will be updated when user data loads
   const [activeTab, setActiveTab] = useState('overview');
@@ -119,15 +121,10 @@ const DashboardPage = ({
       
       const res = await fetchUsersList(userId, device_id, device_type);
       
-      console.log('[DashboardPage] Full response from fetchUsersList:', res);
-      
-      if (res.status === 200) {
+      if (res.status === 200 || res.status === '200') {
         // fetchUsersList returns response.data which is { data: [...], status: 200, message: '...' }
         // So the actual users array is in res.data
         const usersArray = Array.isArray(res.data) ? res.data : [];
-        console.log('[DashboardPage] Extracted users array:', usersArray);
-        console.log('[DashboardPage] First user raw data:', usersArray[0]);
-        console.log('[DashboardPage] Available designations:', dropdowns.designations);
         
         const formatted = usersArray.map(u => {
           // Map designation_id to designation name
@@ -150,6 +147,7 @@ const DashboardPage = ({
           
           return {
             id: u.user_id,
+            user_id: u.user_id,
             name: u.user_name,
             email: u.user_email,
             phone: u.user_number,
@@ -157,22 +155,24 @@ const DashboardPage = ({
             role_id: u.role_id ?? null,
             designation: designationName,
             designation_id: u.designation_id ?? null,
-          reportingManager: u.project_manager || '',
-          project_manager_name: u.project_manager || '',
-          project_manager_id: u.project_manager_id ?? null,
-          assistantManager: u.assistant_manager_id ?? u.asst_manager ?? '',
-          qualityAnalyst: u.qa_id ?? u.qa ?? '',
-          team: u.team_id ?? u.team ?? '',
-          password: u.user_password || '',
-          asst_manager: u.asst_manager || '',
-          qa: u.qa || '',
-          address: u.user_address || '',
-          tenure: u.user_tenure ?? u.tenure ?? '',
-          profile_picture: u.profile_picture || null,
+            reportingManager: u.project_manager || '',
+            project_manager_name: u.project_manager || '',
+            project_manager_id: u.project_manager_id ?? null,
+            assistantManager: u.assistant_manager_id || u.asst_manager || '',
+            qualityAnalyst: u.qa_id || u.qa || '',
+            team: u.team_id || u.team || '',
+            team_name: u.team_name || '',
+            password: u.user_password || '',
+            password_plain: u.user_password || '',
+            asst_manager: u.asst_manager || '',
+            qa: u.qa || '',
+            address: u.user_address || '',
+            tenure: u.user_tenure ?? u.tenure ?? '',
+            profile_picture: u.profile_picture || null,
+            is_active: u.is_active ?? 1
           };
         });
         
-        console.log('[DashboardPage] Formatted users with designations:', formatted.map(u => ({ name: u.name, designation: u.designation })));
         setManagedUsers(formatted);
       } else {
         toast.error(res.message || 'Failed to load users');
@@ -365,12 +365,33 @@ const DashboardPage = ({
     [users]
   );
 
+  // Check if QA is viewing a specific view
+  if (isQA && viewParam === 'tracker-report') {
+    return (
+      <div className="space-y-6 max-w-6xl mx-auto pb-10">
+        <QATrackerReport />
+      </div>
+    );
+  }
+
+  if (isQA && viewParam === 'agent-list') {
+    return (
+      <div className="space-y-6 max-w-6xl mx-auto pb-10">
+        <div className="bg-white p-6 rounded-lg shadow">
+          <h2 className="text-xl font-bold mb-4">Agent List</h2>
+          <p className="text-slate-600">Agent list content will go here.</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6 max-w-6xl mx-auto pb-10">
-      {/* Show FilterBar for all tabs except dataentry */}
-      {activeTab !== 'dataentry' && (
+      {/* Show FilterBar for all tabs except dataentry and QA special views */}
+      {activeTab !== 'dataentry' && !viewParam && (
         <FilterBar
           isAgent={isAgent}
+          isQA={isQA}
           selectedTask={selectedTask}
           setSelectedTask={setSelectedTask}
           comparisonMode={comparisonMode}
@@ -381,12 +402,13 @@ const DashboardPage = ({
         />
       )}
 
-      {/* Show TabsNavigation only for admins, hide for agents */}
-      {!isAgent && (
+      {/* Show TabsNavigation only for admins, hide for agents and QA */}
+      {!isAgent && !isQA && (
         <TabsNavigation
           activeTab={activeTab}
           setActiveTab={setActiveTab}
           isAgent={isAgent}
+          isQA={isQA}
           isAdmin={isAdmin}
           canViewIncentivesTab={canViewIncentivesTab}
           canViewAdherence={canViewAdherence}
@@ -402,6 +424,7 @@ const DashboardPage = ({
           analytics={analytics}
           hourlyChartData={hourlyChartData}
           isAgent={isAgent}
+          dateRange={dateRange}
         />
       )}
 

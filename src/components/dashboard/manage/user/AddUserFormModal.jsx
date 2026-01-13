@@ -45,6 +45,60 @@ const AddUserFormModal = ({
      const [showPassword, setShowPassword] = useState(false);
 
      /**
+      * Role-based field visibility configuration
+      * Role IDs: 1=Super Admin, 2=Admin, 3=Project Manager, 4=Assistant Manager, 5=QA, 6=Agent
+      */
+     const getFieldVisibility = (selectedRoleId) => {
+          const roleId = Number(selectedRoleId);
+          
+          // Default: all fields visible and required (Super Admin, Admin, Agent)
+          if (!roleId || roleId === 1 || roleId === 2 || roleId === 6) {
+               return {
+                    projectManager: { visible: true, required: true },
+                    assistantManager: { visible: true, required: true },
+                    qualityAnalyst: { visible: true, required: true },
+               };
+          }
+          
+          // QA Agent (role_id = 5): Hide qualityAnalyst field
+          if (roleId === 5) {
+               return {
+                    projectManager: { visible: true, required: true },
+                    assistantManager: { visible: true, required: true },
+                    qualityAnalyst: { visible: false, required: false },
+               };
+          }
+          
+          // Assistant Manager (role_id = 4): Hide assistantManager and qualityAnalyst fields
+          if (roleId === 4) {
+               return {
+                    projectManager: { visible: true, required: true },
+                    assistantManager: { visible: false, required: false },
+                    qualityAnalyst: { visible: false, required: false },
+               };
+          }
+          
+          // Project Manager (role_id = 3): Hide all three fields
+          if (roleId === 3) {
+               return {
+                    projectManager: { visible: false, required: false },
+                    assistantManager: { visible: false, required: false },
+                    qualityAnalyst: { visible: false, required: false },
+               };
+          }
+          
+          // Fallback: show all fields
+          return {
+               projectManager: { visible: true, required: true },
+               assistantManager: { visible: true, required: true },
+               qualityAnalyst: { visible: true, required: true },
+          };
+     };
+
+     // Get current field visibility based on selected role
+     const fieldVisibility = getFieldVisibility(newUser.role);
+
+     /**
       * Validation functions for each field
       */
      const validateName = (name) => {
@@ -140,6 +194,9 @@ const AddUserFormModal = ({
           if (isEditMode) return {};
           const errors = {};
 
+          // Get field visibility based on selected role
+          const visibility = getFieldVisibility(newUser.role);
+
           // Validate name
           const nameError = validateName(newUser.name || "");
           if (nameError) errors.name = nameError;
@@ -170,17 +227,23 @@ const AddUserFormModal = ({
           const designationError = validateDropdown(newUser.designation, "Designation");
           if (designationError) errors.designation = designationError;
 
-          // Validate projectManager
-          const projectManagerError = validateDropdown(newUser.projectManager, "Project Manager");
-          if (projectManagerError) errors.projectManager = projectManagerError;
+          // Validate projectManager (only if visible and required for this role)
+          if (visibility.projectManager.visible && visibility.projectManager.required) {
+               const projectManagerError = validateDropdown(newUser.projectManager, "Project Manager");
+               if (projectManagerError) errors.projectManager = projectManagerError;
+          }
 
-          // Validate assistantManager
-          const assistantManagerError = validateDropdown(newUser.assistantManager, "Assistant Manager");
-          if (assistantManagerError) errors.assistantManager = assistantManagerError;
+          // Validate assistantManager (only if visible and required for this role)
+          if (visibility.assistantManager.visible && visibility.assistantManager.required) {
+               const assistantManagerError = validateDropdown(newUser.assistantManager, "Assistant Manager");
+               if (assistantManagerError) errors.assistantManager = assistantManagerError;
+          }
 
-          // Validate qualityAnalyst
-          const qualityAnalystError = validateDropdown(newUser.qualityAnalyst, "Quality Analyst");
-          if (qualityAnalystError) errors.qualityAnalyst = qualityAnalystError;
+          // Validate qualityAnalyst (only if visible and required for this role)
+          if (visibility.qualityAnalyst.visible && visibility.qualityAnalyst.required) {
+               const qualityAnalystError = validateDropdown(newUser.qualityAnalyst, "Quality Analyst");
+               if (qualityAnalystError) errors.qualityAnalyst = qualityAnalystError;
+          }
 
           // Validate team
           const teamError = validateDropdown(newUser.team, "Team");
@@ -488,71 +551,77 @@ const AddUserFormModal = ({
                                    )}
                               </div>
 
-                              {/* Project Manager Selection */}
-                              <div>
-                                   <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                        Project Manager <span className="text-red-600">*</span>
-                                   </label>
-                                   <CustomSelect
-                                        value={newUser.projectManager ?? ""}
-                                        onChange={(val) => handleFieldChange("projectManager", val, (v) => validateDropdown(v, "Project Manager"))}
-                                        options={[
-                                             { value: "", label: "Select Project Manager" },
-                                             ...projectManagers.map((m) => ({ value: m.user_id, label: m.label }))
-                                        ]}
-                                        icon={User}
-                                        placeholder="Select Project Manager"
-                                        disabled={isDropdownLoading}
-                                        className={hasError("projectManager") ? 'border-red-500' : ''}
-                                   />
-                                   {getErrorMessage("projectManager") && (
-                                        <p className="mt-1 text-xs text-red-600">{getErrorMessage("projectManager")}</p>
-                                   )}
-                              </div>
+                              {/* Project Manager Selection - Conditionally visible */}
+                              {fieldVisibility.projectManager.visible && (
+                                   <div>
+                                        <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                             Project Manager {fieldVisibility.projectManager.required && <span className="text-red-600">*</span>}
+                                        </label>
+                                        <CustomSelect
+                                             value={newUser.projectManager ?? ""}
+                                             onChange={(val) => handleFieldChange("projectManager", val, (v) => fieldVisibility.projectManager.required ? validateDropdown(v, "Project Manager") : "")}
+                                             options={[
+                                                  { value: "", label: "Select Project Manager" },
+                                                  ...projectManagers.map((m) => ({ value: m.user_id, label: m.label }))
+                                             ]}
+                                             icon={User}
+                                             placeholder="Select Project Manager"
+                                             disabled={isDropdownLoading}
+                                             className={hasError("projectManager") ? 'border-red-500' : ''}
+                                        />
+                                        {getErrorMessage("projectManager") && (
+                                             <p className="mt-1 text-xs text-red-600">{getErrorMessage("projectManager")}</p>
+                                        )}
+                                   </div>
+                              )}
 
-                              {/* Assistant Manager Selection */}
-                              <div>
-                                   <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                        Assistant Manager <span className="text-red-600">*</span>
-                                   </label>
-                                   <CustomSelect
-                                        value={newUser.assistantManager ?? ""}
-                                        onChange={(val) => handleFieldChange("assistantManager", val, (v) => validateDropdown(v, "Assistant Manager"))}
-                                        options={[
-                                             { value: "", label: "Select Assistant Manager" },
-                                             ...assistantManagers.map((m) => ({ value: m.user_id, label: m.label }))
-                                        ]}
-                                        icon={User}
-                                        placeholder="Select Assistant Manager"
-                                        disabled={isDropdownLoading}
-                                        className={hasError("assistantManager") ? 'border-red-500' : ''}
-                                   />
-                                   {getErrorMessage("assistantManager") && (
-                                        <p className="mt-1 text-xs text-red-600">{getErrorMessage("assistantManager")}</p>
-                                   )}
-                              </div>
+                              {/* Assistant Manager Selection - Conditionally visible */}
+                              {fieldVisibility.assistantManager.visible && (
+                                   <div>
+                                        <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                             Assistant Manager {fieldVisibility.assistantManager.required && <span className="text-red-600">*</span>}
+                                        </label>
+                                        <CustomSelect
+                                             value={newUser.assistantManager ?? ""}
+                                             onChange={(val) => handleFieldChange("assistantManager", val, (v) => fieldVisibility.assistantManager.required ? validateDropdown(v, "Assistant Manager") : "")}
+                                             options={[
+                                                  { value: "", label: "Select Assistant Manager" },
+                                                  ...assistantManagers.map((m) => ({ value: m.user_id, label: m.label }))
+                                             ]}
+                                             icon={User}
+                                             placeholder="Select Assistant Manager"
+                                             disabled={isDropdownLoading}
+                                             className={hasError("assistantManager") ? 'border-red-500' : ''}
+                                        />
+                                        {getErrorMessage("assistantManager") && (
+                                             <p className="mt-1 text-xs text-red-600">{getErrorMessage("assistantManager")}</p>
+                                        )}
+                                   </div>
+                              )}
 
-                              {/* Quality Analyst Selection */}
-                              <div>
-                                   <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                        Quality Analyst <span className="text-red-600">*</span>
-                                   </label>
-                                   <CustomSelect
-                                        value={newUser.qualityAnalyst ?? ""}
-                                        onChange={(val) => handleFieldChange("qualityAnalyst", val, (v) => validateDropdown(v, "Quality Analyst"))}
-                                        options={[
-                                             { value: "", label: "Select Quality Analyst" },
-                                             ...qas.map((m) => ({ value: m.user_id, label: m.label }))
-                                        ]}
-                                        icon={User}
-                                        placeholder="Select Quality Analyst"
-                                        disabled={isDropdownLoading}
-                                        className={hasError("qualityAnalyst") ? 'border-red-500' : ''}
-                                   />
-                                   {getErrorMessage("qualityAnalyst") && (
-                                        <p className="mt-1 text-xs text-red-600">{getErrorMessage("qualityAnalyst")}</p>
-                                   )}
-                              </div>
+                              {/* Quality Analyst Selection - Conditionally visible */}
+                              {fieldVisibility.qualityAnalyst.visible && (
+                                   <div>
+                                        <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                             Quality Analyst {fieldVisibility.qualityAnalyst.required && <span className="text-red-600">*</span>}
+                                        </label>
+                                        <CustomSelect
+                                             value={newUser.qualityAnalyst ?? ""}
+                                             onChange={(val) => handleFieldChange("qualityAnalyst", val, (v) => fieldVisibility.qualityAnalyst.required ? validateDropdown(v, "Quality Analyst") : "")}
+                                             options={[
+                                                  { value: "", label: "Select Quality Analyst" },
+                                                  ...qas.map((m) => ({ value: m.user_id, label: m.label }))
+                                             ]}
+                                             icon={User}
+                                             placeholder="Select Quality Analyst"
+                                             disabled={isDropdownLoading}
+                                             className={hasError("qualityAnalyst") ? 'border-red-500' : ''}
+                                        />
+                                        {getErrorMessage("qualityAnalyst") && (
+                                             <p className="mt-1 text-xs text-red-600">{getErrorMessage("qualityAnalyst")}</p>
+                                        )}
+                                   </div>
+                              )}
 
                               {/* Team Selection */}
                               <div>

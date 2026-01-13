@@ -10,7 +10,8 @@ import { useAuth } from "../../../../context/AuthContext";
 const UsersTable = ({
   users,
   handleDeleteUser,
-  openEditUserModal
+  openEditUserModal,
+  handleToggleStatus
 }) => {
   const [visiblePasswordUserId, setVisiblePasswordUserId] = useState(null);
   useAuth();
@@ -28,6 +29,7 @@ const UsersTable = ({
               <th className="px-4 py-3">Reporting To</th>
               <th className="px-4 py-3">Role</th>
               <th className="px-4 py-3">Password</th>
+              <th className="px-4 py-3">Status</th>
               <th className="px-4 py-3 text-right">Action</th>
             </tr>
           </thead>
@@ -38,6 +40,13 @@ const UsersTable = ({
               const masked = password ? "•".repeat(Math.max(8, password.length)) : "••••••••";
               // Use user_id if available, else fallback to id or email
               const rowKey = u.user_id || u.id || u.email;
+              
+              // Convert is_active to number for proper comparison
+              // Only use fallback of 1 if is_active is completely missing (undefined or null)
+              const isActive = (u.is_active !== undefined && u.is_active !== null) 
+                ? Number(u.is_active) 
+                : 1;
+              
               return (
                 <tr key={rowKey} className="hover:bg-slate-50">
 
@@ -95,6 +104,24 @@ const UsersTable = ({
                         )}
                       </button>
                     </div>
+                  </td>
+
+                  <td className="px-4 py-3">
+                    <button
+                      onClick={() => handleToggleStatus(u)}
+                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 ${
+                        isActive === 1
+                          ? "bg-green-500 focus:ring-green-500"
+                          : "bg-gray-300 focus:ring-gray-400"
+                      }`}
+                      title={isActive === 1 ? "Active - Click to deactivate" : "Inactive - Click to activate"}
+                    >
+                      <span
+                        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                          isActive === 1 ? "translate-x-6" : "translate-x-1"
+                        }`}
+                      />
+                    </button>
                   </td>
 
                   <td className="px-4 py-3 text-right min-w-[120px]">

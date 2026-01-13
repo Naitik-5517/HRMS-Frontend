@@ -81,7 +81,13 @@ const LoginPage = () => {
   };
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
+    if (e && e.preventDefault) {
+      e.preventDefault();
+    }
+    
+    if (e && e.stopPropagation) {
+      e.stopPropagation();
+    }
 
     // Final validation check
     if (usernameError || passwordError || !username || !password) {
@@ -93,12 +99,8 @@ const LoginPage = () => {
     setIsLoading(true);
 
     try {
-      // Get device info
-      log('[LoginPage] Attempting login with device:', { device_id, device_type });
-      log('[LoginPage] Credentials - Email:', username, 'Password length:', password.length);
-      
       const response = await loginUser(username, password, device_id, device_type);
-      log('[LoginPage] Login successful, full response:', response);
+      log('[LoginPage] Login successful');
       
       // Backend returns nested structure: response.data.data contains the user
       const userData = response.data?.data || response.data?.user || response.data;
@@ -107,19 +109,21 @@ const LoginPage = () => {
         throw new Error('Invalid response format from backend');
       }
       
+      // Check if user account is active
+      if (userData.is_active === 0 || userData.is_active === false) {
+        toast.error("Your account is inactive. Please contact your admin.", { duration: 5000 });
+        return;
+      }
+      
       login(userData);
-      toast.success("You are now logged in!", { duration: 4000 });
-
+      
       // Get role ID from user data
       const roleId = Number(userData.role_id);
       const role = ROLE_MAP[roleId] || "";
 
-      log('[LoginPage] User role:', role);
-      console.log('🔑 [LoginPage] roleId:', roleId, 'Navigating to:', roleId === 6 ? '/dashboard' : '/dashboard');
+      toast.success("You are now logged in!", { duration: 4000 });
 
-      // All roles go to dashboard after login - Updated: Jan 9, 2026
-      // Agents will see Analytics (Overview) as default, admins see full dashboard
-      console.log('🔑 [LoginPage] Navigating to /dashboard');
+      // All roles go to dashboard after login
       navigate("/dashboard", { replace: true });
     } catch (err) {
       logError('[LoginPage] Login failed:', err);
@@ -223,6 +227,10 @@ const LoginPage = () => {
             <button
               type="submit"
               disabled={isLoading}
+              onClick={(e) => {
+                console.log('🔴 [LoginPage] Button clicked!');
+                // Don't call e.preventDefault() here, let the form handle it
+              }}
               className={`w-full flex justify-center items-center py-3 rounded-lg text-white gap-2
                 ${
                   isLoading

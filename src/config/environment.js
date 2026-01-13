@@ -5,7 +5,7 @@
 
 const config = {
   // API Configuration
-  apiBaseUrl: import.meta.env.VITE_API_BASE_URL || 'http://192.168.125.158:5000',
+  apiBaseUrl: import.meta.env.VITE_API_BASE_URL || 'http://192.168.125.203:5000',
   apiTimeout: parseInt(import.meta.env.VITE_API_TIMEOUT) || 30000,
 
   // App Configuration

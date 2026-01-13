@@ -12,6 +12,7 @@ const TabsNavigation = ({
   activeTab,
   setActiveTab,
   isAgent,
+  isQA,
   isAdmin,
   canViewIncentivesTab,
   canViewAdherence
@@ -20,11 +21,11 @@ const TabsNavigation = ({
     
   const tabs = [
     { id: 'overview', label: 'Overview', icon: LayoutGrid, alwaysVisible: true },
-    { id: 'bookings', label: 'Project Bookings', icon: Briefcase, visible: !isAgent },
-    { id: 'agents', label: 'Agent Performance', icon: Users, alwaysVisible: true },
-    { id: 'adherence', label: 'Reporting Adherence', icon: FileWarning, visible: canViewAdherence },
-    { id: 'incentives', label: 'Agent Incentives', icon: DollarSign, visible: canViewIncentivesTab },
-    { id: 'mgmt_incentives', label: 'Management Incentives', icon: Gem, visible: !isAgent }
+    { id: 'bookings', label: 'Project Bookings', icon: Briefcase, visible: !isAgent && !isQA },
+    { id: 'agents', label: 'Agent Performance', icon: Users, visible: !isQA },
+    { id: 'adherence', label: 'Reporting Adherence', icon: FileWarning, visible: canViewAdherence && !isQA },
+    { id: 'incentives', label: 'Agent Incentives', icon: DollarSign, visible: canViewIncentivesTab && !isQA },
+    { id: 'mgmt_incentives', label: 'Management Incentives', icon: Gem, visible: !isAgent && !isQA }
   ];
 
   const visibleTabs = tabs.filter(tab => tab.alwaysVisible || tab.visible);

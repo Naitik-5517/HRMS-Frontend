@@ -416,6 +416,39 @@ const UsersManagement = ({
           }
      };
 
+     // Toggle user active/inactive status
+     const handleToggleStatus = async (user) => {
+          try {
+               // Convert to number and handle both undefined and actual 0 values
+               const currentStatus = (user.is_active !== undefined && user.is_active !== null) 
+                    ? Number(user.is_active) 
+                    : 1;
+               const newStatus = currentStatus === 1 ? 0 : 1;
+               const userName = user.user_name || user.name || user.email || 'User';
+               log('[UsersManagement] Toggling user status for:', userName, 'from:', currentStatus, 'to:', newStatus);
+               
+               // Prepare payload for update
+               const payload = {
+                    user_id: String(user.user_id || user.id),
+                    device_id: deviceInfo.device_id || 'web',
+                    device_type: deviceInfo.device_type || 'Laptop',
+                    is_active: newStatus
+               };
+
+               await updateUser(payload);
+               
+               toast.success(`User ${newStatus === 1 ? 'activated' : 'deactivated'} successfully`);
+               
+               // Reload users list
+               if (loadUsers) {
+                    loadUsers();
+               }
+          } catch (error) {
+               logError('[UsersManagement] Failed to toggle user status:', error);
+               toast.error(error.message || 'Failed to update user status');
+          }
+     };
+
      const handleToggleTaskAssignment = (projectId, taskId) => {
           if (!assigningUser) return;
 
@@ -599,6 +632,7 @@ const UsersManagement = ({
                          users={filteredUsers}
                          handleDeleteUser={handleDeleteUser}
                          openEditUserModal={handleOpenEditUserModal}
+                         handleToggleStatus={handleToggleStatus}
                     />
                )}
 

@@ -19,7 +19,9 @@ import {
   CalendarClock,
   BookOpen,
   Menu,
-  X
+  X,
+  FileText,
+  Users
 } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 
@@ -71,6 +73,20 @@ const Header = ({
     
     console.log('🚀 [Header goTo] view:', view, 'roleId:', roleId, 'role:', role);
     
+    // Handle QA-specific views
+    if (view === 'TRACKER_REPORT') {
+      console.log('🚀 [Header goTo] Navigating to Tracker Report');
+      navigate('/dashboard?view=tracker-report');
+      setIsMobileMenuOpen(false);
+      return;
+    }
+    if (view === 'AGENT_LIST') {
+      console.log('🚀 [Header goTo] Navigating to Agent List');
+      navigate('/dashboard?view=agent-list');
+      setIsMobileMenuOpen(false);
+      return;
+    }
+    
     // For agents (role_id 6 or role includes 'AGENT')
     if (roleId === 6 || role.includes('AGENT')) {
       if (view === ViewState.ENTRY || view === 'ENTRY') {
@@ -110,11 +126,23 @@ const Header = ({
       // Try role_id mapping if role string is missing
       if (currentUser?.role_id) {
         const roleId = Number(currentUser.role_id);
+        
+        // Agent tabs (role_id 6)
         if (roleId === 6) return [
           { view: ViewState.DASHBOARD, label: "Analytics", icon: LayoutDashboard },
-          { view: ViewState.ENTRY, label: "User Tracking", icon: PenTool },
+          { view: ViewState.ENTRY, label: "Tracker", icon: PenTool },
           { view: ViewState.SCHEDULER, label: "Roster", icon: CalendarClock },
         ];
+        
+        // QA tabs (role_id 5) - Hide Manage and User Tracking
+        if (roleId === 5) return [
+          { view: ViewState.DASHBOARD, label: "Analytics", icon: LayoutDashboard },
+          { view: ViewState.QUALITY, label: "Quality", icon: Award },
+          { view: ViewState.SCHEDULER, label: "Scheduler", icon: CalendarClock },
+          { view: "TRACKER_REPORT", label: "Tracker Report", icon: FileText },
+          { view: "AGENT_LIST", label: "Agent List", icon: Users },
+        ];
+        
         // All other role_ids are treated as Admin for tab purposes
         return [
           { view: ViewState.DASHBOARD, label: "Analytics", icon: LayoutDashboard },
@@ -126,6 +154,18 @@ const Header = ({
       }
       return [];
     }
+    
+    // QA tabs (by role string) - Hide Manage and User Tracking
+    if (role.includes('QA')) {
+      return [
+        { view: ViewState.DASHBOARD, label: "Analytics", icon: LayoutDashboard },
+        { view: ViewState.QUALITY, label: "Quality", icon: Award },
+        { view: ViewState.SCHEDULER, label: "Scheduler", icon: CalendarClock },
+        { view: "TRACKER_REPORT", label: "Tracker Report", icon: FileText },
+        { view: "AGENT_LIST", label: "Agent List", icon: Users },
+      ];
+    }
+    
     // Admin tabs
     if (role.includes('ADMIN')) {
       return [
@@ -136,14 +176,16 @@ const Header = ({
         { view: ViewState.ENTRY, label: "User Tracking", icon: PenTool },
       ];
     }
-    // Agent tabs
+    
+    // Agent tabs (by role string)
     if (role.includes('AGENT')) {
       return [
         { view: ViewState.DASHBOARD, label: "Analytics", icon: LayoutDashboard },
-        { view: ViewState.ENTRY, label: "User Tracking", icon: PenTool },
+        { view: ViewState.ENTRY, label: "Tracker", icon: PenTool },
         { view: ViewState.SCHEDULER, label: "Roster", icon: CalendarClock },
       ];
     }
+    
     // Default: show nothing or fallback
     return [];
   };

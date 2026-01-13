@@ -158,12 +158,13 @@ const EditUserFormModal = ({
     
     try {
       // Build payload with user_id (required) and only changed fields
-      const payload = { user_id: userData.user_id };
+      const payload = { 
+        user_id: userData.user_id,
+        device_id: deviceId,
+        device_type: deviceType
+      };
       
-      log('[EditUserFormModal] Current userData:', userData);
-      log('[EditUserFormModal] Original userData:', originalUserData);
-      
-      // Map frontend field names to backend field names
+      // Map frontend field names to backend field names (match exact database column names)
       const fieldMapping = {
         name: 'user_name',
         email: 'user_email',
@@ -174,12 +175,19 @@ const EditUserFormModal = ({
         role: 'role_id',
         designation: 'designation_id',
         projectManager: 'project_manager_id',
-        assistantManager: 'assistant_manager_id',
+        assistantManager: 'asst_manager_id',  // Database uses 'asst_manager_id' not 'assistant_manager_id'
         qualityAnalyst: 'qa_id',
         team: 'team_id'
       };
       
+      // Fields that need to be sent as arrays (NOT team_id - that's just a number)
+      const arrayFields = ['asst_manager_id', 'qa_id'];
+      
+      // Fields that should be converted to numbers
+      const numberFields = ['role_id', 'designation_id', 'project_manager_id', 'team_id', 'user_tenure'];
+      
       // Add only changed fields to payload
+      const changedFieldsLog = [];
       Object.entries(fieldMapping).forEach(([frontendKey, backendKey]) => {
         const currentValue = userData[frontendKey];
         const originalValue = originalUserData?.[frontendKey];
@@ -189,48 +197,65 @@ const EditUserFormModal = ({
         const originalStr = String(originalValue || '');
         const hasChanged = currentStr !== originalStr;
         
-        log(`[EditUserFormModal] Checking ${frontendKey}: current="${currentValue}" (${typeof currentValue}) original="${originalValue}" (${typeof originalValue}) changed=${hasChanged}`);
-        
         // Special handling for password - only include if it was actually changed
         if (frontendKey === 'password') {
           if (hasChanged && currentValue && String(currentValue).trim() !== "") {
             payload[backendKey] = currentValue;
-            log(`[EditUserFormModal] Including password in payload (changed)`);
-          } else {
-            log(`[EditUserFormModal] Skipping password (not changed or empty)`);
+            changedFieldsLog.push(`${frontendKey} → ${backendKey}: [REDACTED]`);
           }
           return;
         }
         
         // Only include if value has changed and is not empty
         if (hasChanged && currentValue !== null && currentValue !== undefined && currentValue !== "") {
-          payload[backendKey] = currentValue;
-          log(`[EditUserFormModal] Including ${backendKey} = ${currentValue} (changed from ${originalValue})`);
+          // Convert to array with NUMBER values if this field needs to be stored as an array
+          if (arrayFields.includes(backendKey)) {
+            payload[backendKey] = [Number(currentValue)];
+            changedFieldsLog.push(`${frontendKey} → ${backendKey}: "${originalValue}" → [${Number(currentValue)}] (array)`);
+          } 
+          // Convert to NUMBER if this field should be numeric
+          else if (numberFields.includes(backendKey)) {
+            payload[backendKey] = Number(currentValue);
+            changedFieldsLog.push(`${frontendKey} → ${backendKey}: "${originalValue}" → ${Number(currentValue)} (number)`);
+          } 
+          // Keep as string for text fields
+          else {
+            payload[backendKey] = currentValue;
+            changedFieldsLog.push(`${frontendKey} → ${backendKey}: "${originalValue}" → "${currentValue}"`);
+          }
         }
       });
+      
+      if (changedFieldsLog.length > 0) {
+        log('[EditUserFormModal] 📝 Fields being updated:', changedFieldsLog);
+      }
       
       // Add profile picture if changed
       if (profilePreview && profilePreview !== originalUserData?.profile_picture) {
         payload.profile_picture = profilePreview;
-        log('[EditUserFormModal] Including profile picture (changed)');
+        log('[EditUserFormModal] 📷 Profile picture changed');
       }
       
-      log('[EditUserFormModal] Final update payload:', payload);
-      log('[EditUserFormModal] Payload as JSON:', JSON.stringify(payload, null, 2));
+      // If only user_id, device_id, device_type are present, no changes were made
+      const essentialKeys = ['user_id', 'device_id', 'device_type'];
+      const changedFields = Object.keys(payload).filter(key => !essentialKeys.includes(key));
       
-      // If only user_id is present, no changes were made
-      if (Object.keys(payload).length === 1) {
-        toast.info('No changes detected');
+      if (changedFields.length === 0) {
+        toast('No changes detected', { icon: 'ℹ️' });
         setIsSubmitting(false);
         return;
       }
       
+      log('[EditUserFormModal] 📤 Complete payload being sent:', JSON.stringify(payload, null, 2));
+      log('[EditUserFormModal] 📋 Changed field keys:', changedFields);
+      
       const res = await updateUser(payload);
       
-      log('[EditUserFormModal] API response:', res);
-      
       if (res.status === 200) {
-        log('[EditUserFormModal] User updated successfully');
+        log('[EditUserFormModal] ✅ Backend returned success');
+        log('[EditUserFormModal] ⚠️ NOTE: If changes don\'t appear after reopening, the backend may not be saving these fields to the database.');
+        log('[EditUserFormModal] 🔍 Check backend logs/database to verify these fields were actually updated:', changedFields);
+        
         toast.success('User updated successfully!', {
           duration: 3000,
         });

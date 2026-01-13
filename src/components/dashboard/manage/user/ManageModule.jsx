@@ -64,6 +64,7 @@ const ManageModule = ({ activeTab }) => {
                               tenure: u.user_tenure ?? u.tenure ?? u.user_tenure_years ?? u.total_tenure ?? "",
                               profile_picture: profileRaw || null, // keep raw value for update API
                               profile_picture_url: normalizeProfilePicture(profileRaw),
+                              is_active: u.is_active ?? 1
                          };
                     });
 

@@ -113,6 +113,7 @@ import CustomSelect from '../common/CustomSelect';
 
 const FilterBar = ({
   isAgent,
+  isQA,
   selectedTask,
   setSelectedTask,
   comparisonMode,
@@ -148,8 +149,8 @@ const FilterBar = ({
         "
       >
 
-        {/* TASK - Hidden for agents */}
-        {!isAgent && (
+        {/* TASK - Hidden for agents and QA */}
+        {!isAgent && !isQA && (
           <CustomSelect
             value={selectedTask}
             onChange={setSelectedTask}
@@ -162,8 +163,8 @@ const FilterBar = ({
           />
         )}
 
-        {/* PREV PERIOD - Hidden for agents */}
-        {!isAgent && (
+        {/* PREV PERIOD - Hidden for agents and QA */}
+        {!isAgent && !isQA && (
           <CustomSelect
             value={comparisonMode}
             onChange={setComparisonMode}

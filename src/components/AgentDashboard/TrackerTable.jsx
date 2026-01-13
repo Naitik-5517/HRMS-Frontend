@@ -50,7 +50,17 @@ const TrackerTable = ({ userId, projects, onClose }) => {
     const task = project?.tasks?.find(t => String(t.task_id) === String(task_id));
     return task?.label || "-";
   };
-
+  // Check if tracker entry is from today
+  const isToday = (dateTime) => {
+    if (!dateTime) return false;
+    const trackerDate = new Date(dateTime);
+    const today = new Date();
+    return (
+      trackerDate.getFullYear() === today.getFullYear() &&
+      trackerDate.getMonth() === today.getMonth() &&
+      trackerDate.getDate() === today.getDate()
+    );
+  };
   // Fetch tracker data with filters
   useEffect(() => {
     if (!userId) {
@@ -89,6 +99,12 @@ const TrackerTable = ({ userId, projects, onClose }) => {
         const fetchedTrackers = res.data?.data?.trackers || [];
         
         log('[TrackerTable] Fetched trackers:', fetchedTrackers.length);
+        // Debug: Check if latest tracker has file
+        if (fetchedTrackers.length > 0) {
+          const latestTracker = fetchedTrackers[0];
+          log('[TrackerTable] Latest tracker file:', latestTracker.tracker_file);
+          log('[TrackerTable] Latest tracker data:', latestTracker);
+        }
         setTrackers(fetchedTrackers);
       } catch (err) {
         const msg = err?.response?.data?.message || err?.message || "Unknown error";
@@ -171,7 +187,7 @@ const TrackerTable = ({ userId, projects, onClose }) => {
         'Billable Hours': tracker.billable_hours !== null && tracker.billable_hours !== undefined
           ? Number(tracker.billable_hours).toFixed(2)
           : "0.00",
-        'Has File': tracker.task_file ? 'Yes' : 'No'
+        'Has File': tracker.tracker_file ? 'Yes' : 'No'
       }));
 
       // Add totals row
@@ -365,9 +381,9 @@ const TrackerTable = ({ userId, projects, onClose }) => {
                     : "0.00"}
                 </td>
                 <td className="px-4 py-2 align-middle text-center">
-                  {tracker.task_file ? (
+                  {tracker.tracker_file ? (
                     <a
-                      href={tracker.task_file}
+                      href={tracker.tracker_file}
                       download
                       target="_blank"
                       rel="noopener noreferrer"
@@ -381,17 +397,21 @@ const TrackerTable = ({ userId, projects, onClose }) => {
                   )}
                 </td>
                 <td className="px-4 py-2 align-middle text-center">
-                  <button
-                    onClick={() => handleDelete(tracker.tracker_id)}
-                    disabled={deletingId === tracker.tracker_id}
-                    className="p-0 bg-transparent hover:bg-transparent focus:outline-none"
-                    title="Delete Tracker"
-                    aria-label="Delete Tracker"
-                  >
-                    <Trash2
-                      className="w-6 h-6 text-red-500 bg-red-100 bg-opacity-40 rounded-full p-1 transition-colors duration-200 hover:text-white hover:bg-red-500 hover:bg-opacity-100"
-                    />
-                  </button>
+                  {isToday(tracker.date_time) ? (
+                    <button
+                      onClick={() => handleDelete(tracker.tracker_id)}
+                      disabled={deletingId === tracker.tracker_id}
+                      className="p-0 bg-transparent hover:bg-transparent focus:outline-none"
+                      title="Delete Tracker"
+                      aria-label="Delete Tracker"
+                    >
+                      <Trash2
+                        className="w-6 h-6 text-red-500 bg-red-100 bg-opacity-40 rounded-full p-1 transition-colors duration-200 hover:text-white hover:bg-red-500 hover:bg-opacity-100"
+                      />
+                    </button>
+                  ) : (
+                    <span className="text-slate-400" title="Can only delete today's entries">—</span>
+                  )}
                 </td>
               </tr>
             ))}

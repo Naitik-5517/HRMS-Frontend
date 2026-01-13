@@ -52,12 +52,28 @@ const AgentDashboard = ({ embedded = false }) => {
     const fetchData = async () => {
       try {
         setLoadingProjects(true);
-        log('[AgentDashboard] Fetching projects with tasks');
-        const data = await fetchDropdown("projects with tasks");
-        setProjects(data || []);
-        log('[AgentDashboard] Projects loaded:', data?.length);
+        log('[AgentDashboard] Fetching assigned projects from dashboard/filter API');
+        
+        // Call the new dashboard/filter API to get only assigned projects
+        const payload = {
+          logged_in_user_id: user?.user_id,
+          device_id,
+          device_type
+        };
+        
+        log('[AgentDashboard] Dashboard filter payload:', payload);
+        const res = await api.post("/dashboard/filter", payload);
+        
+        // Extract projects from the response
+        const dashboardData = res.data?.data || {};
+        const assignedProjects = dashboardData.projects || [];
+        
+        log('[AgentDashboard] Assigned projects loaded:', assignedProjects.length);
+        log('[AgentDashboard] Projects:', assignedProjects);
+        
+        setProjects(assignedProjects);
       } catch (error) {
-        logError('[AgentDashboard] Error fetching projects:', error);
+        logError('[AgentDashboard] Error fetching assigned projects:', error);
         setProjects([]);
       } finally {
         setLoadingProjects(false);
@@ -200,7 +216,7 @@ const AgentDashboard = ({ embedded = false }) => {
         user_id: user?.user_id,
         production: Number(productionTarget),
         tenure_target: Number(baseTarget),
-        task_file: fileBase64 || undefined
+        tracker_file: fileBase64 || undefined
       };
       
       try {
@@ -220,6 +236,11 @@ const AgentDashboard = ({ embedded = false }) => {
           setFilePreview(null);
           setFileBase64(null);
           setTouched({});
+          
+          // Automatically switch to "View All" to show the newly added tracker
+          setTimeout(() => {
+            setViewAll(true);
+          }, 500);
         } else {
           logError('[AgentDashboard] Unexpected response:', res.data);
           toast.error(res.data?.message || "Failed to add tracker.");
