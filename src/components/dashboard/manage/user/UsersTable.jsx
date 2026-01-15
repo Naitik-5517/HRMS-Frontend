@@ -11,7 +11,8 @@ const UsersTable = ({
   users,
   handleDeleteUser,
   openEditUserModal,
-  handleToggleStatus
+  handleToggleStatus,
+  readOnly = false
 }) => {
   const [visiblePasswordUserId, setVisiblePasswordUserId] = useState(null);
   useAuth();
@@ -108,13 +109,14 @@ const UsersTable = ({
 
                   <td className="px-4 py-3">
                     <button
-                      onClick={() => handleToggleStatus(u)}
+                      onClick={() => !readOnly && handleToggleStatus(u)}
+                      disabled={readOnly}
                       className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 ${
                         isActive === 1
                           ? "bg-green-500 focus:ring-green-500"
                           : "bg-gray-300 focus:ring-gray-400"
-                      }`}
-                      title={isActive === 1 ? "Active - Click to deactivate" : "Inactive - Click to activate"}
+                      } ${readOnly ? 'opacity-50 cursor-not-allowed' : ''}`}
+                      title={readOnly ? "View only access" : (isActive === 1 ? "Active - Click to deactivate" : "Inactive - Click to activate")}
                     >
                       <span
                         className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
@@ -126,26 +128,39 @@ const UsersTable = ({
 
                   <td className="px-4 py-3 text-right min-w-[120px]">
                     <div className="flex items-center justify-end gap-2">
-                      <button
-                        onClick={() => openEditUserModal(u)}
-                        className="p-0 bg-transparent hover:bg-transparent focus:outline-none"
-                        title="Edit User"
-                        aria-label="Edit User"
-                      >
-                        <Edit
-                          className="w-6 h-6 text-blue-500 bg-blue-100 bg-opacity-40 rounded-full p-1 transition-colors duration-200 hover:text-white hover:bg-blue-500 hover:bg-opacity-100"
-                        />
-                      </button>
-                        <button
-                          onClick={() => handleDeleteUser(u)}
-                          className="p-0 bg-transparent hover:bg-transparent focus:outline-none"
-                          title="Delete User"
-                          aria-label="Delete User"
-                        >
-                          <Trash2
-                            className="w-6 h-6 text-red-500 bg-red-100 bg-opacity-40 rounded-full p-1 transition-colors duration-200 hover:text-white hover:bg-red-500 hover:bg-opacity-100"
-                          />
-                        </button>
+                      {readOnly ? (
+                        <>
+                          <div className="p-0 opacity-50 cursor-not-allowed" title="View only access">
+                            <Edit className="w-6 h-6 text-blue-300 bg-blue-50 rounded-full p-1" />
+                          </div>
+                          <div className="p-0 opacity-50 cursor-not-allowed" title="View only access">
+                            <Trash2 className="w-6 h-6 text-red-300 bg-red-50 rounded-full p-1" />
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <button
+                            onClick={() => openEditUserModal(u)}
+                            className="p-0 bg-transparent hover:bg-transparent focus:outline-none"
+                            title="Edit User"
+                            aria-label="Edit User"
+                          >
+                            <Edit
+                              className="w-6 h-6 text-blue-500 bg-blue-100 bg-opacity-40 rounded-full p-1 transition-colors duration-200 hover:text-white hover:bg-blue-500 hover:bg-opacity-100"
+                            />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteUser(u)}
+                            className="p-0 bg-transparent hover:bg-transparent focus:outline-none"
+                            title="Delete User"
+                            aria-label="Delete User"
+                          >
+                            <Trash2
+                              className="w-6 h-6 text-red-500 bg-red-100 bg-opacity-40 rounded-full p-1 transition-colors duration-200 hover:text-white hover:bg-red-500 hover:bg-opacity-100"
+                            />
+                          </button>
+                        </>
+                      )}
                     </div>
                   </td>
 

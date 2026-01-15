@@ -31,93 +31,127 @@ const QATrackerReport = () => {
   const [startDate, setStartDate] = useState(getTodayDate());
   const [endDate, setEndDate] = useState(getTodayDate());
 
-  // Fetch assigned agents on mount
+  // Fetch agents and trackers from dashboard/filter API on mount
   useEffect(() => {
-    const fetchAssignedAgents = async () => {
+    const fetchDashboardData = async () => {
       try {
         setLoadingAgents(true);
-        log('[QATrackerReport] Fetching assigned agents');
-        
-        // TODO: Replace with your actual API endpoint
-        // const res = await api.post("/qa/assigned-agents", {
-        //   qa_id: user?.user_id,
-        //   device_id: user?.device_id || 'web123',
-        //   device_type: user?.device_type || 'web'
-        // });
-        
-        // For now, using mock data - replace with actual API call
-        const mockAgents = [
-          { user_id: 82, user_name: "Agent 1" },
-          { user_id: 83, user_name: "Agent 2" },
-          { user_id: 84, user_name: "Agent 3" }
-        ];
-        
-        setAssignedAgents(mockAgents);
-        log('[QATrackerReport] Assigned agents loaded:', mockAgents.length);
-      } catch (err) {
-        logError('[QATrackerReport] Error fetching assigned agents:', err);
-        toast.error("Failed to load assigned agents");
-        setAssignedAgents([]);
-      } finally {
-        setLoadingAgents(false);
-      }
-    };
-
-    if (user?.user_id) {
-      fetchAssignedAgents();
-    }
-  }, [user?.user_id]);
-
-  // Fetch tracker data with filters
-  useEffect(() => {
-    if (!user?.user_id) {
-      return;
-    }
-
-    const fetchTrackers = async () => {
-      try {
         setLoading(true);
-        setError("");
-        
-        // Build payload with filters
+        log('[QATrackerReport] Fetching dashboard/filter data');
         const payload = {
-          qa_id: user?.user_id,
+          logged_in_user_id: user?.user_id,
           device_id: user?.device_id || 'web123',
           device_type: user?.device_type || 'web',
-          start_date: startDate,
-          end_date: endDate,
         };
-
-        // Add optional agent filter
-        if (selectedAgent) {
-          payload.user_id = selectedAgent;
+        const res = await api.post("/dashboard/filter", payload);
+        const data = res.data?.data || {};
+        // Role-based filtering
+        let filteredAgents = [];
+        let filteredTrackers = [];
+        const role = String(user?.role_name || user?.user_role || '').toLowerCase();
+        // Get all users, trackers, and tasks from API
+        const allUsers = data.users || [];
+        const allTrackers = data.tracker || [];
+        const allTasks = data.tasks || [];
+        // Build a map for task_id -> task_name
+        const taskMap = {};
+        allTasks.forEach(task => {
+          if (task.task_id != null) taskMap[task.task_id] = task.task_name;
+        });
+        if (role === 'assistant manager') {
+          // Assistant manager: show only users in their team (team_id match)
+          let myTeamIds = [];
+          if (data.projects) {
+            data.projects.forEach(p => {
+              if (p.asst_project_manager_id && p.asst_project_manager_id.includes(String(user.user_id))) {
+                if (p.project_team_id) {
+                  const ids = p.project_team_id.replace(/\[|\]/g, '').split(',').map(x => x.trim()).filter(Boolean);
+                  myTeamIds.push(...ids);
+                }
+              }
+            });
+          }
+          filteredAgents = allUsers.filter(u => myTeamIds.includes(String(u.user_id)));
+          filteredTrackers = allTrackers.filter(t => myTeamIds.includes(String(t.user_id)));
+        } else if (role === 'project manager') {
+          // Project manager: show only users in their project (project_manager_id match)
+          let myProjectIds = [];
+          if (data.projects) {
+            data.projects.forEach(p => {
+              if (String(p.project_manager_id) === String(user.user_id)) {
+                if (p.project_team_id) {
+                  const ids = p.project_team_id.replace(/\[|\]/g, '').split(',').map(x => x.trim()).filter(Boolean);
+                  myProjectIds.push(...ids);
+                }
+              }
+            });
+          }
+          filteredAgents = allUsers.filter(u => myProjectIds.includes(String(u.user_id)));
+          filteredTrackers = allTrackers.filter(t => myProjectIds.includes(String(t.user_id)));
+        } else if (role === 'qa' || role === 'qa agent' || role === 'quality analyst') {
+          // QA: show only users under QA (project_qa_id match)
+          let myQAIds = [];
+          if (data.projects) {
+            data.projects.forEach(p => {
+              if (p.project_qa_id && p.project_qa_id.includes(String(user.user_id))) {
+                if (p.project_team_id) {
+                  const ids = p.project_team_id.replace(/\[|\]/g, '').split(',').map(x => x.trim()).filter(Boolean);
+                  myQAIds.push(...ids);
+                }
+              }
+            });
+          }
+          filteredAgents = allUsers.filter(u => myQAIds.includes(String(u.user_id)));
+          filteredTrackers = allTrackers.filter(t => myQAIds.includes(String(t.user_id)));
+        } else {
+          // Default: show all users and trackers
+          filteredAgents = allUsers;
+          filteredTrackers = allTrackers;
         }
-        
-        log('[QATrackerReport] Fetching trackers with filters:', payload);
-        
-        // TODO: Replace with your actual API endpoint
-        // const res = await api.post("/qa/tracker-report", payload);
-        // const fetchedTrackers = res.data?.data?.trackers || [];
-        
-        // For now, using mock data - replace with actual API call
-        const mockTrackers = [];
-        
-        setTrackers(mockTrackers);
-        log('[QATrackerReport] Fetched trackers:', mockTrackers.length);
+        // Enrich trackers with task_name from taskMap
+        filteredTrackers = filteredTrackers.map(tracker => ({
+          ...tracker,
+          task_name: tracker.task_name || taskMap[tracker.task_id] || "-"
+        }));
+        setAssignedAgents(filteredAgents);
+        setTrackers(filteredTrackers);
+        log('[QATrackerReport] Agents loaded:', filteredAgents.length, 'Trackers loaded:', filteredTrackers.length);
       } catch (err) {
-        const msg = err?.response?.data?.message || err?.message || "Unknown error";
-        const errorMsg = "Failed to fetch tracker data: " + msg;
-        
-        logError('[QATrackerReport] Error fetching trackers:', errorMsg);
-        setError(errorMsg);
+        logError('[QATrackerReport] Error fetching dashboard/filter:', err);
+        toast.error("Failed to load agent/tracker data");
+        setAssignedAgents([]);
         setTrackers([]);
       } finally {
+        setLoadingAgents(false);
         setLoading(false);
       }
     };
+    if (user?.user_id) {
+      fetchDashboardData();
+    }
+  }, [user?.user_id, user?.device_id, user?.device_type, user?.role_name, user?.user_role]);
 
-    fetchTrackers();
-  }, [user?.user_id, startDate, endDate, selectedAgent]);
+  // Filter trackers by selected agent and date range
+  useEffect(() => {
+    if (!user?.user_id) return;
+    setLoading(true);
+    setError("");
+    // Filter trackers in memory (already loaded from API)
+    setTrackers(prev => {
+      let filtered = prev;
+      if (selectedAgent) {
+        filtered = filtered.filter(t => String(t.user_id) === String(selectedAgent));
+      }
+      if (startDate) {
+        filtered = filtered.filter(t => t.date_time && t.date_time >= startDate);
+      }
+      if (endDate) {
+        filtered = filtered.filter(t => t.date_time && t.date_time <= endDate + ' 23:59:59');
+      }
+      return filtered;
+    });
+    setLoading(false);
+  }, [selectedAgent, startDate, endDate, user?.user_id]);
 
   // Clear filters
   const handleClearFilters = () => {
@@ -379,7 +413,7 @@ const QATrackerReport = () => {
 
       {/* Totals Summary Card */}
       {!loading && trackers.length > 0 && (
-        <div className="mt-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-5 border border-blue-200 shadow-sm">
+        <div className="mt-4 bg-linear-to-r from-blue-50 to-indigo-50 rounded-lg p-5 border border-blue-200 shadow-sm">
           <h3 className="text-sm font-semibold text-blue-900 mb-4 flex items-center gap-2">
             <span className="inline-block w-2 h-2 bg-blue-600 rounded-full"></span>
             Summary Totals

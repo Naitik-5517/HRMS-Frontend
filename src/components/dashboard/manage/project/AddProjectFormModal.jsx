@@ -122,9 +122,9 @@ const AddProjectFormModal = ({
      };
 
      const handleFileChange = (e) => {
-          const file = e.target.files?.[0];
-          if (file) {
-               handleProjectFilesChange(file);
+          const files = e.target.files;
+          if (files && files.length > 0) {
+               handleProjectFilesChange(files);
           }
           e.target.value = "";
      };
@@ -253,14 +253,14 @@ const AddProjectFormModal = ({
                                         Project Manager <span className="text-red-600">*</span>
                                    </label>
                                    <CustomSelect
-                                        value={newProject.projectManagerId}
+                                        value={newProject.projectManagerId ? String(newProject.projectManagerId) : ""}
                                         onChange={(val) => {
                                              onFieldChange("projectManagerId", val);
                                              clearFieldError?.("projectManagerId");
                                         }}
                                         options={[
                                              { value: "", label: "Select Project Manager" },
-                                             ...processedProjectManagers.map((pm) => ({ value: pm.user_id, label: pm.label }))
+                                             ...processedProjectManagers.map((pm) => ({ value: String(pm.user_id), label: pm.label }))
                                         ]}
                                         icon={User}
                                         placeholder="Select Project Manager"
@@ -549,6 +549,7 @@ const AddProjectFormModal = ({
                                         type="file"
                                         ref={fileInputRef}
                                         className="hidden"
+                                        multiple
                                         onChange={handleFileChange}
                                    />
 
@@ -567,8 +568,8 @@ const AddProjectFormModal = ({
                                         >
                                              <div className="flex items-center gap-2 text-gray-600">
                                                   <Upload className="w-4 h-4" />
-                                                  {projectFiles ? (
-                                                       <span>1 file selected</span>
+                                                  {projectFiles && projectFiles.length > 0 ? (
+                                                       <span>{projectFiles.length} file(s) selected</span>
                                                   ) : (
                                                        <span>Select project files</span>
                                                   )}
@@ -580,10 +581,12 @@ const AddProjectFormModal = ({
                                         </div>
                                    </div>
 
-                                   {projectFiles && (
+                                   {projectFiles && projectFiles.length > 0 && (
                                         <div className="mt-1 space-y-1">
-                                             <div
-                                                  className="
+                                             {projectFiles.map((file, index) => (
+                                                  <div
+                                                       key={`${file.name}-${index}`}
+                                                       className="
           flex items-center justify-between
           px-3 py-1
           border border-gray-200
@@ -591,23 +594,23 @@ const AddProjectFormModal = ({
           text-sm
           bg-white
         "
-                                             >
-                                                  <span className="truncate text-red-600 text-xs max-w-[85%]">
-                                                       {projectFiles.name}
-                                                  </span>
-
-                                                  <button
-                                                       type="button"
-                                                       onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            handleRemoveProjectFile();
-                                                       }}
-                                                       className="text-gray-400 hover:text-red-500"
-                                                       title="Remove file"
                                                   >
-                                                       <XCircle className="w-4 h-4" />
-                                                  </button>
-                                             </div>
+                                                       <span className="truncate text-red-600 text-xs max-w-[85%]">
+                                                            {file.name}
+                                                       </span>
+                                                       <button
+                                                            type="button"
+                                                            onClick={(e) => {
+                                                                 e.stopPropagation();
+                                                                 handleRemoveProjectFile(index);
+                                                            }}
+                                                            className="text-gray-400 hover:text-red-500"
+                                                            title="Remove file"
+                                                       >
+                                                            <XCircle className="w-4 h-4" />
+                                                       </button>
+                                                  </div>
+                                             ))}
                                         </div>
                                    )}
                               </div>

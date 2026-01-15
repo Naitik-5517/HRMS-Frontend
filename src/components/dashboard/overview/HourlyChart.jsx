@@ -28,8 +28,8 @@ const HourlyChart = ({ data }) => {
       </div>
       
       {/* Chart container with responsive height */}
-      <div className="h-64 sm:h-72 md:h-80 lg:h-96">
-        <ResponsiveContainer width="100%" height="100%">
+      <div className="h-64 sm:h-72 md:h-80 lg:h-96 min-w-[200px] min-h-[200px]">
+        <ResponsiveContainer width="100%" height="100%" minWidth={200} minHeight={200}>
           <ComposedChart
             data={data}
             margin={{ 

@@ -14,16 +14,9 @@ const OverviewTab = ({ analytics, hourlyChartData, isAgent, dateRange }) => {
   const [loading, setLoading] = useState(false);
 
   // Fetch dashboard data for agents
-  useEffect(() => {
-    if (isAgent && user?.user_id) {
-      fetchDashboardData();
-    }
-  }, [isAgent, user?.user_id, device_id, device_type, dateRange]);
-
-  const fetchDashboardData = async () => {
+  const fetchDashboardData = React.useCallback(async () => {
     try {
       setLoading(true);
-      
       // Prepare payload - backend doesn't accept filter parameters in request
       // It returns all data and we filter on frontend
       const payload = {
@@ -31,32 +24,33 @@ const OverviewTab = ({ analytics, hourlyChartData, isAgent, dateRange }) => {
         device_id: device_id || 'web_default',
         device_type: device_type || 'web'
       };
-
       console.log('[OverviewTab] 📤 Sending request to /dashboard/filter');
       console.log('[OverviewTab] 📤 Payload:', JSON.stringify(payload, null, 2));
-
       const response = await api.post('/dashboard/filter', payload);
-      
       console.log('[OverviewTab] 📥 Response received:', response);
-      
       if (response.data?.status === 200) {
         setDashboardData(response.data.data);
       } else {
-        console.error('[OverviewTab] ❌ Unexpected response status:', response.data?.status);
+        console.error('[OverviewTab] Unexpected response status:', response.data?.status);
         toast.error('Failed to load dashboard data');
       }
     } catch (error) {
-      console.error('[OverviewTab] ❌ Error fetching dashboard data:', error);
-      console.error('[OverviewTab] ❌ Error response:', error.response?.data);
-      console.error('[OverviewTab] ❌ Error status:', error.response?.status);
-      console.error('[OverviewTab] ❌ Error message:', error.message);
-      
+      console.error('[OverviewTab] Error fetching dashboard data:', error);
+      console.error('[OverviewTab] Error response:', error.response?.data);
+      console.error('[OverviewTab] Error status:', error.response?.status);
+      console.error('[OverviewTab] Error message:', error.message);
       const errorMessage = error.response?.data?.message || error.message || 'Failed to load dashboard data';
       toast.error(`Backend Error: ${errorMessage}`);
     } finally {
       setLoading(false);
     }
-  };
+  }, [user.user_id, device_id, device_type]);
+
+  useEffect(() => {
+    if (isAgent && user?.user_id) {
+      fetchDashboardData();
+    }
+  }, [isAgent, user?.user_id, device_id, device_type, dateRange, fetchDashboardData]);
 
   // Extract agent stats from API response
   // Note: API returns only the logged-in agent's data based on logged_in_user_id
@@ -77,7 +71,7 @@ const OverviewTab = ({ analytics, hourlyChartData, isAgent, dateRange }) => {
     console.log('═══════════════════════════════════════════════');
     console.log('[OverviewTab] 📊 AGENT DASHBOARD SUMMARY DATA');
     console.log('═══════════════════════════════════════════════');
-    console.log('🔢 Summary Counts from API:');
+    console.log(' Summary Counts from API:');
     console.log('  • Total Production (Billable Hours):', dashboardData?.summary?.total_production);
     console.log('  • Task Count:', dashboardData?.summary?.task_count);
     console.log('  • Project Count:', dashboardData?.summary?.project_count);
@@ -85,24 +79,24 @@ const OverviewTab = ({ analytics, hourlyChartData, isAgent, dateRange }) => {
     console.log('  • User Count:', dashboardData?.summary?.user_count);
     console.log('  • QC Score:', dashboardData?.summary?.qc_score);
     console.log('');
-    console.log('📁 Projects Data from API:');
+    console.log(' Projects Data from API:');
     console.log('  • Total Projects Returned:', dashboardData?.projects?.length || 0);
     console.log('  • All Projects:', dashboardData?.projects);
     console.log('');
-    console.log('📋 Tasks Data from API:');
+    console.log(' Tasks Data from API:');
     console.log('  • Total Tasks:', dashboardData?.tasks?.length || 0);
     console.log('  • Tasks:', dashboardData?.tasks);
     console.log('');
     console.log('👤 Users Data from API:');
     console.log('  • Users:', dashboardData?.users);
     console.log('');
-    console.log('🎯 Calculated Stats Being Displayed:');
+    console.log(' Calculated Stats Being Displayed:');
     console.log('  • Total Billable Hours:', agentStats.totalBillableHours.toFixed(2));
     console.log('  • QC Score:', agentStats.qcScore + '%');
     console.log('  • Task Count:', agentStats.taskCount);
     console.log('  • Project Count:', agentStats.projectCount);
     console.log('');
-    console.log('📊 Projects Being Displayed:');
+    console.log(' Projects Being Displayed:');
     agentProjects.forEach((project, index) => {
       const billableHours = project.billable_hours || project.total_billable_hours || 0;
       console.log(`  ${index + 1}. ${project.project_name || 'Unnamed Project'}`);
@@ -111,7 +105,7 @@ const OverviewTab = ({ analytics, hourlyChartData, isAgent, dateRange }) => {
       console.log(`     - Project Code: ${project.project_code || 'N/A'}`);
     });
     console.log('');
-    console.log('⚠️  NOTE: If billable hours show 0.00 for projects, the backend');
+    console.log('  NOTE: If billable hours show 0.00 for projects, the backend');
     console.log('    needs to include billable_hours field in each project object.');
     console.log('═══════════════════════════════════════════════');
   }
@@ -207,7 +201,7 @@ const OverviewTab = ({ analytics, hourlyChartData, isAgent, dateRange }) => {
       {isAgent ? (
         /* Agent Project Billable Hours Section */
         <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
-          <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-4">
+          <div className="bg-linear-to-r from-blue-600 to-blue-700 px-6 py-4">
             <div className="flex items-center gap-3">
               <Briefcase className="w-5 h-5 text-white" />
               <h3 className="text-lg font-semibold text-white">Project Billable Hours</h3>

@@ -12,6 +12,11 @@
 
 export const fileToBase64 = (input) => {
   // Accepts File, Blob, or array of File/Blob
+  const stripPrefix = (dataUrl) => {
+    // Remove data:mime/type;base64, prefix if present
+    const commaIdx = dataUrl.indexOf(',');
+    return commaIdx !== -1 ? dataUrl.slice(commaIdx + 1) : dataUrl;
+  };
   if (Array.isArray(input)) {
     // Filter only File/Blob objects
     const files = input.filter(f => f instanceof File || f instanceof Blob);
@@ -23,7 +28,7 @@ export const fileToBase64 = (input) => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.readAsDataURL(input);
-    reader.onload = () => resolve(reader.result);
+    reader.onload = () => resolve(stripPrefix(reader.result));
     reader.onerror = error => reject(error);
   });
 };

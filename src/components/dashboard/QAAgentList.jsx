@@ -17,93 +17,106 @@ const QAAgentList = () => {
   const [loading, setLoading] = useState(false);
   const [expandedAgents, setExpandedAgents] = useState({});
   const [agentTrackers, setAgentTrackers] = useState({});
-  const [loadingTrackers, setLoadingTrackers] = useState({});
+  // Removed loadingTrackers state (no longer needed)
 
-  // Fetch assigned agents on mount
+  // Fetch agents and trackers from dashboard/filter API on mount
   useEffect(() => {
-    const fetchAssignedAgents = async () => {
+    const fetchDashboardData = async () => {
       try {
         setLoading(true);
-        log('[QAAgentList] Fetching assigned agents');
-        
-        // TODO: Replace with your actual API endpoint
-        // const res = await api.post("/qa/assigned-agents", {
-        //   qa_id: user?.user_id,
-        //   device_id: user?.device_id || 'web123',
-        //   device_type: user?.device_type || 'web'
-        // });
-        
-        // For now, using mock data - replace with actual API call
-        const mockAgents = [
-          { user_id: 82, user_name: "John Doe" },
-          { user_id: 83, user_name: "Jane Smith" },
-          { user_id: 84, user_name: "Mike Johnson" }
-        ];
-        
-        setAgents(mockAgents);
-        log('[QAAgentList] Assigned agents loaded:', mockAgents.length);
+        log('[QAAgentList] Fetching dashboard/filter data');
+        const payload = {
+          logged_in_user_id: user?.user_id,
+          device_id: user?.device_id || 'web123',
+          device_type: user?.device_type || 'web',
+        };
+        const res = await api.post("/dashboard/filter", payload);
+        const data = res.data?.data || {};
+        // Role-based filtering
+        let filteredAgents = [];
+        let trackersByAgent = {};
+        const role = String(user?.role_name || user?.user_role || '').toLowerCase();
+        // Get all users and trackers from API
+        const allUsers = data.users || [];
+        const allTrackers = data.tracker || [];
+        if (role === 'assistant manager') {
+          // Assistant manager: show only users in their team (team_id match)
+          // Find team_id(s) for this manager from projects
+          let myTeamIds = [];
+          if (data.projects) {
+            data.projects.forEach(p => {
+              if (p.asst_project_manager_id && p.asst_project_manager_id.includes(String(user.user_id))) {
+                // asst_project_manager_id is string like "[78]"
+                if (p.project_team_id) {
+                  // project_team_id is string like "[91]"
+                  const ids = p.project_team_id.replace(/\[|\]/g, '').split(',').map(x => x.trim()).filter(Boolean);
+                  myTeamIds.push(...ids);
+                }
+              }
+            });
+          }
+          filteredAgents = allUsers.filter(u => myTeamIds.includes(String(u.user_id)));
+        } else if (role === 'project manager') {
+          // Project manager: show only users in their project (project_manager_id match)
+          let myProjectIds = [];
+          if (data.projects) {
+            data.projects.forEach(p => {
+              if (String(p.project_manager_id) === String(user.user_id)) {
+                if (p.project_team_id) {
+                  const ids = p.project_team_id.replace(/\[|\]/g, '').split(',').map(x => x.trim()).filter(Boolean);
+                  myProjectIds.push(...ids);
+                }
+              }
+            });
+          }
+          filteredAgents = allUsers.filter(u => myProjectIds.includes(String(u.user_id)));
+        } else if (role === 'qa' || role === 'qa agent' || role === 'quality analyst') {
+          // QA: show only users under QA (project_qa_id match)
+          let myQAIds = [];
+          if (data.projects) {
+            data.projects.forEach(p => {
+              if (p.project_qa_id && p.project_qa_id.includes(String(user.user_id))) {
+                if (p.project_team_id) {
+                  const ids = p.project_team_id.replace(/\[|\]/g, '').split(',').map(x => x.trim()).filter(Boolean);
+                  myQAIds.push(...ids);
+                }
+              }
+            });
+          }
+          filteredAgents = allUsers.filter(u => myQAIds.includes(String(u.user_id)));
+        } else {
+          // Default: show all users
+          filteredAgents = allUsers;
+        }
+        // Map trackers by agent (only those with tracker_file)
+        filteredAgents.forEach(agent => {
+          trackersByAgent[agent.user_id] = allTrackers.filter(t => String(t.user_id) === String(agent.user_id) && t.tracker_file);
+        });
+        setAgents(filteredAgents);
+        setAgentTrackers(trackersByAgent);
+        log('[QAAgentList] Agents loaded:', filteredAgents.length);
       } catch (err) {
-        logError('[QAAgentList] Error fetching assigned agents:', err);
-        toast.error("Failed to load assigned agents");
+        logError('[QAAgentList] Error fetching dashboard/filter:', err);
+        toast.error("Failed to load agent data");
         setAgents([]);
+        setAgentTrackers({});
       } finally {
         setLoading(false);
       }
     };
-
     if (user?.user_id) {
-      fetchAssignedAgents();
+      fetchDashboardData();
     }
-  }, [user?.user_id]);
+  // Add all used user fields to dependency array
+  }, [user?.user_id, user?.device_id, user?.device_type, user?.role_name, user?.user_role]);
 
-  // Toggle agent card expansion
-  const toggleAgent = async (agentId) => {
+  // Toggle agent card expansion (no async tracker fetch needed)
+  const toggleAgent = (agentId) => {
     const isExpanding = !expandedAgents[agentId];
-    
     setExpandedAgents(prev => ({
       ...prev,
       [agentId]: isExpanding
     }));
-
-    // Fetch tracker data if expanding and not already loaded
-    if (isExpanding && !agentTrackers[agentId]) {
-      await fetchAgentTrackers(agentId);
-    }
-  };
-
-  // Fetch tracker data for a specific agent (only entries with files)
-  const fetchAgentTrackers = async (agentId) => {
-    try {
-      setLoadingTrackers(prev => ({ ...prev, [agentId]: true }));
-      log('[QAAgentList] Fetching trackers for agent:', agentId);
-      
-      // TODO: Replace with your actual API endpoint
-      // const res = await api.post("/qa/agent-trackers", {
-      //   qa_id: user?.user_id,
-      //   user_id: agentId,
-      //   has_file: true, // Only fetch trackers with files
-      //   device_id: user?.device_id || 'web123',
-      //   device_type: user?.device_type || 'web'
-      // });
-      
-      // For now, using mock data - replace with actual API call
-      const mockTrackers = [];
-      
-      setAgentTrackers(prev => ({
-        ...prev,
-        [agentId]: mockTrackers
-      }));
-      log('[QAAgentList] Trackers loaded for agent:', agentId, mockTrackers.length);
-    } catch (err) {
-      logError('[QAAgentList] Error fetching trackers:', err);
-      toast.error("Failed to load tracker data");
-      setAgentTrackers(prev => ({
-        ...prev,
-        [agentId]: []
-      }));
-    } finally {
-      setLoadingTrackers(prev => ({ ...prev, [agentId]: false }));
-    }
   };
 
   // Handle QC Form action
@@ -139,7 +152,7 @@ const QAAgentList = () => {
           {agents.map((agent) => {
             const isExpanded = expandedAgents[agent.user_id];
             const trackers = agentTrackers[agent.user_id] || [];
-            const isLoadingTrackers = loadingTrackers[agent.user_id];
+            // const isLoadingTrackers = loadingTrackers[agent.user_id];
 
             return (
               <div
@@ -175,14 +188,7 @@ const QAAgentList = () => {
                 {/* Expanded Content - Tracker Table */}
                 {isExpanded && (
                   <div className="border-t border-slate-200">
-                    {isLoadingTrackers ? (
-                      <div className="flex justify-center items-center py-8">
-                        <div className="flex flex-col items-center gap-2">
-                          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
-                          <span className="text-gray-500 text-sm">Loading tracker data...</span>
-                        </div>
-                      </div>
-                    ) : trackers.length === 0 ? (
+                    {trackers.length === 0 ? (
                       <div className="p-6 text-center">
                         <FileText className="w-10 h-10 text-gray-300 mx-auto mb-2" />
                         <p className="text-gray-500 text-sm">No tracker data with files found</p>

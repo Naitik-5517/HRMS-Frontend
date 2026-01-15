@@ -87,6 +87,14 @@ const Header = ({
       return;
     }
     
+    // Handle Manage tab for Assistant Managers - route to /dashboard with tab=manage
+    if (view === ViewState.ADMIN_PANEL && roleId === 4) {
+      console.log('🚀 [Header goTo] Navigating Assistant Manager to /dashboard with tab=manage');
+      navigate('/dashboard?tab=manage');
+      setIsMobileMenuOpen(false);
+      return;
+    }
+    
     // For agents (role_id 6 or role includes 'AGENT')
     if (roleId === 6 || role.includes('AGENT')) {
       if (view === ViewState.ENTRY || view === 'ENTRY') {
@@ -143,6 +151,16 @@ const Header = ({
           { view: "AGENT_LIST", label: "Agent List", icon: Users },
         ];
         
+        // Assistant Manager tabs (role_id 4)
+        if (roleId === 4) return [
+          { view: ViewState.DASHBOARD, label: "Analytics", icon: LayoutDashboard },
+          { view: ViewState.SCHEDULER, label: "Scheduler", icon: CalendarClock },
+          { view: "TRACKER_REPORT", label: "Tracker Report", icon: FileText },
+          { view: "AGENT_LIST", label: "Agent List", icon: Users },
+          { view: ViewState.ADMIN_PANEL, label: "Manage", icon: Settings },
+          { view: ViewState.ENTRY, label: "User Tracking", icon: PenTool },
+        ];
+        
         // All other role_ids are treated as Admin for tab purposes
         return [
           { view: ViewState.DASHBOARD, label: "Analytics", icon: LayoutDashboard },
@@ -163,6 +181,18 @@ const Header = ({
         { view: ViewState.SCHEDULER, label: "Scheduler", icon: CalendarClock },
         { view: "TRACKER_REPORT", label: "Tracker Report", icon: FileText },
         { view: "AGENT_LIST", label: "Agent List", icon: Users },
+      ];
+    }
+    
+    // Assistant Manager tabs (by role string)
+    if (role.includes('ASSISTANT') || role.includes('ASST')) {
+      return [
+        { view: ViewState.DASHBOARD, label: "Analytics", icon: LayoutDashboard },
+        { view: ViewState.SCHEDULER, label: "Scheduler", icon: CalendarClock },
+        { view: "TRACKER_REPORT", label: "Tracker Report", icon: FileText },
+        { view: "AGENT_LIST", label: "Agent List", icon: Users },
+        { view: ViewState.ADMIN_PANEL, label: "Manage", icon: Settings },
+        { view: ViewState.ENTRY, label: "User Tracking", icon: PenTool },
       ];
     }
     

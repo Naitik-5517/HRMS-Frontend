@@ -20,13 +20,17 @@ const AuthContext = createContext();
 // Auth Provider Component
 export const AuthProvider = ({ children }) => {
 
-  // Initialize user state from sessionStorage
+  // Initialize user state from sessionStorage and normalize user_id
   const [user, setUser] = useState(() => {
     const storedUser = sessionStorage.getItem("user");
-    // Fix: Only parse if not undefined or 'undefined'
     if (storedUser && storedUser !== "undefined") {
       try {
-        return JSON.parse(storedUser);
+        const parsed = JSON.parse(storedUser);
+        // Normalize: always have user_id
+        if (parsed && !parsed.user_id && parsed.id) {
+          parsed.user_id = parsed.id;
+        }
+        return parsed;
       } catch {
         return null;
       }
@@ -34,10 +38,14 @@ export const AuthProvider = ({ children }) => {
     return null;
   });
 
-  // Login: save user data in state and sessionStorage
+  // Login: save user data in state and sessionStorage, normalize user_id
   const login = (userData) => {
-    setUser(userData);
-    sessionStorage.setItem("user", JSON.stringify(userData));
+    let normalized = { ...userData };
+    if (!normalized.user_id && normalized.id) {
+      normalized.user_id = normalized.id;
+    }
+    setUser(normalized);
+    sessionStorage.setItem("user", JSON.stringify(normalized));
   };
 
   // Logout: clear user state and sessionStorage

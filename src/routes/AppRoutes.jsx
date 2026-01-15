@@ -35,11 +35,11 @@ const AppRoutes = () => {
           }
         />
 
-        {/* User Tracking (Admin only) */}
+        {/* User Tracking (Admin and Assistant Managers) */}
         <Route
           path="/entry"
           element={
-            <ProtectedRoute allowedRoles={[1,2]}>
+            <ProtectedRoute allowedRoles={[1, 2, 4]}>
               <AppLayout>
                 <UserTrackingView />
               </AppLayout>
@@ -59,11 +59,11 @@ const AppRoutes = () => {
           }
         />
 
-        {/* Admin panel (optional, for super admin) */}
+        {/* Admin panel (for super admin and assistant managers) */}
         <Route
           path="/admin"
           element={
-            <ProtectedRoute allowedRoles={[1]}>
+            <ProtectedRoute allowedRoles={[1, 4]}>
               <AppLayout>
                 <AdminPage />
               </AppLayout>

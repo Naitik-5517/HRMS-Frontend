@@ -78,34 +78,63 @@ const TrackerTable = ({ userId, projects, onClose }) => {
         
         // Build payload with filters
         const payload = { 
+          logged_in_user_id: user?.user_id,
           user_id: userId, 
           device_id, 
           device_type,
-          start_date: startDate,
-          end_date: endDate,
         };
 
         // Add optional filters
         if (selectedProject) {
-          payload.project_id = selectedProject;
+          payload.project_id = Number(selectedProject);
         }
         if (selectedTask) {
-          payload.task_id = selectedTask;
+          payload.task_id = Number(selectedTask);
         }
         
         log('[TrackerTable] Fetching trackers with filters:', payload);
         
-        const res = await api.post("/tracker/view", payload);
-        const fetchedTrackers = res.data?.data?.trackers || [];
+        const res = await api.post("/dashboard/filter", payload);
         
-        log('[TrackerTable] Fetched trackers:', fetchedTrackers.length);
-        // Debug: Check if latest tracker has file
-        if (fetchedTrackers.length > 0) {
-          const latestTracker = fetchedTrackers[0];
-          log('[TrackerTable] Latest tracker file:', latestTracker.tracker_file);
-          log('[TrackerTable] Latest tracker data:', latestTracker);
+        if (res.status === 200 && res.data?.data) {
+          const responseData = res.data.data;
+          const fetchedTrackers = responseData.tracker || [];
+          const tasks = responseData.tasks || [];
+          
+          // Create a map for task lookup
+          const taskMap = {};
+          tasks.forEach(task => {
+            taskMap[task.task_id] = {
+              task_name: task.task_name,
+              task_target: task.task_target
+            };
+          });
+          
+          // Enrich tracker data with task names and apply date filtering
+          const enrichedTrackers = fetchedTrackers
+            .filter(tracker => {
+              if (!tracker.date_time) return true;
+              const trackerDate = new Date(tracker.date_time).toISOString().split('T')[0];
+              if (startDate && trackerDate < startDate) return false;
+              if (endDate && trackerDate > endDate) return false;
+              return true;
+            })
+            .map(tracker => {
+              const taskInfo = taskMap[tracker.task_id] || {};
+              return {
+                ...tracker,
+                task_name: taskInfo.task_name || '-'
+              };
+            });
+          
+          log('[TrackerTable] Fetched trackers:', enrichedTrackers.length);
+          if (enrichedTrackers.length > 0) {
+            log('[TrackerTable] Latest tracker data:', enrichedTrackers[0]);
+          }
+          setTrackers(enrichedTrackers);
+        } else {
+          setTrackers([]);
         }
-        setTrackers(fetchedTrackers);
       } catch (err) {
         const msg = err?.response?.data?.message || err?.message || "Unknown error";
         const errorMsg = "Failed to fetch tracker data: " + msg;
@@ -180,8 +209,8 @@ const TrackerTable = ({ userId, projects, onClose }) => {
         'Date/Time': tracker.date_time
           ? format(new Date(tracker.date_time), "M/d/yyyy h:mm a")
           : "-",
-        'Project': getProjectName(tracker.project_id),
-        'Task': getTaskName(tracker.task_id, tracker.project_id),
+        'Project': tracker.project_name || getProjectName(tracker.project_id),
+        'Task': tracker.task_name || '-',
         'Per Hour Target': tracker.tenure_target || 0,
         'Production': tracker.production || 0,
         'Billable Hours': tracker.billable_hours !== null && tracker.billable_hours !== undefined
@@ -371,8 +400,8 @@ const TrackerTable = ({ userId, projects, onClose }) => {
                     ? format(new Date(tracker.date_time), "M/d/yyyy h:mma")
                     : "-"}
                 </td>
-                <td className="px-4 py-2 align-middle">{getProjectName(tracker.project_id)}</td>
-                <td className="px-4 py-2 align-middle">{getTaskName(tracker.task_id, tracker.project_id)}</td>
+                <td className="px-4 py-2 align-middle">{tracker.project_name || getProjectName(tracker.project_id)}</td>
+                <td className="px-4 py-2 align-middle">{tracker.task_name || getTaskName(tracker.task_id, tracker.project_id) || '-'}</td>
                 <td className="px-4 py-2 align-middle">{tracker.tenure_target}</td>
                 <td className="px-4 py-2 align-middle">{tracker.production}</td>
                 <td className="px-4 py-2 align-middle">

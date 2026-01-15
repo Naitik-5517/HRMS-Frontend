@@ -35,7 +35,8 @@ const ProjectsManagement = ({
   assistantManagers = [],
   qaManagers = [],
   // eslint-disable-next-line no-unused-vars
-  teams = []
+  teams = [],
+  readOnly = false
 }) => {
   const { canManageProjects, isSuperAdmin, user } = useAuth();
   const isAdmin = user?.role_name === 'admin';
@@ -148,31 +149,33 @@ const ProjectsManagement = ({
 
   return (
     <div className="space-y-8 animate-fade-in p-4 md:p-0 w-full overflow-x-hidden">
-      <AddProjectForm
-        newProject={newProject}
-        onFieldChange={updateNewProjectField}
-        onSubmit={handleAddProject}
-        onUpdateSubmit={handleUpdateProject}
+      {!readOnly && (
+        <AddProjectForm
+          newProject={newProject}
+          onFieldChange={updateNewProjectField}
+          onSubmit={handleAddProject}
+          onUpdateSubmit={handleUpdateProject}
 
-        // ⬇️ normalized dropdown data
-        projectManagers={normalizedProjectManagers}
-        assistantManagers={normalizedAssistantManagers}
-        qaManagers={normalizedQaManagers}
-        teams={normalizedTeams}
+          // ⬇️ normalized dropdown data
+          projectManagers={normalizedProjectManagers}
+          assistantManagers={normalizedAssistantManagers}
+          qaManagers={normalizedQaManagers}
+          teams={normalizedTeams}
 
-        loadDropdowns={loadDropdowns}
-        dropdownLoading={dropdownLoading}
-        isSubmitting={isSubmitting}
-        formErrors={formErrors}
-        clearFieldError={clearFieldError}
-        projectFiles={projectFiles}
-        handleProjectFilesChange={handleProjectFilesChange}
-        handleRemoveProjectFile={handleRemoveProjectFile}
-        handleModalClose={handleModalClose}
-        isEditMode={isEditMode}
-        showEditModal={showEditModal}
-        closeEditModal={closeEditModal}
-      />
+          loadDropdowns={loadDropdowns}
+          dropdownLoading={dropdownLoading}
+          isSubmitting={isSubmitting}
+          formErrors={formErrors}
+          clearFieldError={clearFieldError}
+          projectFiles={projectFiles}
+          handleProjectFilesChange={handleProjectFilesChange}
+          handleRemoveProjectFile={handleRemoveProjectFile}
+          handleModalClose={handleModalClose}
+          isEditMode={isEditMode}
+          showEditModal={showEditModal}
+          closeEditModal={closeEditModal}
+        />
+      )}
 
       {loading ? (
         <div className="flex justify-center items-center py-12">
@@ -189,7 +192,7 @@ const ProjectsManagement = ({
             <ProjectCard
               key={proj.id}
               project={proj}
-              readOnly={!canManageProjects}
+              readOnly={readOnly || !canManageProjects}
               potentialOwners={potentialOwners}
               potentialAPMs={potentialAPMs}
               potentialQAs={potentialQAs}

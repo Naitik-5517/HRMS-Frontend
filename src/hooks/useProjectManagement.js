@@ -193,7 +193,7 @@ export const useProjectManagement = (initialProjects, onUpdateProjects, loadProj
           teamIds: [],
      });
 
-     const [projectFiles, setProjectFiles] = useState(null);
+     const [projectFiles, setProjectFiles] = useState([]);
      const [formErrors, setFormErrors] = useState({});
      const [isSubmitting, setIsSubmitting] = useState(false);
      const [submitSuccess, setSubmitSuccess] = useState(false);
@@ -235,9 +235,11 @@ export const useProjectManagement = (initialProjects, onUpdateProjects, loadProj
           setIsSubmitting(true);
 
           try {
-               let base64File = null;
-               if (projectFiles) {
-                    base64File = await fileToBase64(projectFiles);
+               let fileBase64 = null;
+               if (projectFiles && projectFiles.length > 0) {
+                    // Only take the first file
+                    const base64Arr = await fileToBase64([projectFiles[0]]);
+                    fileBase64 = base64Arr[0];
                }
 
                const payload = {
@@ -248,14 +250,16 @@ export const useProjectManagement = (initialProjects, onUpdateProjects, loadProj
                     asst_project_manager_id: newProject.assistantManagerIds.map(id => Number(id)),
                     project_qa_id: newProject.qaManagerIds.map(id => Number(id)),
                     project_team_id: newProject.teamIds.map(id => Number(id)),
-                    files: base64File,
+                    ...(fileBase64 ? { file: fileBase64 } : {}),
                };
+               // Debug log
+               console.log('[AddProject] Payload:', JSON.stringify(payload, null, 2));
 
                const response = await createProject(payload);
 
                if (response?.status === 200 || response?.status === 201) {
                     resetNewProjectForm();
-                    setProjectFiles(null);
+                    setProjectFiles([]);
                     setFormErrors({});
                     // Show success message
                     toast.success("Project created successfully!", {
@@ -304,7 +308,20 @@ export const useProjectManagement = (initialProjects, onUpdateProjects, loadProj
                     ? project.teamIds.map(String)
                     : project.project_team?.map(u => String(u.user_id)) || []),
           });
-          if (project.project_file) setProjectFiles({ name: project.project_file });
+          // Patch: Set projectFiles as an array with a dummy File-like object if project.project_file exists
+          if (project.project_file) {
+               setProjectFiles([
+                    {
+                         name: project.project_file,
+                         // Optionally add type and size if available, else use defaults
+                         type: '',
+                         size: 0,
+                         // Add a preview or url if you want to support download/view
+                    }
+               ]);
+          } else {
+               setProjectFiles([]);
+          }
           setEditingProjectId(project.project_id || project.id);
           setIsEditMode(true);
           setShowEditModal(true);
@@ -351,9 +368,9 @@ export const useProjectManagement = (initialProjects, onUpdateProjects, loadProj
           setIsSubmitting(true);
 
           try {
-               let base64File = null;
-               if (projectFiles) {
-                    base64File = await fileToBase64(projectFiles);
+               let base64Files = [];
+               if (projectFiles && projectFiles.length > 0) {
+                    base64Files = await fileToBase64(projectFiles);
                }
 
                const payload = {
@@ -365,7 +382,7 @@ export const useProjectManagement = (initialProjects, onUpdateProjects, loadProj
                     asst_project_manager_id: newProject.assistantManagerIds.map(id => Number(id)),
                     project_qa_id: newProject.qaManagerIds.map(id => Number(id)),
                     project_team_id: newProject.teamIds.map(id => Number(id)),
-                    ...(base64File && { files: base64File }),
+                    ...(base64Files.length > 0 && { files: base64Files }),
                };
 
                const response = await updateProject(editingProjectId, payload);
@@ -627,7 +644,7 @@ export const useProjectManagement = (initialProjects, onUpdateProjects, loadProj
                qaManagerIds: [],
                teamIds: [],
           });
-          setProjectFiles(null);
+          setProjectFiles([]);
           setFormErrors({});
           setSubmitSuccess(false);
           setIsEditMode(false);
@@ -655,12 +672,25 @@ export const useProjectManagement = (initialProjects, onUpdateProjects, loadProj
      // };
 
      const handleProjectFilesChange = (files) => {
-          // files is a single File object now
-          setProjectFiles(files);
+          // files can be a FileList, array, or single File
+          let newFiles = [];
+          if (Array.isArray(files)) {
+               newFiles = files;
+          } else if (files instanceof FileList) {
+               newFiles = Array.from(files);
+          } else if (files instanceof File) {
+               newFiles = [files];
+          }
+          setProjectFiles(prev => {
+               // Prevent duplicates by name
+               const existingNames = prev.map(f => f.name);
+               const uniqueFiles = newFiles.filter(f => !existingNames.includes(f.name));
+               return [...prev, ...uniqueFiles];
+          });
      };
 
-     const handleRemoveProjectFile = () => {
-          setProjectFiles(null);
+     const handleRemoveProjectFile = (index) => {
+          setProjectFiles(prev => prev.filter((_, i) => i !== index));
      };
 
      // Add modal close handler

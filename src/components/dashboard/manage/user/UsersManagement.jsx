@@ -33,7 +33,8 @@ const UsersManagement = ({
      onUpdateUsers,
      pendingRequests = [],
      onResolveRequest,
-     loadUsers
+     loadUsers,
+     readOnly = false
 }) => {
      const { isSuperAdmin, user: authUser } = useAuth();
      const [assigningUser, setAssigningUser] = useState(null);
@@ -605,14 +606,19 @@ const UsersManagement = ({
                               </select>
                          </div>
                          <div className="flex gap-2 col-span-1">
-                              {/* Only show Add User button if user has user_creation_permission = 1 */}
-                              {userPermissions.user_creation_permission === 1 && (
+                              {/* Only show Add User button if user has user_creation_permission = 1 and not in readOnly mode */}
+                              {userPermissions.user_creation_permission === 1 && !readOnly && (
                                    <button
                                         onClick={openUserFormModal}
                                         className="bg-blue-600 text-white px-6 py-2 rounded text-sm font-bold hover:bg-blue-700 w-full flex items-center justify-center gap-2"
                                    >
                                         <UserPlus className="w-4 h-4" /> Add User
                                    </button>
+                              )}
+                              {readOnly && (
+                                   <div className="bg-slate-100 text-slate-400 px-6 py-2 rounded text-sm font-medium w-full flex items-center justify-center gap-2 cursor-not-allowed" title="View only access">
+                                        <UserPlus className="w-4 h-4" /> Add User (View Only)
+                                   </div>
                               )}
                          </div>
                     </div>
@@ -633,6 +639,7 @@ const UsersManagement = ({
                          handleDeleteUser={handleDeleteUser}
                          openEditUserModal={handleOpenEditUserModal}
                          handleToggleStatus={handleToggleStatus}
+                         readOnly={readOnly}
                     />
                )}
 

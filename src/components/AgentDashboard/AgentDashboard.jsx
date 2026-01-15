@@ -48,32 +48,31 @@ const AgentDashboard = ({ embedded = false }) => {
   });
 
   // Fetch projects with tasks and all users on mount
+  // Call dashboard/filter on any filter change (entryDate, selectedProject, selectedTask)
   useEffect(() => {
     const fetchData = async () => {
       try {
         setLoadingProjects(true);
         log('[AgentDashboard] Fetching assigned projects from dashboard/filter API');
-        
         // Call the new dashboard/filter API to get only assigned projects
         const payload = {
           logged_in_user_id: user?.user_id,
           device_id,
-          device_type
+          device_type,
+          entry_date: entryDate,
+          project_id: selectedProject,
+          task_id: selectedTask
         };
-        
         log('[AgentDashboard] Dashboard filter payload:', payload);
         const res = await api.post("/dashboard/filter", payload);
-        
         // Extract projects and tasks from the response
         const dashboardData = res.data?.data || {};
         const assignedProjects = dashboardData.projects || [];
         const assignedTasks = dashboardData.tasks || [];
-        
         log('[AgentDashboard] Assigned projects loaded:', assignedProjects.length);
         log('[AgentDashboard] Assigned tasks loaded:', assignedTasks.length);
         log('[AgentDashboard] Projects:', assignedProjects);
         log('[AgentDashboard] Tasks:', assignedTasks);
-        
         // Map tasks to their respective projects
         const projectsWithTasks = assignedProjects.map(project => {
           const projectTasks = assignedTasks.filter(
@@ -84,9 +83,20 @@ const AgentDashboard = ({ embedded = false }) => {
             tasks: projectTasks
           };
         });
-        
         log('[AgentDashboard] Projects with tasks:', projectsWithTasks);
         setProjects(projectsWithTasks);
+        // Always update tasks for the selected project (or clear if none)
+        if (selectedProject) {
+          const project = projectsWithTasks.find(p => String(p.project_id) === String(selectedProject));
+          setTasks(project?.tasks || []);
+          // If the selected task is not in the new list, clear it
+          if (!project?.tasks?.find(t => String(t.task_id) === String(selectedTask))) {
+            setSelectedTask("");
+          }
+        } else {
+          setTasks([]);
+          setSelectedTask("");
+        }
       } catch (error) {
         logError('[AgentDashboard] Error fetching assigned projects:', error);
         setProjects([]);
@@ -108,7 +118,7 @@ const AgentDashboard = ({ embedded = false }) => {
     };
 
     fetchData();
-  }, [device_id, device_type, user?.user_id]);
+  }, [device_id, device_type, user?.user_id, entryDate, selectedProject, selectedTask]);
 
 
 
@@ -123,8 +133,11 @@ const AgentDashboard = ({ embedded = false }) => {
     setLoadingTasks(true);
     const project = projects.find(p => String(p.project_id) === String(selectedProject));
     setTasks(project?.tasks || []);
-    setSelectedTask("");
-    setBaseTarget("");
+    // Only clear selectedTask if it is not in the new task list
+    if (!project?.tasks?.find(t => String(t.task_id) === String(selectedTask))) {
+      setSelectedTask("");
+      setBaseTarget("");
+    }
     setLoadingTasks(false);
   }, [selectedProject, projects]);
 
@@ -345,7 +358,21 @@ const AgentDashboard = ({ embedded = false }) => {
                   <select
                     className="w-full h-12 min-h-[48px] bg-slate-50 border border-slate-200 rounded-lg px-4 py-2 text-base text-blue-700 font-semibold focus:outline-none focus:ring-2 focus:ring-blue-200 placeholder:font-semibold placeholder:text-slate-600 placeholder:text-xs"
                     value={selectedTask}
-                    onChange={e => setSelectedTask(e.target.value)}
+                    onChange={e => {
+                      const value = String(e.target.value);
+                      setSelectedTask(value);
+                      log('[AgentDashboard] Task selected:', value);
+                      // Force base target calculation immediately after task selection
+                      setTimeout(() => {
+                        const project = projects.find(p => String(p.project_id) === String(selectedProject));
+                        const task = project?.tasks?.find(t => String(t.task_id) === String(value));
+                        if (task && user?.user_tenure) {
+                          setBaseTarget(Number(task.task_target) * Number(user.user_tenure));
+                        } else {
+                          setBaseTarget("");
+                        }
+                      }, 0);
+                    }}
                     onBlur={() => handleBlur('selectedTask')}
                     disabled={!selectedProject || loadingTasks}
                     aria-invalid={!!errors.selectedTask}

@@ -1,5 +1,6 @@
 import React, { useMemo, useState, useCallback, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { Settings, Lock } from 'lucide-react';
 import { MONTHLY_GOAL, SHIFT_START_HOUR, SHIFT_HOURS_COUNT } from '../utils/constants';
 import { isWithinRange, getComparisonRange } from '../utils/dateHelpers';
 import FilterBar from '../components/dashboard/FilterBar';
@@ -7,6 +8,8 @@ import TabsNavigation from '../components/dashboard/TabsNavigation';
 import OverviewTab from '../components/dashboard/overview/OverviewTab';
 import QATrackerReport from '../components/dashboard/QATrackerReport';
 import QAAgentList from '../components/dashboard/QAAgentList';
+import QAAgentDashboard from '../components/QAAgentDashboard/QAAgentDashboard';
+import AssistantManagerDashboard from '../components/dashboard/AssistantManagerDashboard';
 import { useAuth } from '../context/AuthContext'; // Updated to use AuthContext
 import { useDeviceInfo } from '../hooks/useDeviceInfo';
 import { useUserDropdowns } from '../hooks/useUserDropdowns';
@@ -15,6 +18,7 @@ import { useUserDropdowns } from '../hooks/useUserDropdowns';
 import UsersManagement from '../components/dashboard/manage/user/UsersManagement';
 import ProjectsManagement from '../components/dashboard/manage/project/ProjectsManagement';
 import { fetchUsersList } from '../services/authService';
+import { fetchProjectsList } from '../services/projectService';
 import { toast } from 'react-hot-toast';
 
 // Import db if needed for admin operations
@@ -57,9 +61,14 @@ const DashboardPage = ({
   // role_id: 6 = Agent
   // role_id: 1 = Admin/Super Admin
   // role_id: 5 = QA
+  // role_id: 4 = Assistant Manager
+  // role_id: 3 = Project Manager
   const isAdmin = role === 'admin' || userRole === 'ADMIN' || designation === 'Admin' || roleId === 1;
   const isAgent = role === 'agent' || userRole === 'AGENT' || designation === 'Agent' || designation === 'AGENT' || roleId === 6;
   const isQA = roleId === 5 || currentUser?.user_designation === 'QA' || designation === 'QA' || role.toLowerCase().includes('qa');
+  const isAssistantManager = roleId === 4 || designation === 'Assistant Manager' || role.toLowerCase().includes('assistant');
+  const isProjectManager = roleId === 3 || designation === 'Project Manager' || role.toLowerCase().includes('project manager');
+  const canViewTrackerReport = isQA || isAssistantManager || isProjectManager;
   
   // Set initial active tab - will be updated when user data loads
   const [activeTab, setActiveTab] = useState('overview');
@@ -68,23 +77,32 @@ const DashboardPage = ({
   const [adminRequests, setAdminRequests] = useState([]);
   const [managedUsers, setManagedUsers] = useState([]);
   const [loadingManagedUsers, setLoadingManagedUsers] = useState(false);
+  const [managedProjects, setManagedProjects] = useState([]);
+  const [loadingManagedProjects, setLoadingManagedProjects] = useState(false);
   const [adminActiveTab, setAdminActiveTab] = useState('users'); // For admin panel tabs
 
-  // Set active tab based on user role and route when user data is loaded
+  // Check if user can access Manage tab (AdminPanel) - must be declared before useEffect
+  const canAccessManage = canManageUsers || canManageProjects || isSuperAdmin;
+
+  // Set active tab based on user role, route, and query parameter when user data is loaded
   // Note: DashboardPage shows 'overview' for agents when accessed via /dashboard (Analytics)
   // The 'dataentry' tab functionality is handled by AgentDashboard component at /agent route
   useEffect(() => {
     console.log('[DashboardPage useEffect] currentUser:', currentUser, 'isAgent:', isAgent);
     if (currentUser) {
-      // Always default to 'overview' tab on DashboardPage
-      // Agents accessing /dashboard (via Analytics button) see overview with their analytics
-      console.log('[DashboardPage] Setting activeTab to overview');
-      setActiveTab('overview');
+      // Check for tab query parameter (e.g., ?tab=manage)
+      const tabParam = searchParams.get('tab');
+      if (tabParam === 'manage' && canAccessManage) {
+        console.log('[DashboardPage] Setting activeTab to manage from query param');
+        setActiveTab('manage');
+      } else {
+        // Always default to 'overview' tab on DashboardPage
+        // Agents accessing /dashboard (via Analytics button) see overview with their analytics
+        console.log('[DashboardPage] Setting activeTab to overview');
+        setActiveTab('overview');
+      }
     }
-  }, [currentUser, isAgent]);
-
-  // Check if user can access Manage tab (AdminPanel)
-  const canAccessManage = canManageUsers || canManageProjects || isSuperAdmin;
+  }, [currentUser, isAgent, searchParams, canAccessManage]);
 
   const canViewIncentivesTab = isAdmin || userRole === 'FINANCE_HR' || userRole === 'PROJECT_MANAGER' || isSuperAdmin;
   const canViewAdherence = isAdmin || userRole === 'PROJECT_MANAGER' || isQA || isSuperAdmin;
@@ -99,9 +117,9 @@ const DashboardPage = ({
 
   const allTasks = useMemo(() => {
     const tasks = new Set();
-    projects.forEach(p => p.tasks?.forEach(t => tasks.add(t.name)));
+    managedProjects.forEach(p => p.tasks?.forEach(t => tasks.add(t.name)));
     return Array.from(tasks).sort();
-  }, [projects]);
+  }, [managedProjects]);
 
   // Load users for Manage → Users tab from backend
   const loadUsers = useCallback(async () => {
@@ -181,17 +199,84 @@ const DashboardPage = ({
     } catch (err) {
       console.error('Failed to fetch users:', err);
       console.error('Error response:', err.response?.data);
-      toast.error(err.response?.data?.message || 'Failed to load users');
+      
+      // For Assistant Managers or users without full permissions, show a softer error
+      const isAssistantManager = roleId === 4 || role.includes('ASSISTANT');
+      if (isAssistantManager && !canManageUsers) {
+        console.log('[DashboardPage] Assistant Manager without user management permission - showing empty list');
+        setManagedUsers([]);
+        // Don't show error toast for read-only users
+      } else {
+        toast.error(err.response?.data?.message || 'Failed to load users');
+      }
     } finally {
       setLoadingManagedUsers(false);
     }
   }, [currentUser, device_id, device_type, dropdowns.designations, loadDropdowns]);
 
   useEffect(() => {
-    if (adminActiveTab === 'users' && canManageUsers) {
+    // Load users ONLY when on the Manage tab AND User Management sub-tab is active AND user has permission
+    // This prevents unnecessary API calls on other tabs and for users without permission
+    if (activeTab === 'manage' && adminActiveTab === 'users' && canManageUsers) {
       loadUsers();
     }
-  }, [adminActiveTab, canManageUsers, loadUsers]);
+  }, [activeTab, adminActiveTab, canManageUsers, loadUsers]);
+
+  // Load projects for Manage → Projects tab from backend
+  const loadProjects = useCallback(async () => {
+    try {
+      setLoadingManagedProjects(true);
+      
+      const res = await fetchProjectsList();
+      
+      if (res.status === 200 || res.status === '200') {
+        const projectsArray = Array.isArray(res.data) ? res.data : [];
+        
+        const formatted = projectsArray.map(p => {
+          // Helper to ensure arrays are properly formatted
+          const ensureArray = (value) => {
+            if (!value) return [];
+            if (Array.isArray(value)) return value;
+            return [value];
+          };
+          
+          return {
+            id: p.project_id,
+            name: p.project_name,
+            description: p.project_description || '',
+            project_manager_id: p.project_manager_id,
+            project_manager_name: p.project_manager_name || '',
+            asst_project_manager_id: ensureArray(p.asst_project_manager_id),
+            asst_project_manager_names: ensureArray(p.asst_project_manager_names),
+            project_qa_id: ensureArray(p.project_qa_id),
+            project_qa_names: ensureArray(p.project_qa_names),
+            project_team_id: ensureArray(p.project_team_id),
+            project_team_names: ensureArray(p.project_team_names),
+            files: p.files || null,
+            tasks: p.tasks || [],
+            created_at: p.created_at,
+            updated_at: p.updated_at,
+          };
+        });
+        
+        setManagedProjects(formatted);
+      } else {
+        toast.error(res.message || 'Failed to load projects');
+      }
+    } catch (err) {
+      console.error('Failed to fetch projects:', err);
+      toast.error(err.response?.data?.message || 'Failed to load projects');
+    } finally {
+      setLoadingManagedProjects(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    // Load projects ONLY when on the Manage tab AND Projects sub-tab is active
+    if (activeTab === 'manage' && adminActiveTab === 'projects') {
+      loadProjects();
+    }
+  }, [activeTab, adminActiveTab, loadProjects]);
 
   const analytics = useMemo(() => {
     const prevRange = getComparisonRange(dateRange.start, dateRange.end, comparisonMode);
@@ -366,8 +451,8 @@ const DashboardPage = ({
     [users]
   );
 
-  // Check if QA is viewing a specific view
-  if (isQA && viewParam === 'tracker-report') {
+  // Check if QA/Assistant Manager/Project Manager is viewing a specific view
+  if (canViewTrackerReport && viewParam === 'tracker-report') {
     return (
       <div className="space-y-6 max-w-6xl mx-auto pb-10">
         <QATrackerReport />
@@ -375,7 +460,8 @@ const DashboardPage = ({
     );
   }
 
-  if (isQA && viewParam === 'agent-list') {
+  // Show agent list for both QA and Assistant Manager
+  if ((isQA || isAssistantManager) && viewParam === 'agent-list') {
     return (
       <div className="space-y-6 max-w-6xl mx-auto pb-10">
         <QAAgentList />
@@ -385,8 +471,8 @@ const DashboardPage = ({
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto pb-10">
-      {/* Show FilterBar for all tabs except dataentry and QA special views */}
-      {activeTab !== 'dataentry' && !viewParam && (
+      {/* Show FilterBar for all tabs except dataentry, manage, and QA special views */}
+      {activeTab !== 'dataentry' && activeTab !== 'manage' && !viewParam && !isAssistantManager && (
         <FilterBar
           isAgent={isAgent}
           isQA={isQA}
@@ -400,8 +486,8 @@ const DashboardPage = ({
         />
       )}
 
-      {/* Show TabsNavigation only for admins, hide for agents and QA */}
-      {!isAgent && !isQA && (
+      {/* Show TabsNavigation only for admins, hide for agents, QA, assistant manager, and on manage tab */}
+      {!isAgent && !isQA && !isAssistantManager && activeTab !== 'manage' && (
         <TabsNavigation
           activeTab={activeTab}
           setActiveTab={setActiveTab}
@@ -418,12 +504,18 @@ const DashboardPage = ({
       {console.log('[DashboardPage Render] activeTab:', activeTab)}
 
       {activeTab === 'overview' && (
-        <OverviewTab
-          analytics={analytics}
-          hourlyChartData={hourlyChartData}
-          isAgent={isAgent}
-          dateRange={dateRange}
-        />
+        isQA ? (
+          <QAAgentDashboard embedded={true} />
+        ) : isAssistantManager ? (
+          <AssistantManagerDashboard />
+        ) : (
+          <OverviewTab
+            analytics={analytics}
+            hourlyChartData={hourlyChartData}
+            isAgent={isAgent}
+            dateRange={dateRange}
+          />
+        )
       )}
 
       {/* Other tabs would go here - they can be added later as needed */}
@@ -468,7 +560,7 @@ const DashboardPage = ({
         </div>
       )}
 
-      {/* Manage Tab (AdminPanel) - Only show if user has access */}
+      {/* Manage Tab (AdminPanel) - Show UI to all who can access, control actions by specific permissions */}
       {activeTab === 'manage' && canAccessManage && (
         <div className="max-w-7xl mx-auto space-y-6">
           <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
@@ -484,79 +576,108 @@ const DashboardPage = ({
               </div>
             </div>
               
-            {/* Admin Tabs Navigation */}
-            {(canManageUsers || canManageProjects) && (
-              <div className="flex border-b border-slate-200 mb-6">
-                  {canManageUsers && (
-                    <button 
-                      onClick={() => setAdminActiveTab('users')}
-                      className={`px-6 py-3 font-medium text-sm transition-colors border-b-2 ${
-                        adminActiveTab === 'users' 
-                          ? 'border-blue-600 text-blue-700' 
-                          : 'border-transparent text-slate-500 hover:text-slate-700'
-                      }`}
-                    >
-                      User Management
-                      {pendingRequests.length > 0 && isSuperAdmin && (
-                        <span className="ml-2 bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full">
-                          {pendingRequests.length}
-                        </span>
-                      )}
-                    </button>
-                  )}
-                  {canManageProjects && (
-                    <button 
-                      onClick={() => setAdminActiveTab('projects')}
-                      className={`px-6 py-3 font-medium text-sm transition-colors border-b-2 ${
-                        adminActiveTab === 'projects' 
-                          ? 'border-blue-600 text-blue-700' 
-                          : 'border-transparent text-slate-500 hover:text-slate-700'
-                      }`}
-                    >
-                      Projects & Targets
-                    </button>
-                  )}
-                </div>
-              )}
+            {/* Admin Tabs Navigation - Show tabs but they'll display permission messages if no access */}
+            <div className="flex border-b border-slate-200 mb-6">
+              <button 
+                onClick={() => setAdminActiveTab('users')}
+                className={`px-6 py-3 font-medium text-sm transition-colors border-b-2 ${
+                  adminActiveTab === 'users' 
+                    ? 'border-blue-600 text-blue-700' 
+                    : 'border-transparent text-slate-500 hover:text-slate-700'
+                }`}
+              >
+                User Management
+                {pendingRequests.length > 0 && isSuperAdmin && (
+                  <span className="ml-2 bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full">
+                    {pendingRequests.length}
+                  </span>
+                )}
+              </button>
+              <button 
+                onClick={() => setAdminActiveTab('projects')}
+                className={`px-6 py-3 font-medium text-sm transition-colors border-b-2 ${
+                  adminActiveTab === 'projects' 
+                    ? 'border-blue-600 text-blue-700' 
+                    : 'border-transparent text-slate-500 hover:text-slate-700'
+                }`}
+              >
+                Projects & Targets
+              </button>
+            </div>
 
             {/* Admin Tab Content */}
-            {adminActiveTab === 'users' && canManageUsers && (
-              <UsersManagement
-                users={managedUsers}
-                projects={projects}
-                onUpdateUsers={setManagedUsers}
-                pendingRequests={pendingRequests}
-                onResolveRequest={handleResolveRequest}
-                loading={loadingManagedUsers}
-                loadUsers={loadUsers}
-              />
+            {adminActiveTab === 'users' && (
+              canManageUsers ? (
+                <UsersManagement
+                  users={managedUsers}
+                  projects={projects}
+                  onUpdateUsers={setManagedUsers}
+                  pendingRequests={pendingRequests}
+                  onResolveRequest={handleResolveRequest}
+                  loading={loadingManagedUsers}
+                  loadUsers={loadUsers}
+                />
+              ) : (
+                <div className="p-12 text-center">
+                  <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <Lock className="w-8 h-8 text-amber-600" />
+                  </div>
+                  <h3 className="font-bold text-xl mb-2 text-slate-800">View Only Access</h3>
+                  <p className="text-slate-600 mb-4">You can view user information but don't have permission to make changes.</p>
+                  <p className="text-sm text-slate-500">Contact your administrator if you need edit access.</p>
+                  
+                  {/* Show read-only view */}
+                  <div className="mt-8">
+                    <UsersManagement
+                      users={managedUsers}
+                      projects={projects}
+                      onUpdateUsers={setManagedUsers}
+                      pendingRequests={pendingRequests}
+                      onResolveRequest={handleResolveRequest}
+                      loading={loadingManagedUsers}
+                      loadUsers={loadUsers}
+                      readOnly={true}
+                    />
+                  </div>
+                </div>
+              )
             )}
             
-            {adminActiveTab === 'projects' && canManageProjects && (
-              <ProjectsManagement
-                projects={projects}
-                onUpdateProjects={handleUpdateProjects}
-                potentialOwners={potentialOwners}
-                potentialAPMs={potentialAPMs}
-                potentialQAs={potentialQAs}
-              />
-            )}
-
-            {/* Show message if no permission for active admin tab */}
-            {adminActiveTab === 'users' && !canManageUsers && (
-              <div className="p-8 text-center text-slate-500">
-                <Lock className="w-12 h-12 mx-auto mb-4 text-slate-300" />
-                <h3 className="font-bold text-lg mb-2">Access Denied</h3>
-                <p>You don't have permission to manage users.</p>
-              </div>
-            )}
-
-            {adminActiveTab === 'projects' && !canManageProjects && (
-              <div className="p-8 text-center text-slate-500">
-                <Lock className="w-12 h-12 mx-auto mb-4 text-slate-300" />
-                <h3 className="font-bold text-lg mb-2">Access Denied</h3>
-                <p>You don't have permission to manage projects.</p>
-              </div>
+            {adminActiveTab === 'projects' && (
+              canManageProjects ? (
+                <ProjectsManagement
+                  projects={managedProjects}
+                  onUpdateProjects={setManagedProjects}
+                  loading={loadingManagedProjects}
+                  loadProjects={loadProjects}
+                  potentialOwners={potentialOwners}
+                  potentialAPMs={potentialAPMs}
+                  potentialQAs={potentialQAs}
+                />
+              ) : (
+                <div className="p-12 text-center">
+                  <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <Lock className="w-8 h-8 text-amber-600" />
+                  </div>
+                  <h3 className="font-bold text-xl mb-2 text-slate-800">View Only Access</h3>
+                  <p className="text-slate-600 mb-4">You can view project information but don't have permission to make changes.</p>
+                  <p className="text-sm text-slate-500">Contact your administrator if you need edit access.</p>
+                  
+                  {/* Show read-only view */}
+                  <div className="mt-8">
+                    <ProjectsManagement
+                      projects={managedProjects}
+                      onUpdateProjects={setManagedProjects}
+                      loading={loadingManagedProjects}
+                      loadProjects={loadProjects}
+                      potentialOwners={potentialOwners}
+                      potentialAPMs={potentialAPMs}
+                      potentialQAs={potentialQAs}
+                      readOnly={true}
+                    />
+                  </div>
+                </div>
+              )
             )}
           </div>
         </div>
