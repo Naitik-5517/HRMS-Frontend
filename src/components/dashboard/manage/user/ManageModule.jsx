@@ -9,7 +9,7 @@ import { useDeviceInfo } from "../../../../hooks/useDeviceInfo";
 import { toast } from "react-hot-toast";
 
 // Keep a single source of truth for API base URL so we can build image URLs
-const apiBaseURL = import.meta?.env?.VITE_API_URL || "http://192.168.125.158:5000";
+const apiBaseURL = import.meta?.env?.VITE_API_URL;
 
 const normalizeProfilePicture = (value) => {
      if (!value) return null;
