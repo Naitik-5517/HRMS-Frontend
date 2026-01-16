@@ -32,12 +32,41 @@ const TrackerTable = ({ userId, projects, onClose }) => {
   const [startDate, setStartDate] = useState(getTodayDate());
   const [endDate, setEndDate] = useState(getTodayDate());
 
+
   // Get tasks for selected project
   const availableTasks = useMemo(() => {
     if (!selectedProject) return [];
     const project = projects.find(p => String(p.project_id) === String(selectedProject));
     return project?.tasks || [];
   }, [selectedProject, projects]);
+
+  // Store per-hour targets from dropdown API
+  const [dropdownTaskMap, setDropdownTaskMap] = useState({});
+
+  // Fetch per-hour targets from /dropdown/get on mount
+  useEffect(() => {
+    const fetchDropdownTargets = async () => {
+      try {
+        const payload = {
+          dropdown_type: "projects with tasks",
+          logged_in_user_id: user?.user_id
+        };
+        const res = await api.post("/dropdown/get", payload);
+        const projectsWithTasks = res.data?.data || [];
+        // Flatten all tasks into a map: { task_id: task_target }
+        const taskMap = {};
+        projectsWithTasks.forEach(project => {
+          (project.tasks || []).forEach(task => {
+            taskMap[task.task_id] = task.task_target;
+          });
+        });
+        setDropdownTaskMap(taskMap);
+      } catch (error) {
+        logError('[TrackerTable] Error fetching dropdown targets:', error);
+      }
+    };
+    fetchDropdownTargets();
+  }, [user?.user_id]);
 
   // Lookup helpers (use new projects-with-tasks structure)
   const getProjectName = (id) => {
@@ -402,7 +431,7 @@ const TrackerTable = ({ userId, projects, onClose }) => {
                 </td>
                 <td className="px-4 py-2 align-middle">{tracker.project_name || getProjectName(tracker.project_id)}</td>
                 <td className="px-4 py-2 align-middle">{tracker.task_name || getTaskName(tracker.task_id, tracker.project_id) || '-'}</td>
-                <td className="px-4 py-2 align-middle">{tracker.tenure_target}</td>
+                <td className="px-4 py-2 align-middle">{tracker.tenure_target || dropdownTaskMap[tracker.task_id] || '-'}</td>
                 <td className="px-4 py-2 align-middle">{tracker.production}</td>
                 <td className="px-4 py-2 align-middle">
                   {tracker.billable_hours !== null && tracker.billable_hours !== undefined
