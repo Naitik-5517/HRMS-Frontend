@@ -46,7 +46,7 @@ const AgentDashboard = ({ embedded = false }) => {
     return d.toISOString().slice(0, 10);
   });
 
-  // Fetch projects with tasks for tracker form from dropdown/get API
+  // Fetch projects with tasks for tracker form from dropdown/get API (fetch only once on mount or user change)
   useEffect(() => {
     const fetchProjectsWithTasks = async () => {
       try {
@@ -59,17 +59,6 @@ const AgentDashboard = ({ embedded = false }) => {
         const res = await api.post("/dropdown/get", payload);
         const projectsWithTasks = res.data?.data || [];
         setProjects(projectsWithTasks);
-        // Always update tasks for the selected project (or clear if none)
-        if (selectedProject) {
-          const project = projectsWithTasks.find(p => String(p.project_id) === String(selectedProject));
-          setTasks(project?.tasks || []);
-          if (!project?.tasks?.find(t => String(t.task_id) === String(selectedTask))) {
-            setSelectedTask("");
-          }
-        } else {
-          setTasks([]);
-          setSelectedTask("");
-        }
       } catch (error) {
         logError('[AgentDashboard] Error fetching projects with tasks:', error);
         setProjects([]);
@@ -78,7 +67,26 @@ const AgentDashboard = ({ embedded = false }) => {
       }
     };
     fetchProjectsWithTasks();
-  }, [user?.user_id, selectedProject, selectedTask]);
+  }, [user?.user_id]);
+
+  // Update tasks when project changes
+  useEffect(() => {
+    if (!selectedProject) {
+      setTasks([]);
+      setSelectedTask("");
+      setBaseTarget("");
+      return;
+    }
+    setLoadingTasks(true);
+    const project = projects.find(p => String(p.project_id) === String(selectedProject));
+    setTasks(project?.tasks || []);
+    // Only clear selectedTask if it is not in the new task list
+    if (!project?.tasks?.find(t => String(t.task_id) === String(selectedTask))) {
+      setSelectedTask("");
+      setBaseTarget("");
+    }
+    setLoadingTasks(false);
+  }, [selectedProject, projects]);
 
 
 
@@ -339,7 +347,7 @@ const AgentDashboard = ({ embedded = false }) => {
                   >
                     <option value="" className="font-semibold text-slate-600 text-xs">Select Task</option>
                     {tasks.map((t) => (
-                      <option key={t.task_id} value={t.task_id} className="font-normal text-slate-700 text-base">{t.task_name}</option>
+                      <option key={t.task_id} value={t.task_id} className="font-normal text-slate-700 text-base">{t.task_name || t.label}</option>
                     ))}
                   </select>
                   {touched.selectedTask && errors.selectedTask && (
