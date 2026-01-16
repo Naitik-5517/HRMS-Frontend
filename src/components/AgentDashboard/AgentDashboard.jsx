@@ -2,7 +2,6 @@ import React, { useEffect, useState } from "react";
 import { toast } from "react-hot-toast";
 import AppLayout from "../../layouts/AppLayout";
 import api from "../../services/api";
-import { fetchDropdown } from "../../services/dropdownService";
 import TrackerTable from "./TrackerTable";
 import { useDeviceInfo } from '../../hooks/useDeviceInfo';
 import { fileToBase64 } from "../../utils/fileToBase64";
@@ -47,49 +46,23 @@ const AgentDashboard = ({ embedded = false }) => {
     return d.toISOString().slice(0, 10);
   });
 
-  // Fetch projects with tasks and all users on mount
-  // Call dashboard/filter on any filter change (entryDate, selectedProject, selectedTask)
+  // Fetch projects with tasks for tracker form from dropdown/get API
   useEffect(() => {
-    const fetchData = async () => {
+    const fetchProjectsWithTasks = async () => {
       try {
         setLoadingProjects(true);
-        log('[AgentDashboard] Fetching assigned projects from dashboard/filter API');
-        // Call the new dashboard/filter API to get only assigned projects
+        log('[AgentDashboard] Fetching projects with tasks from dropdown/get API');
         const payload = {
-          logged_in_user_id: user?.user_id,
-          device_id,
-          device_type,
-          entry_date: entryDate,
-          project_id: selectedProject,
-          task_id: selectedTask
+          dropdown_type: "projects with tasks",
+          logged_in_user_id: user?.user_id
         };
-        log('[AgentDashboard] Dashboard filter payload:', payload);
-        const res = await api.post("/dashboard/filter", payload);
-        // Extract projects and tasks from the response
-        const dashboardData = res.data?.data || {};
-        const assignedProjects = dashboardData.projects || [];
-        const assignedTasks = dashboardData.tasks || [];
-        log('[AgentDashboard] Assigned projects loaded:', assignedProjects.length);
-        log('[AgentDashboard] Assigned tasks loaded:', assignedTasks.length);
-        log('[AgentDashboard] Projects:', assignedProjects);
-        log('[AgentDashboard] Tasks:', assignedTasks);
-        // Map tasks to their respective projects
-        const projectsWithTasks = assignedProjects.map(project => {
-          const projectTasks = assignedTasks.filter(
-            task => String(task.project_id) === String(project.project_id)
-          );
-          return {
-            ...project,
-            tasks: projectTasks
-          };
-        });
-        log('[AgentDashboard] Projects with tasks:', projectsWithTasks);
+        const res = await api.post("/dropdown/get", payload);
+        const projectsWithTasks = res.data?.data || [];
         setProjects(projectsWithTasks);
         // Always update tasks for the selected project (or clear if none)
         if (selectedProject) {
           const project = projectsWithTasks.find(p => String(p.project_id) === String(selectedProject));
           setTasks(project?.tasks || []);
-          // If the selected task is not in the new list, clear it
           if (!project?.tasks?.find(t => String(t.task_id) === String(selectedTask))) {
             setSelectedTask("");
           }
@@ -98,27 +71,14 @@ const AgentDashboard = ({ embedded = false }) => {
           setSelectedTask("");
         }
       } catch (error) {
-        logError('[AgentDashboard] Error fetching assigned projects:', error);
+        logError('[AgentDashboard] Error fetching projects with tasks:', error);
         setProjects([]);
       } finally {
         setLoadingProjects(false);
       }
-
-      // Fetch all users for lookup (send device info)
-      try {
-        log('[AgentDashboard] Fetching users list');
-        const res = await api.post("/user/list", { user_id: user?.user_id, device_id, device_type });
-        const users = Array.isArray(res.data) ? res.data : (res.data?.data || []);
-        setAllUsers(users);
-        log('[AgentDashboard] Users loaded:', users.length);
-      } catch (error) {
-        logError('[AgentDashboard] Error fetching users:', error);
-        setAllUsers([]);
-      }
     };
-
-    fetchData();
-  }, [device_id, device_type, user?.user_id, entryDate, selectedProject, selectedTask]);
+    fetchProjectsWithTasks();
+  }, [user?.user_id, selectedProject, selectedTask]);
 
 
 
