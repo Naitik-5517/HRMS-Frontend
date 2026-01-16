@@ -19,11 +19,28 @@ const QAAgentList = () => {
   const [agentTrackers, setAgentTrackers] = useState({});
   // Removed loadingTrackers state (no longer needed)
 
-  // Fetch agents and trackers from dashboard/filter API on mount
+  // Store task names from dropdown API
+  const [dropdownTaskNameMap, setDropdownTaskNameMap] = useState({});
+
+  // Fetch agents, trackers, and task names from dropdown/get and dashboard/filter
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
         setLoading(true);
+        // Fetch task names from dropdown/get
+        const dropdownRes = await api.post("/dropdown/get", {
+          dropdown_type: "projects with tasks",
+          logged_in_user_id: user?.user_id
+        });
+        const projectsWithTasks = dropdownRes.data?.data || [];
+        const taskNameMap = {};
+        projectsWithTasks.forEach(project => {
+          (project.tasks || []).forEach(task => {
+            taskNameMap[task.task_id] = task.task_name || task.label;
+          });
+        });
+        setDropdownTaskNameMap(taskNameMap);
+
         log('[QAAgentList] Fetching dashboard/filter data');
         const payload = {
           logged_in_user_id: user?.user_id,
@@ -32,23 +49,18 @@ const QAAgentList = () => {
         };
         const res = await api.post("/dashboard/filter", payload);
         const data = res.data?.data || {};
-        // Role-based filtering
+        // ...existing code for filtering agents and trackers...
         let filteredAgents = [];
         let trackersByAgent = {};
         const role = String(user?.role_name || user?.user_role || '').toLowerCase();
-        // Get all users and trackers from API
         const allUsers = data.users || [];
         const allTrackers = data.tracker || [];
         if (role === 'assistant manager') {
-          // Assistant manager: show only users in their team (team_id match)
-          // Find team_id(s) for this manager from projects
           let myTeamIds = [];
           if (data.projects) {
             data.projects.forEach(p => {
               if (p.asst_project_manager_id && p.asst_project_manager_id.includes(String(user.user_id))) {
-                // asst_project_manager_id is string like "[78]"
                 if (p.project_team_id) {
-                  // project_team_id is string like "[91]"
                   const ids = p.project_team_id.replace(/\[|\]/g, '').split(',').map(x => x.trim()).filter(Boolean);
                   myTeamIds.push(...ids);
                 }
@@ -57,7 +69,6 @@ const QAAgentList = () => {
           }
           filteredAgents = allUsers.filter(u => myTeamIds.includes(String(u.user_id)));
         } else if (role === 'project manager') {
-          // Project manager: show only users in their project (project_manager_id match)
           let myProjectIds = [];
           if (data.projects) {
             data.projects.forEach(p => {
@@ -71,7 +82,6 @@ const QAAgentList = () => {
           }
           filteredAgents = allUsers.filter(u => myProjectIds.includes(String(u.user_id)));
         } else if (role === 'qa' || role === 'qa agent' || role === 'quality analyst') {
-          // QA: show only users under QA (project_qa_id match)
           let myQAIds = [];
           if (data.projects) {
             data.projects.forEach(p => {
@@ -85,10 +95,8 @@ const QAAgentList = () => {
           }
           filteredAgents = allUsers.filter(u => myQAIds.includes(String(u.user_id)));
         } else {
-          // Default: show all users
           filteredAgents = allUsers;
         }
-        // Map trackers by agent (only those with tracker_file)
         filteredAgents.forEach(agent => {
           trackersByAgent[agent.user_id] = allTrackers.filter(t => String(t.user_id) === String(agent.user_id) && t.tracker_file);
         });
@@ -107,7 +115,6 @@ const QAAgentList = () => {
     if (user?.user_id) {
       fetchDashboardData();
     }
-  // Add all used user fields to dependency array
   }, [user?.user_id, user?.device_id, user?.device_type, user?.role_name, user?.user_role]);
 
   // Toggle agent card expansion (no async tracker fetch needed)
@@ -236,7 +243,7 @@ const QAAgentList = () => {
                                   {tracker.project_name || "-"}
                                 </td>
                                 <td className="px-4 py-3 text-slate-700">
-                                  {tracker.task_name || "-"}
+                                  {tracker.task_name || dropdownTaskNameMap[tracker.task_id] || "-"}
                                 </td>
                                 <td className="px-4 py-3 text-center">
                                   {tracker.tracker_file ? (

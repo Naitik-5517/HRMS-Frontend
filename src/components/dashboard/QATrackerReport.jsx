@@ -31,12 +31,29 @@ const QATrackerReport = () => {
   const [startDate, setStartDate] = useState(getTodayDate());
   const [endDate, setEndDate] = useState(getTodayDate());
 
-  // Fetch agents and trackers from dashboard/filter API on mount
+  // Store per-hour targets from dropdown API
+  const [dropdownTaskMap, setDropdownTaskMap] = useState({});
+
+  // Fetch agents, trackers, and per-hour targets from dropdown/get and dashboard/filter
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
         setLoadingAgents(true);
         setLoading(true);
+        // Fetch per-hour targets from dropdown/get
+        const dropdownRes = await api.post("/dropdown/get", {
+          dropdown_type: "projects with tasks",
+          logged_in_user_id: user?.user_id
+        });
+        const projectsWithTasks = dropdownRes.data?.data || [];
+        const taskMap = {};
+        projectsWithTasks.forEach(project => {
+          (project.tasks || []).forEach(task => {
+            taskMap[task.task_id] = task.task_target;
+          });
+        });
+        setDropdownTaskMap(taskMap);
+
         log('[QATrackerReport] Fetching dashboard/filter data');
         const payload = {
           logged_in_user_id: user?.user_id,
@@ -45,18 +62,16 @@ const QATrackerReport = () => {
         };
         const res = await api.post("/dashboard/filter", payload);
         const data = res.data?.data || {};
-        // Role-based filtering
+        // ...existing code for filtering agents and trackers...
         let filteredAgents = [];
         let filteredTrackers = [];
         const role = String(user?.role_name || user?.user_role || '').toLowerCase();
-        // Get all users, trackers, and tasks from API
         const allUsers = data.users || [];
         const allTrackers = data.tracker || [];
         const allTasks = data.tasks || [];
-        // Build a map for task_id -> task_name
-        const taskMap = {};
+        const taskNameMap = {};
         allTasks.forEach(task => {
-          if (task.task_id != null) taskMap[task.task_id] = task.task_name;
+          if (task.task_id != null) taskNameMap[task.task_id] = task.task_name;
         });
         if (role === 'assistant manager') {
           // Assistant manager: show only users in their team (team_id match)
@@ -108,10 +123,10 @@ const QATrackerReport = () => {
           filteredAgents = allUsers;
           filteredTrackers = allTrackers;
         }
-        // Enrich trackers with task_name from taskMap
+        // Enrich trackers with task_name from taskNameMap
         filteredTrackers = filteredTrackers.map(tracker => ({
           ...tracker,
-          task_name: tracker.task_name || taskMap[tracker.task_id] || "-"
+          task_name: tracker.task_name || taskNameMap[tracker.task_id] || "-"
         }));
         setAssignedAgents(filteredAgents);
         setTrackers(filteredTrackers);
@@ -379,7 +394,7 @@ const QATrackerReport = () => {
                   {tracker.task_name || "-"}
                 </td>
                 <td className="px-4 py-3 align-middle">
-                  {tracker.tenure_target || "0"}
+                  {tracker.tenure_target || dropdownTaskMap[tracker.task_id] || "0"}
                 </td>
                 <td className="px-4 py-3 align-middle font-semibold text-green-700">
                   {tracker.production || "0"}
