@@ -19,6 +19,7 @@ import UsersManagement from '../components/dashboard/manage/user/UsersManagement
 import ProjectsManagement from '../components/dashboard/manage/project/ProjectsManagement';
 import { fetchUsersList } from '../services/authService';
 import { fetchProjectsList } from '../services/projectService';
+import UserMonthlyTargetCard from '../components/dashboard/UserMonthlyTargetCard';
 import { toast } from 'react-hot-toast';
 
 // Import db if needed for admin operations
@@ -45,8 +46,10 @@ const DashboardPage = ({
   const viewParam = searchParams.get('view');
   
   const [selectedAgent, setSelectedAgent] = useState(null);
-  const todayStr = new Date().toISOString().split('T')[0];
-  const [dateRange, setDateRange] = useState({ start: todayStr, end: todayStr });
+  // Default filter is empty (00/00/0000), but we want to show today's data if not set
+  const emptyDate = '';
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const [dateRange, setDateRange] = useState({ start: emptyDate, end: emptyDate });
   const [selectedTask, setSelectedTask] = useState('All');
   const [comparisonMode, setComparisonMode] = useState('previous_period');
   
@@ -474,16 +477,19 @@ const DashboardPage = ({
       {/* Show FilterBar for all tabs except dataentry, manage, and QA special views */}
       {activeTab !== 'dataentry' && activeTab !== 'manage' && !viewParam && !isAssistantManager && (
         <FilterBar
-          isAgent={isAgent}
-          isQA={isQA}
-          selectedTask={selectedTask}
-          setSelectedTask={setSelectedTask}
-          comparisonMode={comparisonMode}
-          setComparisonMode={setComparisonMode}
-          dateRange={dateRange}
-          handleDateRangeChange={handleDateRangeChange}
-          allTasks={allTasks}
-        />
+            isAgent={isAgent}
+            isQA={isQA}
+            selectedTask={selectedTask}
+            setSelectedTask={setSelectedTask}
+            comparisonMode={comparisonMode}
+            setComparisonMode={setComparisonMode}
+            dateRange={{
+              start: dateRange.start || '',
+              end: dateRange.end || ''
+            }}
+            handleDateRangeChange={handleDateRangeChange}
+            allTasks={allTasks}
+          />
       )}
 
       {/* Show TabsNavigation only for admins, hide for agents, QA, assistant manager, and on manage tab */}
@@ -509,22 +515,29 @@ const DashboardPage = ({
         ) : isAssistantManager ? (
           <AssistantManagerDashboard />
         ) : (
-          <OverviewTab
-            analytics={analytics}
-            hourlyChartData={hourlyChartData}
-            isAgent={isAgent}
-            dateRange={dateRange}
-          />
+          (() => {
+            const isDefault = !dateRange.start && !dateRange.end;
+            const dynamicToday = new Date().toISOString().slice(0, 10);
+            const rangeToSend = isDefault ? { start: dynamicToday, end: dynamicToday } : dateRange;
+            console.log('[DashboardPage] Passing dateRange to OverviewTab:', rangeToSend);
+            return (
+              <OverviewTab
+                analytics={analytics}
+                hourlyChartData={hourlyChartData}
+                isAgent={isAgent}
+                dateRange={rangeToSend}
+              />
+            );
+          })()
         )
       )}
 
       {/* Other tabs would go here - they can be added later as needed */}
       
-      {/* Project Bookings Tab */}
+      {/* User Monthly Target Tab */}
       {activeTab === 'bookings' && (
-        <div className="bg-white p-6 rounded-lg shadow">
-          <h2 className="text-xl font-bold mb-4">Project Bookings</h2>
-          <p className="text-slate-600">Project bookings content will go here.</p>
+        <div className="my-6">
+          <UserMonthlyTargetCard />
         </div>
       )}
       

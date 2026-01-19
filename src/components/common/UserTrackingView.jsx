@@ -108,14 +108,10 @@ const UserTrackingView = () => {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold text-blue-700 flex items-center gap-3">
-          <Users className="w-8 h-8" />
-          User Tracking
-        </h1>
-        <p className="text-slate-600 mt-1">Monitor and manage all system users</p>
+      <div className="mb-6">
+        <h2 className="text-2xl font-bold text-blue-700 tracking-tight">User Permission</h2>
       </div>
+
 
       {/* Filters */}
       <div className="bg-white rounded-lg shadow-md p-4">

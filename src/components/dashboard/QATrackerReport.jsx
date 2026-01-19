@@ -241,30 +241,27 @@ const QATrackerReport = () => {
 
   return (
     <div className="space-y-4">
-      {/* Header */}
-      <div className="flex justify-between items-center">
-        <div className="flex items-center gap-2">
-          <UsersIcon className="w-6 h-6 text-blue-600" />
-          <h2 className="text-2xl font-bold text-slate-800">Tracker Report</h2>
-        </div>
-        <button
-          onClick={handleExportToExcel}
-          disabled={loading || trackers.length === 0}
-          className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-semibold text-sm flex items-center gap-2 disabled:bg-gray-400 disabled:cursor-not-allowed transition"
-          title="Export filtered data to Excel"
-        >
-          <FileDown className="w-4 h-4" />
-          Export to Excel
-        </button>
+      <div className="mb-6">
+        <h2 className="text-2xl font-bold text-blue-700 tracking-tight">Tracker Report</h2>
       </div>
 
       {/* Filter Section */}
       <div className="bg-blue-50 rounded-lg p-3 mb-4">
-        <div className="flex items-center gap-1.5 mb-2">
-          <Filter className="w-4 h-4 text-blue-700" />
-          <h3 className="text-sm font-semibold text-blue-700">Filters</h3>
+        <div className="flex items-center gap-1.5 mb-2 justify-between">
+          <div className="flex items-center gap-1.5">
+            <Filter className="w-4 h-4 text-blue-700" />
+            <h3 className="text-sm font-semibold text-blue-700">Filters</h3>
+          </div>
+          <button
+            onClick={handleExportToExcel}
+            disabled={loading || trackers.length === 0}
+            className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded font-semibold text-xs flex items-center gap-1 disabled:bg-gray-400 disabled:cursor-not-allowed transition"
+            title="Export filtered data to Excel"
+          >
+            <FileDown className="w-3 h-3" />
+            Export
+          </button>
         </div>
-        
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           {/* Start Date */}
           <div>

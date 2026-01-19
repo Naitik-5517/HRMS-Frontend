@@ -40,14 +40,8 @@ const LoginPage = () => {
 
   // Redirect logged-in users away from login page
   React.useEffect(() => {
-    if (user) {
-      const roleId = Number(user.role_id);
-      // Only redirect if not already on the correct page
-      if (roleId === 6 && window.location.pathname !== "/agent") {
-        navigate("/agent", { replace: true });
-      } else if (roleId !== 6 && window.location.pathname !== "/dashboard") {
-        navigate("/dashboard", { replace: true });
-      }
+    if (user && window.location.pathname !== "/dashboard") {
+      navigate("/dashboard", { replace: true });
     }
   }, [user, navigate]);
 
@@ -228,7 +222,7 @@ const LoginPage = () => {
               type="submit"
               disabled={isLoading}
               onClick={(e) => {
-                console.log('🔴 [LoginPage] Button clicked!');
+                console.log('[LoginPage] Button clicked!');
                 // Don't call e.preventDefault() here, let the form handle it
               }}
               className={`w-full flex justify-center items-center py-3 rounded-lg text-white gap-2

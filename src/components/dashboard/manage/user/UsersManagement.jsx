@@ -534,9 +534,6 @@ const UsersManagement = ({
 
                {/* Add User Form */}
                <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
-                    <h3 className="text-sm font-bold text-slate-700 mb-3 uppercase flex items-center gap-2">
-                         <UserPlus className="w-4 h-4" /> Add New User
-                    </h3>
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 items-end">
                          <div className="col-span-1">
                               <label className="block text-xs font-semibold text-slate-500 mb-1">

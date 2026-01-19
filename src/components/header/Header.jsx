@@ -25,6 +25,8 @@ import {
 } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 
+import logo from "../../assets/Transform logo.png";
+
 const Header = ({
   currentUser,
   handleLogout,
@@ -38,6 +40,16 @@ const Header = ({
     // eslint-disable-next-line
     console.log('Header currentUser:', currentUser);
   }, [currentUser]);
+  // Helper to get initials from user's name
+  const getInitials = () => {
+    const name = currentUser?.name || currentUser?.user_name || currentUser?.username || "";
+    if (!name) return "";
+    const parts = name.trim().split(" ");
+    if (parts.length === 1) {
+      return parts[0][0]?.toUpperCase() || "";
+    }
+    return `${parts[0][0]?.toUpperCase() || ""}${parts[parts.length - 1][0]?.toUpperCase() || ""}`;
+  };
   // Debug: Log currentUser to check available properties
   // console.log('Header currentUser:', currentUser);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -81,7 +93,7 @@ const Header = ({
       return;
     }
     if (view === 'AGENT_LIST') {
-      console.log('🚀 [Header goTo] Navigating to Agent List');
+      console.log('🚀 [Header goTo] Navigating to Agent File Report');
       navigate('/dashboard?view=agent-list');
       setIsMobileMenuOpen(false);
       return;
@@ -139,48 +151,62 @@ const Header = ({
         if (roleId === 6) return [
           { view: ViewState.DASHBOARD, label: "Analytics", icon: LayoutDashboard },
           { view: ViewState.ENTRY, label: "Tracker", icon: PenTool },
-          { view: ViewState.SCHEDULER, label: "Roster", icon: CalendarClock },
+          // { view: ViewState.SCHEDULER, label: "Roster", icon: CalendarClock }, // Temporarily removed
         ];
         
-        // QA tabs (role_id 5) - Hide Manage and User Tracking
+        // QA tabs (role_id 5) - Hide Manage and User Permission
         if (roleId === 5) return [
           { view: ViewState.DASHBOARD, label: "Analytics", icon: LayoutDashboard },
-          { view: ViewState.QUALITY, label: "Quality", icon: Award },
-          { view: ViewState.SCHEDULER, label: "Scheduler", icon: CalendarClock },
+          // { view: ViewState.QUALITY, label: "Quality", icon: Award }, // Temporarily removed
+          // { view: ViewState.SCHEDULER, label: "Scheduler", icon: CalendarClock }, // Temporarily removed
           { view: "TRACKER_REPORT", label: "Tracker Report", icon: FileText },
-          { view: "AGENT_LIST", label: "Agent List", icon: Users },
+          { view: "AGENT_LIST", label: "Agent File Report", icon: Users },
         ];
+        // Project Manager tabs (role_id 3)
+        if (roleId === 3) return [
+          { view: ViewState.DASHBOARD, label: "Analytics", icon: LayoutDashboard },
+          { view: ViewState.ADMIN_PANEL, label: "Manage", icon: Settings },
+          { view: ViewState.ENTRY, label: "User Permission", icon: PenTool },
+        ];
+            if (role.includes('PROJECT_MANAGER')) {
+              return [
+                { view: ViewState.DASHBOARD, label: "Analytics", icon: LayoutDashboard },
+                { view: ViewState.ADMIN_PANEL, label: "Manage", icon: Settings },
+                { view: ViewState.ENTRY, label: "User Permission", icon: PenTool },
+              ];
+            }
         
         // Assistant Manager tabs (role_id 4)
         if (roleId === 4) return [
           { view: ViewState.DASHBOARD, label: "Analytics", icon: LayoutDashboard },
-          { view: ViewState.SCHEDULER, label: "Scheduler", icon: CalendarClock },
+          // { view: ViewState.SCHEDULER, label: "Scheduler", icon: CalendarClock }, // Temporarily removed
           { view: "TRACKER_REPORT", label: "Tracker Report", icon: FileText },
-          { view: "AGENT_LIST", label: "Agent List", icon: Users },
+          { view: "AGENT_LIST", label: "Agent File Report", icon: Users },
           { view: ViewState.ADMIN_PANEL, label: "Manage", icon: Settings },
-          { view: ViewState.ENTRY, label: "User Tracking", icon: PenTool },
+          { view: ViewState.ENTRY, label: "User Permission", icon: PenTool },
         ];
         
         // All other role_ids are treated as Admin for tab purposes
+        // Quality and Scheduler temporarily removed
         return [
           { view: ViewState.DASHBOARD, label: "Analytics", icon: LayoutDashboard },
-          { view: ViewState.QUALITY, label: "Quality", icon: Award },
-          { view: ViewState.SCHEDULER, label: "Scheduler", icon: CalendarClock },
+          // { view: ViewState.QUALITY, label: "Quality", icon: Award },
+          // { view: ViewState.SCHEDULER, label: "Scheduler", icon: CalendarClock },
           { view: ViewState.ADMIN_PANEL, label: "Manage", icon: Settings },
-          { view: ViewState.ENTRY, label: "User Tracking", icon: PenTool },
+          { view: ViewState.ENTRY, label: "User Permission", icon: PenTool },
         ];
       }
       return [];
     }
     
-    // QA tabs (by role string) - Hide Manage and User Tracking
+    // QA tabs (by role string) - Hide Manage and User Permission
     if (role.includes('QA')) {
       return [
         { view: ViewState.DASHBOARD, label: "Analytics", icon: LayoutDashboard },
-        { view: ViewState.QUALITY, label: "Quality", icon: Award },
-        { view: ViewState.SCHEDULER, label: "Scheduler", icon: CalendarClock },
+        // { view: ViewState.QUALITY, label: "Quality", icon: Award }, // Temporarily removed
+        // { view: ViewState.SCHEDULER, label: "Scheduler", icon: CalendarClock }, // Temporarily removed
         { view: "TRACKER_REPORT", label: "Tracker Report", icon: FileText },
-        { view: "AGENT_LIST", label: "Agent List", icon: Users },
+        { view: "AGENT_LIST", label: "Agent File Report", icon: Users },
       ];
     }
     
@@ -188,22 +214,23 @@ const Header = ({
     if (role.includes('ASSISTANT') || role.includes('ASST')) {
       return [
         { view: ViewState.DASHBOARD, label: "Analytics", icon: LayoutDashboard },
-        { view: ViewState.SCHEDULER, label: "Scheduler", icon: CalendarClock },
+        // { view: ViewState.SCHEDULER, label: "Scheduler", icon: CalendarClock }, // Temporarily removed
         { view: "TRACKER_REPORT", label: "Tracker Report", icon: FileText },
-        { view: "AGENT_LIST", label: "Agent List", icon: Users },
+        { view: "AGENT_LIST", label: "Agent File Report", icon: Users },
         { view: ViewState.ADMIN_PANEL, label: "Manage", icon: Settings },
-        { view: ViewState.ENTRY, label: "User Tracking", icon: PenTool },
+        { view: ViewState.ENTRY, label: "User Permission", icon: PenTool },
       ];
     }
     
     // Admin tabs
+    // Admin tabs (Quality and Scheduler temporarily removed)
     if (role.includes('ADMIN')) {
       return [
         { view: ViewState.DASHBOARD, label: "Analytics", icon: LayoutDashboard },
-        { view: ViewState.QUALITY, label: "Quality", icon: Award },
-        { view: ViewState.SCHEDULER, label: "Scheduler", icon: CalendarClock },
+        // { view: ViewState.QUALITY, label: "Quality", icon: Award },
+        // { view: ViewState.SCHEDULER, label: "Scheduler", icon: CalendarClock },
         { view: ViewState.ADMIN_PANEL, label: "Manage", icon: Settings },
-        { view: ViewState.ENTRY, label: "User Tracking", icon: PenTool },
+        { view: ViewState.ENTRY, label: "User Permission", icon: PenTool },
       ];
     }
     
@@ -265,17 +292,7 @@ const Header = ({
           <div className="flex justify-between items-center h-16">
             {/* LOGO + TITLE */}
             <div className="flex items-center gap-2">
-              <div className="bg-blue-200 p-2 rounded-lg">
-                <Database className="w-5 h-5 text-blue-700" />
-              </div>
-              <div className="flex flex-col leading-tight">
-                <span className="text-xl font-bold text-blue-700">
-                  TFS Ops Tracker
-                </span>
-                <span className="text-xs text-blue-400 font-semibold tracking-wide">
-                  {getRoleLabel() ? `${getRoleLabel()} View` : ""}
-                </span>
-              </div>
+              <img src={logo} alt="TFS Ops Tracker Logo" className="h-10 w-auto" />
             </div>
 
             {/* NAVIGATION + USER INFO + LOGOUT */}
@@ -284,29 +301,25 @@ const Header = ({
                 {navItems.map(renderNavButton)}
               </div>
               <div className="flex items-center gap-2 border-l border-slate-200 pl-4 min-w-[180px]">
-                <div className="text-right">
-                  <span className="font-semibold text-slate-800">
-                    {currentUser?.user_name || currentUser?.name || currentUser?.username || currentUser?.email || "User"}
-                  </span>
-                  <br />
-                  <span className="text-xs text-slate-400 font-medium">
-                    {getRoleLabel()}
-                  </span>
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-blue-700 flex items-center justify-center text-lg font-bold text-white">
+                    {getInitials()}
+                  </div>
+                  <button
+                    onClick={() => {
+                      if (typeof handleLogout === 'function') {
+                        handleLogout();
+                      } else if (window && window.sessionStorage) {
+                        window.sessionStorage.clear();
+                        window.location.href = '/';
+                      }
+                    }}
+                    className="p-2 rounded-full hover:bg-slate-100 text-slate-500 transition-colors"
+                    title="Logout"
+                  >
+                    <LogOut className="w-5 h-5" />
+                  </button>
                 </div>
-                <button
-                  onClick={() => {
-                    if (typeof handleLogout === 'function') {
-                      handleLogout();
-                    } else if (window && window.sessionStorage) {
-                      window.sessionStorage.clear();
-                      window.location.href = '/';
-                    }
-                  }}
-                  className="p-2 rounded-full hover:bg-slate-100 text-slate-500 transition-colors"
-                  title="Logout"
-                >
-                  <LogOut className="w-5 h-5" />
-                </button>
               </div>
             </div>
           </div>

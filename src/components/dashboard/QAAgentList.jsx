@@ -135,10 +135,8 @@ const QAAgentList = () => {
 
   return (
     <div className="space-y-4">
-      {/* Header */}
-      <div className="flex items-center gap-2">
-        <UsersIcon className="w-6 h-6 text-blue-600" />
-        <h2 className="text-2xl font-bold text-slate-800">Agent List</h2>
+      <div className="mb-6">
+        <h2 className="text-2xl font-bold text-blue-700 tracking-tight">Agent File Report</h2>
       </div>
 
       {/* Loading State */}

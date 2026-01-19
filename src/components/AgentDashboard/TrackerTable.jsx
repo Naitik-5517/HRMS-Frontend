@@ -218,12 +218,17 @@ const TrackerTable = ({ userId, projects, onClose }) => {
   // Calculate totals from filtered trackers
   const totals = useMemo(() => {
     return trackers.reduce((acc, tracker) => {
-      acc.tenureTarget += Number(tracker.tenure_target) || 0;
+      // Use tracker.tenure_target if present, else fallback to dropdownTaskMap
+      let perHourTarget = Number(tracker.tenure_target);
+      if (!perHourTarget && dropdownTaskMap && tracker.task_id) {
+        perHourTarget = Number(dropdownTaskMap[tracker.task_id]) || 0;
+      }
+      acc.tenureTarget += perHourTarget;
       acc.production += Number(tracker.production) || 0;
       acc.billableHours += Number(tracker.billable_hours) || 0;
       return acc;
     }, { tenureTarget: 0, production: 0, billableHours: 0 });
-  }, [trackers]);
+  }, [trackers, dropdownTaskMap]);
 
   // Export to Excel function
   const handleExportToExcel = () => {

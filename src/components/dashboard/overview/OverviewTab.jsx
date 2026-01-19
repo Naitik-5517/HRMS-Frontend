@@ -1,29 +1,58 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import StatCard from './StatCard';
 import HourlyChart from './HourlyChart';
 import { Activity, Calendar, Target, Users, Clock, CheckCircle, TrendingUp, Award, Briefcase } from 'lucide-react';
 import { useAuth } from '../../../context/AuthContext';
 import { useDeviceInfo } from '../../../hooks/useDeviceInfo';
+
+// Clear dashboard data when date range changes to force UI refresh
+// (must be inside the component, not before imports)
 import api from '../../../services/api';
 import { toast } from 'react-hot-toast';
 
-const OverviewTab = ({ analytics, hourlyChartData, isAgent, dateRange }) => {
+const OverviewTab = ({ analytics, hourlyChartData, isAgent, dateRange: externalDateRange }) => {
   const { user } = useAuth();
   const { device_id, device_type } = useDeviceInfo();
   const [dashboardData, setDashboardData] = useState(null);
   const [loading, setLoading] = useState(false);
+  // If no dateRange is provided, default to today
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const dateRange = React.useMemo(() => {
+    if (!externalDateRange || (!externalDateRange.start && !externalDateRange.end)) {
+      return { start: todayStr, end: todayStr };
+    }
+    return externalDateRange;
+  }, [externalDateRange, todayStr]);
 
   // Fetch dashboard data for agents
   const fetchDashboardData = React.useCallback(async () => {
     try {
       setLoading(true);
-      // Prepare payload - backend doesn't accept filter parameters in request
-      // It returns all data and we filter on frontend
-      const payload = {
-        logged_in_user_id: user.user_id,
-        device_id: device_id || 'web_default',
-        device_type: device_type || 'web'
-      };
+      // If no date range is selected, send only today's date as 'date' (not date_from/date_to)
+      const todayStr = new Date().toISOString().slice(0, 10);
+      let payload;
+      // If the date range is not selected or is set to today (default), send only 'date'
+      const isDefaultOrToday = (
+        (dateRange.start === '' && dateRange.end === '') ||
+        (dateRange.start === todayStr && dateRange.end === todayStr)
+      );
+      if (isDefaultOrToday) {
+        payload = {
+          logged_in_user_id: user.user_id,
+          device_id: device_id || 'web123',
+          device_type: device_type || 'web',
+          date: todayStr
+        };
+      } else {
+        payload = {
+          logged_in_user_id: user.user_id,
+          device_id: device_id || 'web123',
+          device_type: device_type || 'web',
+          date_from: dateRange.start ? dateRange.start.slice(0, 10) : undefined,
+          date_to: dateRange.end ? dateRange.end.slice(0, 10) : undefined
+        };
+      }
+      console.log('[OverviewTab] FINAL API PAYLOAD:', JSON.stringify(payload, null, 2));
       console.log('[OverviewTab] 📤 Sending request to /dashboard/filter');
       console.log('[OverviewTab] 📤 Payload:', JSON.stringify(payload, null, 2));
       const response = await api.post('/dashboard/filter', payload);
@@ -44,7 +73,7 @@ const OverviewTab = ({ analytics, hourlyChartData, isAgent, dateRange }) => {
     } finally {
       setLoading(false);
     }
-  }, [user.user_id, device_id, device_type]);
+  }, [user.user_id, device_id, device_type, dateRange]);
 
   useEffect(() => {
     if (isAgent && user?.user_id) {
@@ -55,7 +84,7 @@ const OverviewTab = ({ analytics, hourlyChartData, isAgent, dateRange }) => {
   // Extract agent stats from API response
   // Note: API returns only the logged-in agent's data based on logged_in_user_id
   const agentStats = {
-    totalBillableHours: parseFloat(dashboardData?.summary?.total_production || 0),
+    totalBillableHours: parseFloat(dashboardData?.summary?.total_billable_hours ?? dashboardData?.summary?.total_production ?? 0),
     qcScore: parseFloat(dashboardData?.summary?.qc_score || 0),
     taskCount: parseInt(dashboardData?.summary?.task_count || 0),
     projectCount: parseInt(dashboardData?.summary?.project_count || 0),

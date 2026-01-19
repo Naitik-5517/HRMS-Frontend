@@ -15,7 +15,7 @@ const AppRoutes = () => {
   // Role-based redirect for already-logged-in users (use role_id)
   const getDashboardRoute = () => {
     if (!user) return "/";
-    // All logged-in users go to /dashboard (agents see analytics, admins see full dashboard)
+    // Agents and all users go to /dashboard (analytics/overview for agents)
     return "/dashboard";
   };
 
@@ -35,11 +35,11 @@ const AppRoutes = () => {
           }
         />
 
-        {/* User Tracking (Admin and Assistant Managers) */}
+        {/* User Permission (Admin and Assistant Managers) */}
         <Route
           path="/entry"
           element={
-            <ProtectedRoute allowedRoles={[1, 2, 4]}>
+            <ProtectedRoute allowedRoles={[1, 2, 3, 4]}>
               <AppLayout>
                 <UserTrackingView />
               </AppLayout>
@@ -63,7 +63,7 @@ const AppRoutes = () => {
         <Route
           path="/admin"
           element={
-            <ProtectedRoute allowedRoles={[1, 4]}>
+            <ProtectedRoute allowedRoles={[1, 3, 4]}>
               <AppLayout>
                 <AdminPage />
               </AppLayout>
