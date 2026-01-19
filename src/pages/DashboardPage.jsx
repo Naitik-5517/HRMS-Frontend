@@ -19,7 +19,6 @@ import UsersManagement from '../components/dashboard/manage/user/UsersManagement
 import ProjectsManagement from '../components/dashboard/manage/project/ProjectsManagement';
 import { fetchUsersList } from '../services/authService';
 import { fetchProjectsList } from '../services/projectService';
-import UserMonthlyTargetCard from '../components/dashboard/UserMonthlyTargetCard';
 import { toast } from 'react-hot-toast';
 
 // Import db if needed for admin operations
@@ -97,6 +96,10 @@ const DashboardPage = ({
       const tabParam = searchParams.get('tab');
       if (tabParam === 'manage' && canAccessManage) {
         console.log('[DashboardPage] Setting activeTab to manage from query param');
+        setActiveTab('manage');
+      } else if (isProjectManager || isAdmin || isSuperAdmin) {
+        // Redirect project managers, admins, and superadmins to manage tab by default
+        console.log('[DashboardPage] Admin/Project Manager: Setting activeTab to manage');
         setActiveTab('manage');
       } else {
         // Always default to 'overview' tab on DashboardPage
@@ -534,12 +537,14 @@ const DashboardPage = ({
 
       {/* Other tabs would go here - they can be added later as needed */}
       
-      {/* User Monthly Target Tab */}
+      {/* User Monthly Target Tab (disabled, component missing) */}
+      {/*
       {activeTab === 'bookings' && (
         <div className="my-6">
           <UserMonthlyTargetCard />
         </div>
       )}
+      */}
       
       {/* Agent Performance Tab */}
       {activeTab === 'agents' && (

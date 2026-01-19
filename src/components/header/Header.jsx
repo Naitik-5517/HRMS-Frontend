@@ -164,13 +164,13 @@ const Header = ({
         ];
         // Project Manager tabs (role_id 3)
         if (roleId === 3) return [
-          { view: ViewState.DASHBOARD, label: "Analytics", icon: LayoutDashboard },
+          // { view: ViewState.DASHBOARD, label: "Analytics", icon: LayoutDashboard }, // Temporarily removed
           { view: ViewState.ADMIN_PANEL, label: "Manage", icon: Settings },
           { view: ViewState.ENTRY, label: "User Permission", icon: PenTool },
         ];
             if (role.includes('PROJECT_MANAGER')) {
               return [
-                { view: ViewState.DASHBOARD, label: "Analytics", icon: LayoutDashboard },
+                // { view: ViewState.DASHBOARD, label: "Analytics", icon: LayoutDashboard }, // Temporarily removed
                 { view: ViewState.ADMIN_PANEL, label: "Manage", icon: Settings },
                 { view: ViewState.ENTRY, label: "User Permission", icon: PenTool },
               ];
@@ -188,8 +188,9 @@ const Header = ({
         
         // All other role_ids are treated as Admin for tab purposes
         // Quality and Scheduler temporarily removed
+        // For all other role_ids (admin/superadmin), remove Analytics tab temporarily
         return [
-          { view: ViewState.DASHBOARD, label: "Analytics", icon: LayoutDashboard },
+          // { view: ViewState.DASHBOARD, label: "Analytics", icon: LayoutDashboard }, // Temporarily removed
           // { view: ViewState.QUALITY, label: "Quality", icon: Award },
           // { view: ViewState.SCHEDULER, label: "Scheduler", icon: CalendarClock },
           { view: ViewState.ADMIN_PANEL, label: "Manage", icon: Settings },
@@ -225,8 +226,9 @@ const Header = ({
     // Admin tabs
     // Admin tabs (Quality and Scheduler temporarily removed)
     if (role.includes('ADMIN')) {
+      // Remove Analytics tab for admin/superadmin
       return [
-        { view: ViewState.DASHBOARD, label: "Analytics", icon: LayoutDashboard },
+        // { view: ViewState.DASHBOARD, label: "Analytics", icon: LayoutDashboard }, // Temporarily removed
         // { view: ViewState.QUALITY, label: "Quality", icon: Award },
         // { view: ViewState.SCHEDULER, label: "Scheduler", icon: CalendarClock },
         { view: ViewState.ADMIN_PANEL, label: "Manage", icon: Settings },
