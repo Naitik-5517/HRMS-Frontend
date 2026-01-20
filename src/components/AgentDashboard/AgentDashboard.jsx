@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from "react";
 import { toast } from "react-hot-toast";
 import AppLayout from "../../layouts/AppLayout";
@@ -7,6 +8,8 @@ import { useDeviceInfo } from '../../hooks/useDeviceInfo';
 import { fileToBase64 } from "../../utils/fileToBase64";
 import { useAuth } from "../../context/AuthContext";
 import { log, logError } from "../../config/environment";
+
+
 
 
 const AgentDashboard = ({ embedded = false }) => {
@@ -303,7 +306,7 @@ const AgentDashboard = ({ embedded = false }) => {
                     Project Name <span className="text-red-500">*</span>
                   </label>
                   <select
-                    className="w-full h-12 min-h-[48px] bg-slate-50 border border-slate-200 rounded-lg px-4 py-2 text-base text-blue-700 font-semibold focus:outline-none focus:ring-2 focus:ring-blue-200 placeholder:font-semibold placeholder:text-slate-600 placeholder:text-xs"
+                    className="w-full h-12 min-h-12 bg-slate-50 border border-slate-200 rounded-lg px-4 py-2 text-base text-blue-700 font-semibold focus:outline-none focus:ring-2 focus:ring-blue-200 placeholder:font-semibold placeholder:text-slate-600 placeholder:text-xs"
                     value={selectedProject}
                     onChange={e => setSelectedProject(e.target.value)}
                     onBlur={() => handleBlur('selectedProject')}
@@ -360,7 +363,7 @@ const AgentDashboard = ({ embedded = false }) => {
                   <label className="text-sm font-semibold text-slate-600 flex items-center gap-1 mb-1">
                     Base Target <span className="text-red-500">*</span>
                   </label>
-                  <div className="flex items-center bg-blue-50 border border-blue-100 rounded-lg px-4 py-2 text-base text-blue-700 font-semibold gap-2 min-h-[48px] h-12">
+                  <div className="flex items-center bg-blue-50 border border-blue-100 rounded-lg px-4 py-2 text-base text-blue-700 font-semibold gap-2 min-h-12 h-12">
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2" className="text-blue-400"><rect width="14" height="10" x="5" y="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
                     <span className="text-blue-700 font-semibold">{baseTargetLoading ? 'Loading...' : (baseTarget ? baseTarget : '-')}</span>
                   </div>
@@ -372,7 +375,7 @@ const AgentDashboard = ({ embedded = false }) => {
                   <label className="text-sm font-semibold text-slate-600 flex items-center gap-1 mb-1">
                     Production Target <span className="text-red-500">*</span>
                   </label>
-                  <div className="flex items-center bg-blue-50 border border-blue-100 rounded-lg px-4 py-2 text-base text-blue-700 font-semibold gap-2 min-h-[48px] h-12">
+                  <div className="flex items-center bg-blue-50 border border-blue-100 rounded-lg px-4 py-2 text-base text-blue-700 font-semibold gap-2 min-h-12 h-12">
                     <input
                       type="number"
                       min="0"
@@ -395,7 +398,7 @@ const AgentDashboard = ({ embedded = false }) => {
               <div className="w-full max-w-md">
                 <label className="text-sm font-semibold text-slate-600 flex items-center gap-1 mb-1">Project Files</label>
                 <div
-                  className="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 min-h-[44px] h-11 cursor-pointer group"
+                  className="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 min-h-11 h-11 cursor-pointer group"
                   onClick={() => document.getElementById('custom-file-upload').click()}
                   style={{ transition: 'border 0.2s' }}
                 >
@@ -438,6 +441,6 @@ const AgentDashboard = ({ embedded = false }) => {
   );
 
   return embedded ? content : <AppLayout>{content}</AppLayout>;
-};
+}
 
 export default AgentDashboard;

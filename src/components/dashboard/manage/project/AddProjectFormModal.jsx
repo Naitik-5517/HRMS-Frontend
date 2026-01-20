@@ -291,22 +291,27 @@ const AddProjectFormModal = ({
 
                                         {dropdownOpen.assistantManagers && (
                                              <div ref={dropdownRefs.assistantManagers} className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg">
-                                                  {processedAssistantManagers.map((am) => (
-                                                       <label
-                                                            key={am.user_id}
-                                                            className="flex items-center px-3 py-2 hover:bg-gray-50 cursor-pointer"
-                                                       >
-                                                            <input
-                                                                 type="checkbox"
-                                                                 checked={isSelected('assistantManagerIds', am.user_id)}
-                                                                 onChange={(e) => handleMultipleSelect('assistantManagerIds', am.user_id, e.target.checked)}
-                                                                 className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                                                            />
-                                                            <span className="ml-2 text-sm text-gray-700">
-                                                                 {am.label}
-                                                            </span>
-                                                       </label>
-                                                  ))}
+                                                                                                                             {/* Show each user only once, checked if selected */}
+                                                                                                                             {[
+                                                                                                                                  ...newProject.assistantManagerIds
+                                                                                                                                       .map(id => processedAssistantManagers.find(am => String(am.user_id) === String(id)) || { user_id: id, label: `Unknown (${id})` }),
+                                                                                                                                  ...processedAssistantManagers.filter(am => !newProject.assistantManagerIds.includes(am.user_id))
+                                                                                                                             ].map((am) => (
+                                                                                                                                  <label
+                                                                                                                                       key={am.user_id}
+                                                                                                                                       className="flex items-center px-3 py-2 hover:bg-gray-50 cursor-pointer"
+                                                                                                                                  >
+                                                                                                                                       <input
+                                                                                                                                            type="checkbox"
+                                                                                                                                            checked={isSelected('assistantManagerIds', am.user_id)}
+                                                                                                                                            onChange={(e) => handleMultipleSelect('assistantManagerIds', am.user_id, e.target.checked)}
+                                                                                                                                            className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                                                                                                                                       />
+                                                                                                                                       <span className="ml-2 text-sm text-gray-700">
+                                                                                                                                            {am.label}
+                                                                                                                                       </span>
+                                                                                                                                  </label>
+                                                                                                                             ))}
                                              </div>
                                         )}
                                         {formErrors.assistantManagerIds && (
@@ -355,22 +360,27 @@ const AddProjectFormModal = ({
                                         </button>
                                         {dropdownOpen.qaManagers && (
                                              <div ref={dropdownRefs.qaManagers} className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg">
-                                                  {processedQaManagers.map((qa) => (
-                                                       <label
-                                                            key={qa.user_id}
-                                                            className="flex items-center px-3 py-2 hover:bg-gray-50 cursor-pointer"
-                                                       >
-                                                            <input
-                                                                 type="checkbox"
-                                                                 checked={isSelected('qaManagerIds', qa.user_id)}
-                                                                 onChange={(e) => handleMultipleSelect('qaManagerIds', qa.user_id, e.target.checked)}
-                                                                 className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                                                            />
-                                                            <span className="ml-2 text-sm text-gray-700">
-                                                                 {qa.label}
-                                                            </span>
-                                                       </label>
-                                                  ))}
+                                                                                                                             {/* Show each user only once, checked if selected */}
+                                                                                                                             {[
+                                                                                                                                  ...newProject.qaManagerIds
+                                                                                                                                       .map(id => processedQaManagers.find(qa => String(qa.user_id) === String(id)) || { user_id: id, label: `Unknown (${id})` }),
+                                                                                                                                  ...processedQaManagers.filter(qa => !newProject.qaManagerIds.includes(qa.user_id))
+                                                                                                                             ].map((qa) => (
+                                                                                                                                  <label
+                                                                                                                                       key={qa.user_id}
+                                                                                                                                       className="flex items-center px-3 py-2 hover:bg-gray-50 cursor-pointer"
+                                                                                                                                  >
+                                                                                                                                       <input
+                                                                                                                                            type="checkbox"
+                                                                                                                                            checked={isSelected('qaManagerIds', qa.user_id)}
+                                                                                                                                            onChange={(e) => handleMultipleSelect('qaManagerIds', qa.user_id, e.target.checked)}
+                                                                                                                                            className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                                                                                                                                       />
+                                                                                                                                       <span className="ml-2 text-sm text-gray-700">
+                                                                                                                                            {qa.label}
+                                                                                                                                       </span>
+                                                                                                                                  </label>
+                                                                                                                             ))}
                                              </div>
                                         )}
                                    </div>

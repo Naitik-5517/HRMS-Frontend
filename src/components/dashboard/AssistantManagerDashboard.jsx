@@ -8,6 +8,37 @@ import { useDeviceInfo } from '../../hooks/useDeviceInfo';
 
 const AssistantManagerDashboard = () => {
   const { user } = useAuth();
+  // Project/task name mapping state
+  const [projectNameMap, setProjectNameMap] = useState({});
+  const [taskNameMap, setTaskNameMap] = useState({});
+
+  // Fetch project/task mapping once
+  useEffect(() => {
+    const fetchDropdownMapping = async () => {
+      try {
+        const dropdownRes = await api.post("/dropdown/get", {
+          dropdown_type: "projects with tasks",
+          logged_in_user_id: user?.user_id
+        });
+        const projectsWithTasks = dropdownRes.data?.data || [];
+        const pMap = {};
+        const tMap = {};
+        projectsWithTasks.forEach(project => {
+          pMap[String(project.project_id)] = project.project_name;
+          (project.tasks || []).forEach(task => {
+            tMap[String(task.task_id)] = task.task_name || task.label;
+          });
+        });
+        setProjectNameMap(pMap);
+        setTaskNameMap(tMap);
+      } catch (err) {
+        // Silent fail for dashboard
+      }
+    };
+    if (user?.user_id) {
+      fetchDropdownMapping();
+    }
+  }, [user?.user_id]);
   const { device_id, device_type } = useDeviceInfo();
   const [dateRange, setDateRange] = useState({
     start: format(new Date(), "yyyy-MM-dd"),
@@ -27,46 +58,45 @@ const AssistantManagerDashboard = () => {
     const fetchDashboard = async () => {
       setLoading(true);
       try {
-        setLoading(true);
         // Use logged_in_user_id and device info from hook (matches backend requirements)
         const payload = {
           logged_in_user_id: user?.user_id || user?.id,
-          device_id: device_id || 'web_default',
-          device_type: device_type || 'web',
-          start_date: dateRange.start,
-          end_date: dateRange.end,
         };
         console.log('[AssistantManagerDashboard] 📤 Payload:', payload);
-        const res = await api.post("/dashboard/filter", payload);
-        console.log('[AssistantManagerDashboard] 🟢 API response:', res.data);
-        if (res.data && res.data.status === 200) {
-          // Use new API structure: summary and tracker
-          const summary = res.data.data?.summary || {};
-          const tracker = res.data.data?.tracker || [];
-          // Build a map of task_id to task_name from the API response if available
-          const tasks = res.data.data?.tasks || [];
-          const taskMap = {};
-          tasks.forEach(task => {
-            if (task.task_id) taskMap[task.task_id] = task.task_name || '-';
-          });
-
+        // Fetch trackers from tracker/view
+        const trackerRes = await api.post("/tracker/view", payload);
+        console.log('[AssistantManagerDashboard] 🟢 API response:', trackerRes.data);
+        if (trackerRes.data && trackerRes.data.status === 200) {
+          const trackerData = trackerRes.data.data || {};
+          const allTrackers = trackerData.trackers || [];
+          // Build agent list from tracker data only
+          const uniqueAgentIds = new Set(allTrackers.filter(row => row.tracker_file).map(row => String(row.user_id)));
+          // Calculate stats
+          const qcPending = allTrackers.filter(row => row.tracker_file && row.qc_status === 'pending').length;
+          const billableHours = allTrackers.filter(row => row.tracker_file).reduce((acc, row) => acc + (Number(row.billable_hours) || 0), 0).toFixed(2);
+          const qcScoreTrackers = allTrackers.filter(row => row.tracker_file && row.qc_score !== undefined && row.qc_score !== null && row.qc_score !== '');
+          const avgQcScore = qcScoreTrackers.length > 0 ? (
+            qcScoreTrackers.reduce((acc, row) => acc + (Number(row.qc_score) || 0), 0) / qcScoreTrackers.length
+          ).toFixed(2) : '0.00';
           setStats({
-            totalAgents: summary.user_count || 0,
-            qcPending: summary.qc_pending || 0,
-            billableHours: summary.total_billable_hours ? Number(summary.total_billable_hours).toFixed(2) : '0.00',
-            avgQcScore: summary.avg_qc_score || 0,
-            latestQc: tracker
+            totalAgents: uniqueAgentIds.size,
+            qcPending,
+            billableHours,
+            avgQcScore,
+            latestQc: allTrackers
               .filter(row => !!row.tracker_file)
               .map(row => ({
                 ...row,
-                file_name: row.project_name || '-',
+                user_name: row.user_name || "-",
+                project_name: projectNameMap[String(row.project_id)] || row.project_name || String(row.project_id) || "-",
+                file_name: projectNameMap[String(row.project_id)] || row.project_name || String(row.project_id) || "-",
                 qc_score: row.qc_score || '-',
                 date: row.date_time ? row.date_time.split(' ')[0] : '-',
-                task_name: row.task_name || taskMap[row.task_id] || '-',
+                task_name: taskNameMap[String(row.task_id)] || row.task_name || String(row.task_id) || '-',
               })),
           });
         } else {
-          console.warn('[AssistantManagerDashboard] Unexpected API response structure:', res.data);
+          console.warn('[AssistantManagerDashboard] Unexpected API response structure:', trackerRes.data);
         }
       } catch (err) {
         console.error('[AssistantManagerDashboard] Error fetching dashboard:', err);
@@ -74,7 +104,6 @@ const AssistantManagerDashboard = () => {
           console.error('[AssistantManagerDashboard] Error response:', err.response.data);
         }
       } finally {
-        setLoading(false);
         setLoading(false);
       }
     };
@@ -219,13 +248,13 @@ const AssistantManagerDashboard = () => {
                       <div>
                         <p className="text-xs text-slate-500 mb-0.5">Project</p>
                         <p className="text-sm text-slate-700">
-                          {file.project_name || "-"}
+                          {projectNameMap[String(file.project_id)] || file.project_name || String(file.project_id) || "-"}
                         </p>
                       </div>
                       <div>
                         <p className="text-xs text-slate-500 mb-0.5">Task</p>
                         <p className="text-sm text-slate-700">
-                          {file.task_name || "-"}
+                          {taskNameMap[String(file.task_id)] || file.task_name || String(file.task_id) || "-"}
                         </p>
                       </div>
                       <div>

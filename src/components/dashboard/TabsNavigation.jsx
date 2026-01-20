@@ -28,7 +28,8 @@ const TabsNavigation = ({
     { id: 'mgmt_incentives', label: 'Management Incentives', icon: Gem, visible: !isAgent && !isQA }
   ];
 
-  const visibleTabs = tabs.filter(tab => tab.alwaysVisible || tab.visible);
+  // Ensure 'overview' tab is always visible, regardless of any other logic
+  const visibleTabs = tabs.filter(tab => tab.id === 'overview' || tab.alwaysVisible || tab.visible);
 
   return (
     <div className="relative w-full">

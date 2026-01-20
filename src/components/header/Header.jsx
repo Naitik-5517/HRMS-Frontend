@@ -146,51 +146,43 @@ const Header = ({
       // Try role_id mapping if role string is missing
       if (currentUser?.role_id) {
         const roleId = Number(currentUser.role_id);
-        
-        // Agent tabs (role_id 6)
-        if (roleId === 6) return [
-          { view: ViewState.DASHBOARD, label: "Analytics", icon: LayoutDashboard },
-          { view: ViewState.ENTRY, label: "Tracker", icon: PenTool },
-          // { view: ViewState.SCHEDULER, label: "Roster", icon: CalendarClock }, // Temporarily removed
-        ];
-        
-        // QA tabs (role_id 5) - Hide Manage and User Permission
-        if (roleId === 5) return [
-          { view: ViewState.DASHBOARD, label: "Analytics", icon: LayoutDashboard },
-          // { view: ViewState.QUALITY, label: "Quality", icon: Award }, // Temporarily removed
-          // { view: ViewState.SCHEDULER, label: "Scheduler", icon: CalendarClock }, // Temporarily removed
-          { view: "TRACKER_REPORT", label: "Tracker Report", icon: FileText },
-          { view: "AGENT_LIST", label: "Agent File Report", icon: Users },
-        ];
-        // Project Manager tabs (role_id 3)
-        if (roleId === 3) return [
-          // { view: ViewState.DASHBOARD, label: "Analytics", icon: LayoutDashboard }, // Temporarily removed
-          { view: ViewState.ADMIN_PANEL, label: "Manage", icon: Settings },
-          { view: ViewState.ENTRY, label: "User Permission", icon: PenTool },
-        ];
-            if (role.includes('PROJECT_MANAGER')) {
-              return [
-                // { view: ViewState.DASHBOARD, label: "Analytics", icon: LayoutDashboard }, // Temporarily removed
-                { view: ViewState.ADMIN_PANEL, label: "Manage", icon: Settings },
-                { view: ViewState.ENTRY, label: "User Permission", icon: PenTool },
-              ];
-            }
-        
-        // Assistant Manager tabs (role_id 4)
-        if (roleId === 4) return [
-          { view: ViewState.DASHBOARD, label: "Analytics", icon: LayoutDashboard },
-          // { view: ViewState.SCHEDULER, label: "Scheduler", icon: CalendarClock }, // Temporarily removed
-          { view: "TRACKER_REPORT", label: "Tracker Report", icon: FileText },
-          { view: "AGENT_LIST", label: "Agent File Report", icon: Users },
-          { view: ViewState.ADMIN_PANEL, label: "Manage", icon: Settings },
-          { view: ViewState.ENTRY, label: "User Permission", icon: PenTool },
-        ];
-        
-        // All other role_ids are treated as Admin for tab purposes
-        // Quality and Scheduler temporarily removed
-        // For all other role_ids (admin/superadmin), remove Analytics tab temporarily
+        // For agent, QA, PM, AM, show Analytics; for admin/superadmin, remove Analytics
+        if (roleId === 6) {
+          return [
+            { view: ViewState.DASHBOARD, label: "Analytics", icon: LayoutDashboard },
+            { view: ViewState.ENTRY, label: "Tracker", icon: PenTool },
+            // { view: ViewState.SCHEDULER, label: "Roster", icon: CalendarClock },
+          ];
+        }
+        if (roleId === 5) {
+          return [
+            { view: ViewState.DASHBOARD, label: "Analytics", icon: LayoutDashboard },
+            // { view: ViewState.QUALITY, label: "Quality", icon: Award },
+            // { view: ViewState.SCHEDULER, label: "Scheduler", icon: CalendarClock },
+            { view: "TRACKER_REPORT", label: "Tracker Report", icon: FileText },
+            { view: "AGENT_LIST", label: "Agent File Report", icon: Users },
+          ];
+        }
+        if (roleId === 3 || (role && role.includes('PROJECT_MANAGER'))) {
+          return [
+            // { view: ViewState.DASHBOARD, label: "Analytics", icon: LayoutDashboard },
+            { view: ViewState.ADMIN_PANEL, label: "Manage", icon: Settings },
+            { view: ViewState.ENTRY, label: "User Permission", icon: PenTool },
+          ];
+        }
+        if (roleId === 4) {
+          return [
+            { view: ViewState.DASHBOARD, label: "Analytics", icon: LayoutDashboard },
+            // { view: ViewState.SCHEDULER, label: "Scheduler", icon: CalendarClock },
+            { view: "TRACKER_REPORT", label: "Tracker Report", icon: FileText },
+            { view: "AGENT_LIST", label: "Agent File Report", icon: Users },
+            { view: ViewState.ADMIN_PANEL, label: "Manage", icon: Settings },
+            { view: ViewState.ENTRY, label: "User Permission", icon: PenTool },
+          ];
+        }
+        // All other role_ids (admin/superadmin, etc.) - REMOVE Analytics
         return [
-          // { view: ViewState.DASHBOARD, label: "Analytics", icon: LayoutDashboard }, // Temporarily removed
+          // { view: ViewState.DASHBOARD, label: "Analytics", icon: LayoutDashboard },
           // { view: ViewState.QUALITY, label: "Quality", icon: Award },
           // { view: ViewState.SCHEDULER, label: "Scheduler", icon: CalendarClock },
           { view: ViewState.ADMIN_PANEL, label: "Manage", icon: Settings },
@@ -223,14 +215,20 @@ const Header = ({
       ];
     }
     
-    // Admin tabs
-    // Admin tabs (Quality and Scheduler temporarily removed)
+    // Admin tabs (Quality and Scheduler temporarily removed) - REMOVE Analytics
     if (role.includes('ADMIN')) {
-      // Remove Analytics tab for admin/superadmin
       return [
-        // { view: ViewState.DASHBOARD, label: "Analytics", icon: LayoutDashboard }, // Temporarily removed
+        // { view: ViewState.DASHBOARD, label: "Analytics", icon: LayoutDashboard },
         // { view: ViewState.QUALITY, label: "Quality", icon: Award },
         // { view: ViewState.SCHEDULER, label: "Scheduler", icon: CalendarClock },
+        { view: ViewState.ADMIN_PANEL, label: "Manage", icon: Settings },
+        { view: ViewState.ENTRY, label: "User Permission", icon: PenTool },
+      ];
+    }
+    // Project Manager tabs - REMOVE Analytics
+    if (role.includes('PROJECT_MANAGER')) {
+      return [
+        // { view: ViewState.DASHBOARD, label: "Analytics", icon: LayoutDashboard },
         { view: ViewState.ADMIN_PANEL, label: "Manage", icon: Settings },
         { view: ViewState.ENTRY, label: "User Permission", icon: PenTool },
       ];

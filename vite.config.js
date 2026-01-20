@@ -43,7 +43,20 @@ export default defineConfig(({ mode }) => {
           changeOrigin: true,
           secure: false,
         },
+        "/dashboard": {
+          target: apiBaseURL,
+          changeOrigin: true,
+          secure: false,
+        },
+        "/permission": {
+          target: apiBaseURL,
+          changeOrigin: true,
+          secure: false,
+        },
       },
+      // Fix: Serve index.html for unknown routes (SPA fallback)
+      middlewareMode: false,
+      historyApiFallback: true,
     },
   };
 });

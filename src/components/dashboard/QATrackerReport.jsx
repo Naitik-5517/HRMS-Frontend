@@ -40,12 +40,29 @@ const QATrackerReport = () => {
       try {
         setLoadingAgents(true);
         setLoading(true);
-        // Fetch per-hour targets from dropdown/get
-        const dropdownRes = await api.post("/dropdown/get", {
+        // Fetch trackers from tracker/view
+        const trackerRes = await api.post("/tracker/view", {
+          logged_in_user_id: user?.user_id
+        });
+        const trackerData = trackerRes.data?.data || {};
+        const allTrackers = trackerData.trackers || [];
+        // Get unique agent IDs from trackers
+        const agentIdSet = new Set(allTrackers.map(t => String(t.user_id)));
+        // Fetch agent details from dropdown/get (projects with tasks)
+        const agentsRes = await api.post("/dropdown/get", {
           dropdown_type: "projects with tasks",
           logged_in_user_id: user?.user_id
         });
-        const projectsWithTasks = dropdownRes.data?.data || [];
+        const projectsWithTasks = agentsRes.data?.data || [];
+        let allAgents = [];
+        projectsWithTasks.forEach(project => {
+          (project.team || []).forEach(agent => {
+            if (agentIdSet.has(String(agent.user_id))) {
+              allAgents.push(agent);
+            }
+          });
+        });
+        // Build task map
         const taskMap = {};
         projectsWithTasks.forEach(project => {
           (project.tasks || []).forEach(task => {
@@ -53,84 +70,39 @@ const QATrackerReport = () => {
           });
         });
         setDropdownTaskMap(taskMap);
-
-        log('[QATrackerReport] Fetching dashboard/filter data');
-        const payload = {
-          logged_in_user_id: user?.user_id,
-          device_id: user?.device_id || 'web123',
-          device_type: user?.device_type || 'web',
-        };
-        const res = await api.post("/dashboard/filter", payload);
-        const data = res.data?.data || {};
-        // ...existing code for filtering agents and trackers...
-        let filteredAgents = [];
-        let filteredTrackers = [];
-        const role = String(user?.role_name || user?.user_role || '').toLowerCase();
-        const allUsers = data.users || [];
-        const allTrackers = data.tracker || [];
-        const allTasks = data.tasks || [];
+        // Build task name map
         const taskNameMap = {};
-        allTasks.forEach(task => {
-          if (task.task_id != null) taskNameMap[task.task_id] = task.task_name;
+        projectsWithTasks.forEach(project => {
+          (project.tasks || []).forEach(task => {
+            taskNameMap[task.task_id] = task.task_name || task.label;
+          });
         });
-        if (role === 'assistant manager') {
-          // Assistant manager: show only users in their team (team_id match)
-          let myTeamIds = [];
-          if (data.projects) {
-            data.projects.forEach(p => {
-              if (p.asst_project_manager_id && p.asst_project_manager_id.includes(String(user.user_id))) {
-                if (p.project_team_id) {
-                  const ids = p.project_team_id.replace(/\[|\]/g, '').split(',').map(x => x.trim()).filter(Boolean);
-                  myTeamIds.push(...ids);
-                }
-              }
-            });
-          }
-          filteredAgents = allUsers.filter(u => myTeamIds.includes(String(u.user_id)));
-          filteredTrackers = allTrackers.filter(t => myTeamIds.includes(String(t.user_id)));
-        } else if (role === 'project manager') {
-          // Project manager: show only users in their project (project_manager_id match)
-          let myProjectIds = [];
-          if (data.projects) {
-            data.projects.forEach(p => {
-              if (String(p.project_manager_id) === String(user.user_id)) {
-                if (p.project_team_id) {
-                  const ids = p.project_team_id.replace(/\[|\]/g, '').split(',').map(x => x.trim()).filter(Boolean);
-                  myProjectIds.push(...ids);
-                }
-              }
-            });
-          }
-          filteredAgents = allUsers.filter(u => myProjectIds.includes(String(u.user_id)));
-          filteredTrackers = allTrackers.filter(t => myProjectIds.includes(String(t.user_id)));
-        } else if (role === 'qa' || role === 'qa agent' || role === 'quality analyst') {
-          // QA: show only users under QA (project_qa_id match)
-          let myQAIds = [];
-          if (data.projects) {
-            data.projects.forEach(p => {
-              if (p.project_qa_id && p.project_qa_id.includes(String(user.user_id))) {
-                if (p.project_team_id) {
-                  const ids = p.project_team_id.replace(/\[|\]/g, '').split(',').map(x => x.trim()).filter(Boolean);
-                  myQAIds.push(...ids);
-                }
-              }
-            });
-          }
-          filteredAgents = allUsers.filter(u => myQAIds.includes(String(u.user_id)));
-          filteredTrackers = allTrackers.filter(t => myQAIds.includes(String(t.user_id)));
-        } else {
-          // Default: show all users and trackers
-          filteredAgents = allUsers;
-          filteredTrackers = allTrackers;
-        }
-        // Enrich trackers with task_name from taskNameMap
-        filteredTrackers = filteredTrackers.map(tracker => ({
-          ...tracker,
-          task_name: tracker.task_name || taskNameMap[tracker.task_id] || "-"
-        }));
-        setAssignedAgents(filteredAgents);
-        setTrackers(filteredTrackers);
-        log('[QATrackerReport] Agents loaded:', filteredAgents.length, 'Trackers loaded:', filteredTrackers.length);
+        // Build userId-to-userName map from all users in all projects
+        const userIdNameMap = {};
+        projectsWithTasks.forEach(project => {
+          (project.team || []).forEach(agent => {
+            // userIdNameMap no longer needed if user_name is present in tracker/view
+          });
+        });
+        console.log('[QATrackerReport] userIdNameMap:', userIdNameMap);
+        // Build project map
+        const projectMap = {};
+        projectsWithTasks.forEach(project => {
+          projectMap[String(project.project_id)] = project.project_name;
+        });
+        // Enrich trackers with user_name, project_name, and task_name
+        const enrichedTrackers = allTrackers.map(tracker => {
+          const mappedName = tracker.user_name || "-";
+          return {
+            ...tracker,
+            user_name: mappedName,
+            project_name: tracker.project_name || projectMap[String(tracker.project_id)] || "-",
+            task_name: tracker.task_name || taskNameMap[tracker.task_id] || "-"
+          };
+        });
+        // setAssignedAgents can be set directly from tracker data if needed
+        setTrackers(enrichedTrackers);
+        log('[QATrackerReport] Agents loaded:', Object.keys(userIdNameMap).length, 'Trackers loaded:', enrichedTrackers.length);
       } catch (err) {
         logError('[QATrackerReport] Error fetching dashboard/filter:', err);
         toast.error("Failed to load agent/tracker data");

@@ -273,8 +273,11 @@ const EditProjectModal = ({
 											<div className="px-3 py-2 text-sm text-slate-500">No assistant managers available</div>
 										)}
 										{[
-											...processedAssistantManagers.filter(am => editProject.assistantManagerIds.includes(am.id)),
-											...processedAssistantManagers.filter(am => !editProject.assistantManagerIds.includes(am.id))
+											// Add selected IDs not in processedAssistantManagers
+											...editProject.assistantManagerIds
+												.filter(id => !processedAssistantManagers.some(am => am.id === id))
+												.map(id => ({ id, label: `Unknown (${id})` })),
+											...processedAssistantManagers
 										].map((am) => (
 											<label 
 												key={am.id} 
@@ -342,8 +345,10 @@ const EditProjectModal = ({
 											<div className="px-3 py-2 text-sm text-slate-500">No QA managers available</div>
 										)}
 										{[
-											...processedQaManagers.filter(qa => editProject.qaManagerIds.includes(qa.id)),
-											...processedQaManagers.filter(qa => !editProject.qaManagerIds.includes(qa.id))
+											...editProject.qaManagerIds
+												.filter(id => !processedQaManagers.some(qa => qa.id === id))
+												.map(id => ({ id, label: `Unknown (${id})` })),
+											...processedQaManagers
 										].map((qa) => (
 											<label key={qa.id} className={`flex items-center px-3 py-2 hover:bg-slate-50 cursor-pointer text-sm ${editProject.qaManagerIds.includes(qa.id) ? 'bg-blue-50' : ''}`}>
 												<input
@@ -401,8 +406,10 @@ const EditProjectModal = ({
 											<div className="px-3 py-2 text-sm text-slate-500">No agents available</div>
 										)}
 										{[
-											...processedTeams.filter(team => editProject.teamIds.includes(team.id)),
-											...processedTeams.filter(team => !editProject.teamIds.includes(team.id))
+											...editProject.teamIds
+												.filter(id => !processedTeams.some(team => team.id === id))
+												.map(id => ({ id, label: `Unknown (${id})` })),
+											...processedTeams
 										].map((team) => (
 											<label key={team.id} className={`flex items-center px-3 py-2 hover:bg-slate-50 cursor-pointer text-sm ${editProject.teamIds.includes(team.id) ? 'bg-blue-50' : ''}`}>
 												<input

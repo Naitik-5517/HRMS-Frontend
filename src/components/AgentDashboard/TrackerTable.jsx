@@ -40,33 +40,7 @@ const TrackerTable = ({ userId, projects, onClose }) => {
     return project?.tasks || [];
   }, [selectedProject, projects]);
 
-  // Store per-hour targets from dropdown API
-  const [dropdownTaskMap, setDropdownTaskMap] = useState({});
 
-  // Fetch per-hour targets from /dropdown/get on mount
-  useEffect(() => {
-    const fetchDropdownTargets = async () => {
-      try {
-        const payload = {
-          dropdown_type: "projects with tasks",
-          logged_in_user_id: user?.user_id
-        };
-        const res = await api.post("/dropdown/get", payload);
-        const projectsWithTasks = res.data?.data || [];
-        // Flatten all tasks into a map: { task_id: task_target }
-        const taskMap = {};
-        projectsWithTasks.forEach(project => {
-          (project.tasks || []).forEach(task => {
-            taskMap[task.task_id] = task.task_target;
-          });
-        });
-        setDropdownTaskMap(taskMap);
-      } catch (error) {
-        logError('[TrackerTable] Error fetching dropdown targets:', error);
-      }
-    };
-    fetchDropdownTargets();
-  }, [user?.user_id]);
 
   // Lookup helpers (use new projects-with-tasks structure)
   const getProjectName = (id) => {
@@ -101,61 +75,35 @@ const TrackerTable = ({ userId, projects, onClose }) => {
         setLoading(true);
         setError("");
         
-        // Use device_id/device_type from user context if available, else sessionStorage fallback
-        const device_id = user?.device_id || sessionStorage.getItem('device_id') || 'adjisjd09734';
-        const device_type = user?.device_type || sessionStorage.getItem('device_type') || 'LAPTOP';
+        // ...existing code...
         
-        // Build payload with filters
-        const payload = { 
-          logged_in_user_id: user?.user_id,
-          user_id: userId, 
-          device_id, 
-          device_type,
-        };
-
-        // Add optional filters
-        if (selectedProject) {
-          payload.project_id = Number(selectedProject);
-        }
-        if (selectedTask) {
-          payload.task_id = Number(selectedTask);
-        }
-        
+        // Build payload: send the correct agent's userId
+        const payload = { logged_in_user_id: userId };
         log('[TrackerTable] Fetching trackers with filters:', payload);
-        
-        const res = await api.post("/dashboard/filter", payload);
-        
+        const res = await api.post("/tracker/view", payload);
         if (res.status === 200 && res.data?.data) {
           const responseData = res.data.data;
-          const fetchedTrackers = responseData.tracker || [];
-          const tasks = responseData.tasks || [];
-          
-          // Create a map for task lookup
-          const taskMap = {};
-          tasks.forEach(task => {
-            taskMap[task.task_id] = {
-              task_name: task.task_name,
-              task_target: task.task_target
-            };
-          });
-          
-          // Enrich tracker data with task names and apply date filtering
+          // tracker/view returns { count, trackers: [...] }
+          const fetchedTrackers = responseData.trackers || [];
+          // For agent side, just filter by date and project/task if selected
           const enrichedTrackers = fetchedTrackers
             .filter(tracker => {
               if (!tracker.date_time) return true;
               const trackerDate = new Date(tracker.date_time).toISOString().split('T')[0];
               if (startDate && trackerDate < startDate) return false;
               if (endDate && trackerDate > endDate) return false;
+              if (selectedProject && String(tracker.project_id) !== String(selectedProject)) return false;
+              if (selectedTask && String(tracker.task_id) !== String(selectedTask)) return false;
               return true;
             })
             .map(tracker => {
-              const taskInfo = taskMap[tracker.task_id] || {};
+              // Enrich with project/task names for display
               return {
                 ...tracker,
-                task_name: taskInfo.task_name || '-'
+                project_name: tracker.project_name || getProjectName(tracker.project_id),
+                task_name: tracker.task_name || getTaskName(tracker.task_id, tracker.project_id),
               };
             });
-          
           log('[TrackerTable] Fetched trackers:', enrichedTrackers.length);
           if (enrichedTrackers.length > 0) {
             log('[TrackerTable] Latest tracker data:', enrichedTrackers[0]);
@@ -177,7 +125,27 @@ const TrackerTable = ({ userId, projects, onClose }) => {
     };
 
     fetchTrackers();
-  }, [userId, user, startDate, endDate, selectedProject, selectedTask]);
+  }, [userId, user, startDate, endDate, selectedProject, selectedTask, projects]);
+
+  // Debug: Log tracker data for different roles
+  useEffect(() => {
+    if (!trackers || !user) return;
+    const roleRaw = user?.role_name || user?.user_role || user?.role || '';
+    const role = String(roleRaw).toLowerCase();
+    const userId = user?.user_id || user?.id || '-';
+    // Debug: log user object and role values
+    console.log('[TrackerTable Debug] user:', user);
+    console.log('[TrackerTable Debug] roleRaw:', roleRaw, '| role:', role, '| userId:', userId);
+    if (role.includes('qa')) {
+      console.log(`[QA Agent][user_id: ${userId}][role: ${roleRaw}] TrackerTable data:`, trackers);
+    } else if (role.includes('assistant manager') || role.includes('asst')) {
+      console.log(`[Assistant Manager][user_id: ${userId}][role: ${roleRaw}] TrackerTable data:`, trackers);
+    } else if ((role.includes('agent') && !role.includes('qa')) || Number(user?.role_id) === 6) {
+      console.log(`[Agent][user_id: ${userId}][role: ${roleRaw}] TrackerTable data:`, trackers);
+    } else {
+      console.log(`[Other Role][user_id: ${userId}][role: ${roleRaw}] TrackerTable data:`, trackers);
+    }
+  }, [trackers, user]);
 
   const handleDelete = (tracker_id) => setDeleteConfirm(tracker_id);
   
@@ -216,19 +184,16 @@ const TrackerTable = ({ userId, projects, onClose }) => {
   };
 
   // Calculate totals from filtered trackers
+  // Always use tenure_target from tracker/view for all roles
   const totals = useMemo(() => {
     return trackers.reduce((acc, tracker) => {
-      // Use tracker.tenure_target if present, else fallback to dropdownTaskMap
       let perHourTarget = Number(tracker.tenure_target);
-      if (!perHourTarget && dropdownTaskMap && tracker.task_id) {
-        perHourTarget = Number(dropdownTaskMap[tracker.task_id]) || 0;
-      }
       acc.tenureTarget += perHourTarget;
       acc.production += Number(tracker.production) || 0;
       acc.billableHours += Number(tracker.billable_hours) || 0;
       return acc;
     }, { tenureTarget: 0, production: 0, billableHours: 0 });
-  }, [trackers, dropdownTaskMap]);
+  }, [trackers]);
 
   // Export to Excel function
   const handleExportToExcel = () => {
@@ -245,7 +210,8 @@ const TrackerTable = ({ userId, projects, onClose }) => {
           : "-",
         'Project': tracker.project_name || getProjectName(tracker.project_id),
         'Task': tracker.task_name || '-',
-        'Per Hour Target': tracker.tenure_target || 0,
+        // Always show tenure_target from tracker/view for all roles
+        'Per Hour Target': tracker.tenure_target ?? 0,
         'Production': tracker.production || 0,
         'Billable Hours': tracker.billable_hours !== null && tracker.billable_hours !== undefined
           ? Number(tracker.billable_hours).toFixed(2)
@@ -436,7 +402,8 @@ const TrackerTable = ({ userId, projects, onClose }) => {
                 </td>
                 <td className="px-4 py-2 align-middle">{tracker.project_name || getProjectName(tracker.project_id)}</td>
                 <td className="px-4 py-2 align-middle">{tracker.task_name || getTaskName(tracker.task_id, tracker.project_id) || '-'}</td>
-                <td className="px-4 py-2 align-middle">{tracker.tenure_target || dropdownTaskMap[tracker.task_id] || '-'}</td>
+                {/* Always show tenure_target from tracker/view for all roles */}
+                <td className="px-4 py-2 align-middle">{tracker.tenure_target ?? '-'}</td>
                 <td className="px-4 py-2 align-middle">{tracker.production}</td>
                 <td className="px-4 py-2 align-middle">
                   {tracker.billable_hours !== null && tracker.billable_hours !== undefined
@@ -484,7 +451,7 @@ const TrackerTable = ({ userId, projects, onClose }) => {
 
       {/* Totals Summary Card */}
       {!loading && trackers.length > 0 && (
-        <div className="mt-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4 border border-blue-200">
+        <div className="mt-4 bg-linear-to-r from-blue-50 to-indigo-50 rounded-lg p-4 border border-blue-200">
           <h3 className="text-sm font-semibold text-blue-900 mb-3 flex items-center gap-2">
             <span className="inline-block w-2 h-2 bg-blue-600 rounded-full"></span>
             Summary Totals

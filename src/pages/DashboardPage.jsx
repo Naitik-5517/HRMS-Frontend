@@ -36,7 +36,6 @@ const DashboardPage = ({
     user: currentUser, 
     canManageUsers, 
     canManageProjects, 
-    isSuperAdmin, 
     canViewSalary 
   } = useAuth(); // Using AuthContext instead of UserContext
   const { device_id, device_type } = useDeviceInfo();
@@ -65,11 +64,13 @@ const DashboardPage = ({
   // role_id: 5 = QA
   // role_id: 4 = Assistant Manager
   // role_id: 3 = Project Manager
-  const isAdmin = role === 'admin' || userRole === 'ADMIN' || designation === 'Admin' || roleId === 1;
-  const isAgent = role === 'agent' || userRole === 'AGENT' || designation === 'Agent' || designation === 'AGENT' || roleId === 6;
-  const isQA = roleId === 5 || currentUser?.user_designation === 'QA' || designation === 'QA' || role.toLowerCase().includes('qa');
-  const isAssistantManager = roleId === 4 || designation === 'Assistant Manager' || role.toLowerCase().includes('assistant');
-  const isProjectManager = roleId === 3 || designation === 'Project Manager' || role.toLowerCase().includes('project manager');
+  // Ensure admin and super admin detection is robust
+  const isAdmin = roleId === 1 || String(role).toLowerCase() === 'admin' || String(userRole).toUpperCase() === 'ADMIN' || String(designation).toLowerCase() === 'admin';
+  const isSuperAdmin = String(role).toLowerCase().includes('super') || String(userRole).toUpperCase().includes('SUPER') || String(designation).toLowerCase().includes('super');
+  const isAgent = roleId === 6 || String(role).toLowerCase() === 'agent' || String(userRole).toUpperCase() === 'AGENT' || String(designation).toLowerCase() === 'agent';
+  const isQA = roleId === 5 || String(currentUser?.user_designation).toLowerCase() === 'qa' || String(designation).toLowerCase() === 'qa' || String(role).toLowerCase().includes('qa');
+  const isAssistantManager = roleId === 4 || String(designation).toLowerCase() === 'assistant manager' || String(role).toLowerCase().includes('assistant');
+  const isProjectManager = roleId === 3 || String(designation).toLowerCase() === 'project manager' || String(role).toLowerCase().includes('project manager');
   const canViewTrackerReport = isQA || isAssistantManager || isProjectManager;
   
   // Set initial active tab - will be updated when user data loads
@@ -512,28 +513,35 @@ const DashboardPage = ({
       {/* Debug: Show current active tab */}
       {console.log('[DashboardPage Render] activeTab:', activeTab)}
 
-      {activeTab === 'overview' && (
-        isQA ? (
-          <QAAgentDashboard embedded={true} />
-        ) : isAssistantManager ? (
-          <AssistantManagerDashboard />
-        ) : (
-          (() => {
-            const isDefault = !dateRange.start && !dateRange.end;
-            const dynamicToday = new Date().toISOString().slice(0, 10);
-            const rangeToSend = isDefault ? { start: dynamicToday, end: dynamicToday } : dateRange;
-            console.log('[DashboardPage] Passing dateRange to OverviewTab:', rangeToSend);
-            return (
-              <OverviewTab
-                analytics={analytics}
-                hourlyChartData={hourlyChartData}
-                isAgent={isAgent}
-                dateRange={rangeToSend}
-              />
-            );
-          })()
-        )
-      )}
+      {activeTab === 'overview' && (() => {
+        const isDefault = !dateRange.start && !dateRange.end;
+        const dynamicToday = new Date().toISOString().slice(0, 10);
+        const rangeToSend = isDefault ? { start: dynamicToday, end: dynamicToday } : dateRange;
+        if (isQA) {
+          return <QAAgentDashboard embedded={true} />;
+        } else if (isAssistantManager) {
+          return <AssistantManagerDashboard />;
+        } else if (isAgent || isAdmin || isSuperAdmin) {
+          return (
+            <OverviewTab
+              analytics={analytics}
+              hourlyChartData={hourlyChartData}
+              isAgent={isAgent}
+              dateRange={rangeToSend}
+            />
+          );
+        } else {
+          // fallback for any other role
+          return (
+            <OverviewTab
+              analytics={analytics}
+              hourlyChartData={hourlyChartData}
+              isAgent={isAgent}
+              dateRange={rangeToSend}
+            />
+          );
+        }
+      })()}
 
       {/* Other tabs would go here - they can be added later as needed */}
       
