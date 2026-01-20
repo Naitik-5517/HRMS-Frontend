@@ -45,13 +45,12 @@ const TrackerTable = ({ userId, projects, onClose }) => {
   // Lookup helpers (use new projects-with-tasks structure)
   const getProjectName = (id) => {
     const project = projects.find(p => String(p.project_id) === String(id));
-    return project?.project_name || "-";
+    return (tracker && tracker.project_name) || project?.project_name || "-";
   };
   
   const getTaskName = (task_id, project_id) => {
     const project = projects.find(p => String(p.project_id) === String(project_id));
-    const task = project?.tasks?.find(t => String(t.task_id) === String(task_id));
-    return task?.label || "-";
+    return (tracker && tracker.task_name) || taskNameMap[String(task_id)] || (projects.find(p => String(p.project_id) === String(project_id))?.tasks?.find(t => String(t.task_id) === String(task_id))?.label) || "-";
   };
   // Check if tracker entry is from today
   const isToday = (dateTime) => {

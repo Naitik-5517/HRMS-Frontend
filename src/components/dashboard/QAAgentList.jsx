@@ -24,10 +24,14 @@ const QAAgentList = () => {
   const [projectNameMap, setProjectNameMap] = useState({});
   const [taskNameMap, setTaskNameMap] = useState({});
 
-  // Fetch project/task mapping once
+
+  // Fetch project/task mapping, then tracker data
   useEffect(() => {
-    const fetchDropdownMapping = async () => {
+    const fetchAllData = async () => {
+      if (!user?.user_id) return;
+      setLoading(true);
       try {
+        // 1. Fetch mapping
         const dropdownRes = await api.post("/dropdown/get", {
           dropdown_type: "projects with tasks",
           logged_in_user_id: user?.user_id
@@ -43,34 +47,17 @@ const QAAgentList = () => {
         });
         setProjectNameMap(pMap);
         setTaskNameMap(tMap);
-      } catch (err) {
-        logError('[QAAgentList] Error fetching dropdown/get:', err);
-      }
-    };
-    if (user?.user_id) {
-      fetchDropdownMapping();
-    }
-  }, [user?.user_id]);
 
-  // Fetch tracker data and build agent/tracker lists
-  useEffect(() => {
-    const fetchAgentListData = async () => {
-      try {
-        setLoading(true);
-        // Fetch all tracker data from /tracker/view
+        // 2. Fetch tracker data after mapping is ready
         const trackerRes = await api.post("/tracker/view", {
           logged_in_user_id: user?.user_id
         });
         const trackerData = trackerRes.data?.data || {};
         const allTrackers = trackerData.trackers || [];
-        console.log('[QAAgentList] Raw /tracker/view response:', trackerData);
         let myTrackers = allTrackers;
         if (myTrackers.some(t => t.qa_agent_id !== undefined)) {
           myTrackers = myTrackers.filter(t => String(t.qa_agent_id) === String(user?.user_id));
         }
-        // Get unique agent IDs from these trackers
-        const agentIdSet = new Set(myTrackers.map(t => String(t.user_id)));
-
         // Build agents list directly from filtered tracker data
         const agentsMap = {};
         myTrackers.forEach(tracker => {
@@ -86,21 +73,19 @@ const QAAgentList = () => {
         let trackersByAgent = {};
         allAgents.forEach(agent => {
           trackersByAgent[agent.user_id] = myTrackers
-            .filter(t => String(t.user_id) === String(agent.user_id))
+            .filter(t => String(t.user_id) === String(agent.user_id) && t.tracker_file)
             .map(tracker => ({
               ...tracker,
               user_name: tracker.user_name || agent.user_name || '-',
-              project_name: tracker.project_name || projectNameMap[String(tracker.project_id)] || String(tracker.project_id) || '-',
-              task_name: tracker.task_name || taskNameMap[String(tracker.task_id)] || String(tracker.task_id) || '-',
+              project_name: tracker.project_name || pMap[String(tracker.project_id)] || '-',
+              task_name: tracker.task_name || tMap[String(tracker.task_id)] || '-',
             }));
         });
-        console.log('[QAAgentList] Processed agents:', allAgents);
-        console.log('[QAAgentList] Processed agentTrackers:', trackersByAgent);
         setAgents(allAgents);
         setAgentTrackers(trackersByAgent);
         log('[QAAgentList] Agents loaded:', allAgents.length);
       } catch (err) {
-        logError('[QAAgentList] Error fetching /tracker/view:', err);
+        logError('[QAAgentList] Error fetching agent list data:', err);
         toast.error("Failed to load agent data");
         setAgents([]);
         setAgentTrackers({});
@@ -108,10 +93,8 @@ const QAAgentList = () => {
         setLoading(false);
       }
     };
-    if (user?.user_id) {
-      fetchAgentListData();
-    }
-  }, [user?.user_id, user?.device_id, user?.device_type, user?.role_name, user?.user_role, projectNameMap, taskNameMap]);
+    fetchAllData();
+  }, [user?.user_id]);
 
   // Toggle agent card expansion (no async tracker fetch needed)
   const toggleAgent = (agentId) => {
