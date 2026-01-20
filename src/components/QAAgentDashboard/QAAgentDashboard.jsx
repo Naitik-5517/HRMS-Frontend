@@ -14,6 +14,25 @@ import { log, logError } from "../../config/environment";
 import AppLayout from "../../layouts/AppLayout";
 
 const QAAgentDashboard = ({ embedded = false }) => {
+      // StatCard component for dashboard stats
+      const StatCard = ({ title, value, subtitle, icon, iconBgColor, iconColor }) => (
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 hover:shadow-md transition-shadow">
+          <div className="flex items-start justify-between mb-3">
+            <div className={`w-10 h-10 flex items-center justify-center rounded-lg ${iconBgColor}`}>
+              {React.createElement(icon, { className: `w-6 h-6 ${iconColor}` })}
+            </div>
+            <span className="text-xs font-semibold text-slate-400">{subtitle}</span>
+          </div>
+          <div className="font-bold text-2xl text-blue-700 mb-1">{value}</div>
+          <div className="text-sm text-slate-600 font-medium">{title}</div>
+        </div>
+      );
+    // Handle QC Form action
+    const handleQCForm = (tracker) => {
+      log('[QAAgentDashboard] Opening QC Form for tracker:', tracker.tracker_id);
+      // TODO: Implement QC Form modal or navigation
+      toast.success("QC Form functionality coming soon!");
+    };
   const { user } = useAuth();
   const { device_id, device_type } = useDeviceInfo();
   
@@ -29,27 +48,24 @@ const QAAgentDashboard = ({ embedded = false }) => {
   // Fetch dashboard data on mount
   // Call dashboard/filter on any filter change (add date/task/project if needed)
   useEffect(() => {
+    const today = new Date().toISOString().slice(0, 10);
+    const payload = {
+      logged_in_user_id: user?.user_id,
+      device_id,
+      device_type,
+      date: today
+    };
     const fetchDashboardData = async () => {
       try {
         setLoading(true);
         log('[QAAgentDashboard] Fetching dashboard data');
-        
-        const payload = {
-          logged_in_user_id: user?.user_id,
-          device_id,
-          device_type
-          // Add more filter fields here if needed
-        };
-        
         const res = await api.post('/dashboard/filter', payload);
-        
         if (res.status === 200 && res.data?.data) {
           const responseData = res.data.data;
           const trackers = responseData.tracker || [];
           const users = responseData.users || [];
           const tasks = responseData.tasks || [];
           const summary = responseData.summary || {};
-          
           // Create a map for task lookup
           const taskMap = {};
           tasks.forEach(task => {
@@ -58,7 +74,6 @@ const QAAgentDashboard = ({ embedded = false }) => {
               task_target: task.task_target
             };
           });
-          
           // Filter trackers with files and enrich with task names
           const trackersWithFiles = trackers
             .filter(tracker => tracker.tracker_file)
@@ -70,7 +85,6 @@ const QAAgentDashboard = ({ embedded = false }) => {
               };
             })
             .slice(0, 5); // Get latest 5
-          
           // Set stats
           setStats({
             totalAgents: users.length || 0,
@@ -78,7 +92,6 @@ const QAAgentDashboard = ({ embedded = false }) => {
             placeholder1: summary.tracker_rows || 0,
             placeholder2: summary.project_count || 0
           });
-          
           setPendingFiles(trackersWithFiles);
           log('[QAAgentDashboard] Dashboard data loaded - Agents:', users.length, 'Files:', trackersWithFiles.length);
         } else {
@@ -97,38 +110,10 @@ const QAAgentDashboard = ({ embedded = false }) => {
         setLoading(false);
       }
     };
-
     if (user?.user_id) {
       fetchDashboardData();
     }
-  }, [user?.user_id, device_id, device_type /* add more filter dependencies here */]);
-
-  // Handle QC Form action
-  const handleQCForm = (tracker) => {
-    log('[QAAgentDashboard] Opening QC Form for tracker:', tracker.tracker_id);
-    // TODO: Implement QC Form modal or navigation
-    toast.success("QC Form functionality coming soon!");
-  };
-
-  const StatCard = ({ title, value, subtitle, iconBgColor }) => (
-    <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 hover:shadow-md transition-shadow">
-      <div className="flex items-start justify-between mb-3">
-        <div className="flex items-center gap-2">
-          <h3 className="text-sm font-medium text-slate-500">{title}</h3>
-          <div className="w-4 h-4 rounded-full bg-slate-100 flex items-center justify-center">
-            <span className="text-slate-400 text-xs">?</span>
-          </div>
-        </div>
-        <div className={`${iconBgColor} p-2.5 rounded-lg`}>
-          {/* Icon removed as it was unused */}
-        </div>
-      </div>
-      <div>
-        <p className="text-3xl font-bold text-slate-800 mb-1">{value}</p>
-        <p className="text-sm text-slate-400">{subtitle}</p>
-      </div>
-    </div>
-  );
+  }, [user, device_id, device_type]);
 
   const content = (
     <div className="space-y-6 max-w-7xl mx-auto pb-10">
@@ -283,6 +268,5 @@ const QAAgentDashboard = ({ embedded = false }) => {
 
   // Otherwise wrap in AppLayout
   return <AppLayout>{content}</AppLayout>;
-};
-
+}
 export default QAAgentDashboard;
