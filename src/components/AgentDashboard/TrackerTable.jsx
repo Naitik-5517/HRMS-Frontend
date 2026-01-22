@@ -73,8 +73,7 @@ const TrackerTable = ({ userId, projects, onClose }) => {
       try {
         setLoading(true);
         setError("");
-        
-        // ...existing code...
+      
         
         // Build payload: send the correct agent's userId
         const payload = { logged_in_user_id: userId };
@@ -396,7 +395,7 @@ const TrackerTable = ({ userId, projects, onClose }) => {
               <tr key={tracker.tracker_id} className="border-b border-slate-100 hover:bg-blue-50 transition">
                 <td className="px-4 py-2 align-middle">
                   {tracker.date_time
-                    ? format(new Date(tracker.date_time), "M/d/yyyy h:mma")
+                    ? format(new Date(tracker.date_time), "dd/MM/yyyy")
                     : "-"}
                 </td>
                 <td className="px-4 py-2 align-middle">{tracker.project_name || getProjectName(tracker.project_id)}</td>

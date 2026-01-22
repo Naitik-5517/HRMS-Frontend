@@ -1,9 +1,12 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, lazy, Suspense } from 'react';
+import dayjs from 'dayjs';
 import StatCard from './StatCard';
 import HourlyChart from './HourlyChart';
 import { Activity, Calendar, Target, Users, Clock, CheckCircle, TrendingUp, Award, Briefcase } from 'lucide-react';
 import { useAuth } from '../../../context/AuthContext';
 import { useDeviceInfo } from '../../../hooks/useDeviceInfo';
+import UserMonthlyTargetCard from '../../../pages/UserMonthlyTargetCard';
+import BillableReport from '../../AgentDashboard/BillableReport';
 
 // Clear dashboard data when date range changes to force UI refresh
 // (must be inside the component, not before imports)
@@ -15,43 +18,47 @@ const OverviewTab = ({ analytics, hourlyChartData, isAgent, dateRange: externalD
   const { device_id, device_type } = useDeviceInfo();
   const [dashboardData, setDashboardData] = useState(null);
   const [loading, setLoading] = useState(false);
-  // If no dateRange is provided, default to today
-  const todayStr = new Date().toISOString().slice(0, 10);
+  const [activeTab, setActiveTab] = useState('overview'); // New state for active tab
+
+  // Dynamically import TabsNavigation for agent side to avoid circular dependency and SSR issues
+  const TabsNavigation = isAgent ? lazy(() => import('../TabsNavigation')) : null;
+  // If no dateRange is provided, default to current month (first to last day)
+  const today = new Date();
+  const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+  const lastDayOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+  const firstDayStr = firstDayOfMonth.toISOString().slice(0, 10);
+  const lastDayStr = lastDayOfMonth.toISOString().slice(0, 10);
   const dateRange = React.useMemo(() => {
-    if (!externalDateRange || (!externalDateRange.start && !externalDateRange.end)) {
-      return { start: todayStr, end: todayStr };
+    // If no externalDateRange or both start/end are empty strings or undefined, use current month
+    if (!externalDateRange ||
+      (externalDateRange.start === '' && externalDateRange.end === '') ||
+      (typeof externalDateRange.start === 'undefined' && typeof externalDateRange.end === 'undefined')) {
+      return { start: firstDayStr, end: lastDayStr };
     }
+    // If both start and end are set and equal, treat as single day
+    if (externalDateRange.start && externalDateRange.end && externalDateRange.start === externalDateRange.end) {
+      return { start: externalDateRange.start, end: externalDateRange.end };
+    }
+    // If only one of start/end is set, fallback to current month
+    if ((externalDateRange.start && !externalDateRange.end) || (!externalDateRange.start && externalDateRange.end)) {
+      return { start: firstDayStr, end: lastDayStr };
+    }
+    // Otherwise, use provided range
     return externalDateRange;
-  }, [externalDateRange, todayStr]);
+  }, [externalDateRange, firstDayStr, lastDayStr]);
 
   // Fetch dashboard data for agents
   const fetchDashboardData = React.useCallback(async () => {
     try {
       setLoading(true);
-      // If no date range is selected, send only today's date as 'date' (not date_from/date_to)
-      const todayStr = new Date().toISOString().slice(0, 10);
-      let payload;
-      // If the date range is not selected or is set to today (default), send only 'date'
-      const isDefaultOrToday = (
-        (dateRange.start === '' && dateRange.end === '') ||
-        (dateRange.start === todayStr && dateRange.end === todayStr)
-      );
-      if (isDefaultOrToday) {
-        payload = {
-          logged_in_user_id: user.user_id,
-          device_id: device_id || 'web123',
-          device_type: device_type || 'web',
-          date: todayStr
-        };
-      } else {
-        payload = {
-          logged_in_user_id: user.user_id,
-          device_id: device_id || 'web123',
-          device_type: device_type || 'web',
-          date_from: dateRange.start ? dateRange.start.slice(0, 10) : undefined,
-          date_to: dateRange.end ? dateRange.end.slice(0, 10) : undefined
-        };
-      }
+      // Always send date_from and date_to for agent dashboard (default: current month)
+      let payload = {
+        logged_in_user_id: user.user_id,
+        device_id: device_id || 'web123',
+        device_type: device_type || 'web',
+        date_from: dateRange.start ? dateRange.start.slice(0, 10) : undefined,
+        date_to: dateRange.end ? dateRange.end.slice(0, 10) : undefined
+      };
       console.log('[OverviewTab] FINAL API PAYLOAD:', JSON.stringify(payload, null, 2));
       console.log('[OverviewTab] 📤 Sending request to /dashboard/filter');
       console.log('[OverviewTab] 📤 Payload:', JSON.stringify(payload, null, 2));
@@ -139,52 +146,105 @@ const OverviewTab = ({ analytics, hourlyChartData, isAgent, dateRange: externalD
     console.log('═══════════════════════════════════════════════');
   }
 
-  return (
-    <div className="space-y-4 md:space-y-6 animate-fade-in">
-      {/* Grid container with responsive columns */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
-        {isAgent ? (
+    return (
+      <div className="space-y-4 md:space-y-6 animate-fade-in">
+        {/* Show TabsNavigation above StatCards for agents only */}
+        {isAgent && TabsNavigation && (
+          <Suspense fallback={<div className="py-4 text-center text-blue-600">Loading navigation...</div>}>
+            <TabsNavigation
+              activeTab={activeTab}
+              setActiveTab={setActiveTab}
+              isAgent={isAgent}
+              isQA={false}
+              isAdmin={false}
+              canViewIncentivesTab={true}
+              canViewAdherence={true}
+            />
+          </Suspense>
+        )}
+        {/* Show Billable Report tab content for agents */}
+        {isAgent && activeTab === 'billable_report' ? (
+          <BillableReport />
+        ) : isAgent && activeTab === 'overview' ? (
           <>
-            {/* Agent-specific cards */}
-            <StatCard
-              title="Total Billable Hours"
-              value={agentStats.totalBillableHours.toFixed(2)}
-              subtext="Hours logged"
-              icon={Clock}
-              trend="neutral"
-              tooltip="Total billable hours tracked."
-              className="min-w-0"
-            />
-            <StatCard
-              title="QC Score"
-              value={`${agentStats.qcScore}%`}
-              subtext="Quality rating"
-              icon={CheckCircle}
-              trend="neutral"
-              tooltip="Quality control score."
-              className="min-w-0"
-            />
-            <StatCard
-              title="Performance"
-              value={agentStats.taskCount.toLocaleString()}
-              subtext="Tasks assigned"
-              icon={TrendingUp}
-              trend="neutral"
-              tooltip="Total tasks assigned to you."
-              className="min-w-0"
-            />
-            <StatCard
-              title="Projects"
-              value={agentStats.projectCount.toLocaleString()}
-              subtext="Active projects"
-              icon={Award}
-              trend="neutral"
-              tooltip="Number of projects you're working on."
-              className="min-w-0"
-            />
+            {/* Counting cards for agent */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+              <StatCard
+                title="Total Billable Hours"
+                value={agentStats.totalBillableHours.toFixed(2)}
+                subtext="Hours logged"
+                icon={Clock}
+                trend="neutral"
+                tooltip="Total billable hours tracked."
+                className="min-w-0"
+              />
+              <StatCard
+                title="QC Score"
+                value={`${agentStats.qcScore}%`}
+                subtext="Quality rating"
+                icon={CheckCircle}
+                trend="neutral"
+                tooltip="Quality control score."
+                className="min-w-0"
+              />
+              <StatCard
+                title="Performance"
+                value={agentStats.taskCount.toLocaleString()}
+                subtext="Tasks assigned"
+                icon={TrendingUp}
+                trend="neutral"
+                tooltip="Total tasks assigned to you."
+                className="min-w-0"
+              />
+              <StatCard
+                title="Projects"
+                value={agentStats.projectCount.toLocaleString()}
+                subtext="Active projects"
+                icon={Award}
+                trend="neutral"
+                tooltip="Number of projects you're working on."
+                className="min-w-0"
+              />
+            </div>
+
+            {/* Project Billable Hours Card for agent overview (dynamic, per project) */}
+            <div className="w-full mt-8 px-0">
+              <div className="bg-linear-to-r from-blue-600 to-blue-700 px-10 py-6">
+                <div className="flex items-center gap-3">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-briefcase w-5 h-5 text-white" aria-hidden="true"><path d="M16 20V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path><rect width="20" height="14" x="2" y="6" rx="2"></rect></svg>
+                  <h3 className="text-lg font-semibold text-white">Project Billable Hours</h3>
+                </div>
+                <p className="text-blue-100 text-sm mt-1">Hours logged per project in selected date range</p>
+              </div>
+              <div className="p-10">
+                <div className="space-y-3">
+                  {agentProjects.length === 0 ? (
+                    <div className="text-center text-slate-500">No project data available for this date range.</div>
+                  ) : (
+                    agentProjects.map((project, idx) => (
+                      <div key={project.project_id || idx} className="flex items-center justify-between p-4 bg-slate-50 hover:bg-slate-100 rounded-lg transition-colors border border-slate-200">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-briefcase w-5 h-5 text-blue-600" aria-hidden="true"><path d="M16 20V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path><rect width="20" height="14" x="2" y="6" rx="2"></rect></svg>
+                          </div>
+                          <div>
+                            <h4 className="font-semibold text-slate-800">{project.project_name || 'Unnamed Project'}</h4>
+                            <p className="text-xs text-slate-500">{project.project_code || 'N/A'}</p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-2xl font-bold text-blue-600">{parseFloat(project.billable_hours ?? project.total_billable_hours ?? 0).toFixed(2)}</div>
+                          <p className="text-xs text-slate-500">Hours</p>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </div>
           </>
         ) : (
-          <>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
             {/* Admin cards */}
             <StatCard
               title="Production (Selected)"
@@ -222,73 +282,18 @@ const OverviewTab = ({ analytics, hourlyChartData, isAgent, dateRange: externalD
               tooltip="Agent Activity count."
               className="min-w-0"
             />
-          </>
+          </div>
+        )}
+
+        {/* Project Billable Hours section removed for agents */}
+
+        {/* Conditional content based on user role */}
+        {/* Render UserMonthlyTargetCard when the User Monthly Target button is clicked */}
+        {activeTab === 'userMonthlyTarget' && (
+          <UserMonthlyTargetCard />
         )}
       </div>
-
-      {/* Conditional content based on user role */}
-      {isAgent ? (
-        /* Agent Project Billable Hours Section */
-        <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
-          <div className="bg-linear-to-r from-blue-600 to-blue-700 px-6 py-4">
-            <div className="flex items-center gap-3">
-              <Briefcase className="w-5 h-5 text-white" />
-              <h3 className="text-lg font-semibold text-white">Project Billable Hours</h3>
-            </div>
-            <p className="text-blue-100 text-sm mt-1">Hours logged per project in selected date range</p>
-          </div>
-
-          <div className="p-6">
-            {loading ? (
-              <div className="text-center py-12">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-                <p className="text-slate-500 mt-3">Loading project data...</p>
-              </div>
-            ) : agentProjects.length === 0 ? (
-              <div className="text-center py-12">
-                <Briefcase className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-                <p className="text-slate-500 font-medium">No project data available</p>
-                <p className="text-slate-400 text-sm mt-1">You haven't worked on any projects yet</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {agentProjects.map((project, index) => {
-                  const billableHours = parseFloat(project.billable_hours || project.total_billable_hours || 0);
-                  return (
-                    <div
-                      key={project.project_id || index}
-                      className="flex items-center justify-between p-4 bg-slate-50 hover:bg-slate-100 rounded-lg transition-colors border border-slate-200"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
-                          <Briefcase className="w-5 h-5 text-blue-600" />
-                        </div>
-                        <div>
-                          <h4 className="font-semibold text-slate-800">{project.project_name}</h4>
-                          <p className="text-xs text-slate-500">{project.project_code || 'Project'}</p>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <div className="text-2xl font-bold text-blue-600">
-                          {billableHours.toFixed(2)}
-                        </div>
-                        <p className="text-xs text-slate-500">Hours</p>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        </div>
-      ) : (
-        /* Admin Chart Section */
-        <div className="w-full overflow-hidden">
-          <HourlyChart data={hourlyChartData} />
-        </div>
-      )}
-    </div>
-  );
+    );
 };
 
 export default OverviewTab;

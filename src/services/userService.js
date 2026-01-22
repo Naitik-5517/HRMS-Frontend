@@ -46,10 +46,14 @@ export async function fetchUserById(userId, deviceId, deviceType) {
 export async function updateUser(payload) {
   try {
     log('[userService] Updating user:', payload.user_id);
+    log('[userService] Full payload being sent:', JSON.stringify(payload, null, 2));
+    log('[userService] Designation ID in payload:', payload.designation_id);
+    log('[userService] Payload keys:', Object.keys(payload));
     
     const res = await api.put("user/update_user", payload);
     
-    log('[userService] ✅ User updated successfully');
+    log('[userService] User updated successfully');
+    log('[userService] Backend response:', res.data);
     return res.data;
   } catch (error) {
     logError('[userService] Failed to update user:', error.response?.data || error.message);

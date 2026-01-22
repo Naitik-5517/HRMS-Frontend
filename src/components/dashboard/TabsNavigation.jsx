@@ -21,10 +21,15 @@ const TabsNavigation = ({
     
   const tabs = [
     { id: 'overview', label: 'Overview', icon: LayoutGrid, alwaysVisible: true },
-    { id: 'bookings', label: 'User Monthly Target', icon: Briefcase, visible: !isAgent && !isQA },
-    { id: 'agents', label: 'Agent Performance', icon: Users, visible: !isQA },
-    { id: 'adherence', label: 'Reporting Adherence', icon: FileWarning, visible: canViewAdherence && !isQA },
-    { id: 'incentives', label: 'Agent Incentives', icon: DollarSign, visible: canViewIncentivesTab && !isQA },
+    // Only show Billable Report tab for agents
+    ...(isAgent ? [
+      { id: 'billable_report', label: 'Billable Report', icon: Briefcase, visible: true },
+      // Agent Dashboard tab removed for agents
+    ] : []),
+    { id: 'bookings', label: 'User Monthly Target', icon: Briefcase, visible: !isAgent && !isQA},
+    { id: 'agents', label: 'Agent Performance', icon: Users, visible: !isQA,disabled:true },
+    { id: 'adherence', label: 'Reporting Adherence', icon: FileWarning,disabled:true, visible: canViewAdherence && !isQA },
+    { id: 'incentives', label: 'Agent Incentives', icon: DollarSign,disabled:true, visible: canViewIncentivesTab && !isQA },
     { id: 'mgmt_incentives', label: 'Management Incentives', icon: Gem, visible: !isAgent && !isQA }
   ];
 
@@ -51,6 +56,7 @@ const TabsNavigation = ({
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
+              disabled={tab.disabled}
               className={`
                 flex-grow lg:flex-grow-0  /* stretch only on wide screens */
                 px-4 sm:px-4 py-3 sm:py-3 rounded-lg text-sm font-semibold 

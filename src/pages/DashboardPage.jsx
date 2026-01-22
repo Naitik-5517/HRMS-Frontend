@@ -1,3 +1,4 @@
+import AgentDashboard from '../components/AgentDashboard/AgentDashboard';
 import React, { useMemo, useState, useCallback, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Settings, Lock } from 'lucide-react';
@@ -19,6 +20,7 @@ import UsersManagement from '../components/dashboard/manage/user/UsersManagement
 import ProjectsManagement from '../components/dashboard/manage/project/ProjectsManagement';
 import { fetchUsersList } from '../services/authService';
 import { fetchProjectsList } from '../services/projectService';
+import UserMonthlyTargetCard from './UserMonthlyTargetCard';
 import { toast } from 'react-hot-toast';
 
 // Import db if needed for admin operations
@@ -98,14 +100,10 @@ const DashboardPage = ({
       if (tabParam === 'manage' && canAccessManage) {
         console.log('[DashboardPage] Setting activeTab to manage from query param');
         setActiveTab('manage');
-      } else if (isProjectManager || isAdmin || isSuperAdmin) {
-        // Redirect project managers, admins, and superadmins to manage tab by default
-        console.log('[DashboardPage] Admin/Project Manager: Setting activeTab to manage');
-        setActiveTab('manage');
       } else {
-        // Always default to 'overview' tab on DashboardPage
-        // Agents accessing /dashboard (via Analytics button) see overview with their analytics
-        console.log('[DashboardPage] Setting activeTab to overview');
+        // Always default to 'overview' tab on DashboardPage for all roles
+        // Agents, admin, project manager, etc. see dashboard (OverviewTab) on /dashboard
+        console.log('[DashboardPage] Setting activeTab to overview for all roles');
         setActiveTab('overview');
       }
     }
@@ -515,13 +513,36 @@ const DashboardPage = ({
 
       {activeTab === 'overview' && (() => {
         const isDefault = !dateRange.start && !dateRange.end;
-        const dynamicToday = new Date().toISOString().slice(0, 10);
-        const rangeToSend = isDefault ? { start: dynamicToday, end: dynamicToday } : dateRange;
-        if (isQA) {
-          return <QAAgentDashboard embedded={true} />;
+        let rangeToSend = dateRange;
+        if (isDefault && isAgent) {
+          // Default to current month for agents
+          const today = new Date();
+          const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+          const lastDayOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+          rangeToSend = {
+            start: firstDayOfMonth.toISOString().slice(0, 10),
+            end: lastDayOfMonth.toISOString().slice(0, 10)
+          };
+        } else if (isDefault) {
+          // For non-agents, fallback to today
+          const dynamicToday = new Date().toISOString().slice(0, 10);
+          rangeToSend = { start: dynamicToday, end: dynamicToday };
+        }
+        // Show OverviewTab (dashboard) for admin and project manager
+        if (isAdmin || isSuperAdmin || isProjectManager) {
+          return (
+            <OverviewTab
+              analytics={analytics}
+              hourlyChartData={hourlyChartData}
+              isAgent={isAgent}
+              dateRange={rangeToSend}
+            />
+          );
         } else if (isAssistantManager) {
-          return <AssistantManagerDashboard />;
-        } else if (isAgent || isAdmin || isSuperAdmin) {
+          return <QAAgentDashboard embedded={true} />;
+        } else if (isQA) {
+          return <QAAgentDashboard embedded={true} />;
+        } else if (isAgent) {
           return (
             <OverviewTab
               analytics={analytics}
@@ -543,48 +564,15 @@ const DashboardPage = ({
         }
       })()}
 
+      {activeTab === 'agent_dashboard' && (
+        <AgentDashboard embedded={true} />
+      )}
+
+
+      {/* User Monthly Target Card - only show when tab is active (tab id is 'bookings') */}
+      {activeTab === 'bookings' && <UserMonthlyTargetCard />}
+
       {/* Other tabs would go here - they can be added later as needed */}
-      
-      {/* User Monthly Target Tab (disabled, component missing) */}
-      {/*
-      {activeTab === 'bookings' && (
-        <div className="my-6">
-          <UserMonthlyTargetCard />
-        </div>
-      )}
-      */}
-      
-      {/* Agent Performance Tab */}
-      {activeTab === 'agents' && (
-        <div className="bg-white p-6 rounded-lg shadow">
-          <h2 className="text-xl font-bold mb-4">Agent Performance</h2>
-          <p className="text-slate-600">Agent performance content will go here.</p>
-        </div>
-      )}
-      
-      {/* Reporting Adherence Tab */}
-      {activeTab === 'adherence' && (
-        <div className="bg-white p-6 rounded-lg shadow">
-          <h2 className="text-xl font-bold mb-4">Reporting Adherence</h2>
-          <p className="text-slate-600">Reporting adherence content will go here.</p>
-        </div>
-      )}
-      
-      {/* Agent Incentives Tab */}
-      {activeTab === 'incentives' && (
-        <div className="bg-white p-6 rounded-lg shadow">
-          <h2 className="text-xl font-bold mb-4">Agent Incentives</h2>
-          <p className="text-slate-600">Agent incentives content will go here.</p>
-        </div>
-      )}
-      
-      {/* Management Incentives Tab */}
-      {activeTab === 'mgmt_incentives' && (
-        <div className="bg-white p-6 rounded-lg shadow">
-          <h2 className="text-xl font-bold mb-4">Management Incentives</h2>
-          <p className="text-slate-600">Management incentives content will go here.</p>
-        </div>
-      )}
 
       {/* Manage Tab (AdminPanel) - Show UI to all who can access, control actions by specific permissions */}
       {activeTab === 'manage' && canAccessManage && (

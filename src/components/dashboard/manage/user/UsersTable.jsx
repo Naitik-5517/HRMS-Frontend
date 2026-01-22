@@ -17,7 +17,11 @@ const UsersTable = ({
   const [visiblePasswordUserId, setVisiblePasswordUserId] = useState(null);
   useAuth();
 
-  // ...existing code...
+  // Capitalize first letter utility
+  const capitalize = (str) =>
+    typeof str === "string" && str.length > 0
+      ? str.charAt(0).toUpperCase() + str.slice(1).toLowerCase()
+      : str;
 
   return (
     <div className="overflow-x-auto border border-slate-200 rounded-lg">
@@ -36,42 +40,77 @@ const UsersTable = ({
           </thead>
           <tbody className="divide-y divide-slate-100">
             {users.map((u) => {
-              const roleLabel = (u.role || "").replace("_", " ");
+              const roleLabel = capitalize((u.role || "").replace("_", " "));
               const password = (u.password_plain ?? u.password ?? u.user_password ?? "");
               const masked = password ? "•".repeat(Math.max(8, password.length)) : "••••••••";
-              // Use user_id if available, else fallback to id or email
               const rowKey = u.user_id || u.id || u.email;
-              
-              // Convert is_active to number for proper comparison
-              // Only use fallback of 1 if is_active is completely missing (undefined or null)
-              const isActive = (u.is_active !== undefined && u.is_active !== null) 
-                ? Number(u.is_active) 
-                : 1;
-              
+              const isActive = (u.is_active !== undefined && u.is_active !== null) ? Number(u.is_active) : 1;
               return (
                 <tr key={rowKey} className="hover:bg-slate-50">
-
                   <td className="px-4 py-3 font-medium text-slate-800 min-w-[200px]">
-                    <div className="font-medium">{u.name}</div>
+                    <div className="font-medium">{capitalize(u.name)}</div>
                     <div className="text-xs text-blue-600/80 mt-0.5">
-                      {u.email ? (
-                        u.email
-                      ) : (
-                        <span className="text-slate-300 italic">
-                          No Email
-                        </span>
-                      )}
+                      {u.email ? u.email.toLowerCase() : <span className="text-slate-300 italic">No Email</span>}
                     </div>
                   </td>
-
                   <td className="px-4 py-3 text-xs text-slate-600 min-w-[120px]">
-                    {u.designation || "-"}
+                    {capitalize(u.designation) || "-"}
                   </td>
-
                   <td className="px-4 py-3 text-xs text-slate-600 min-w-[150px]">
-                    {u.project_manager_name || u.reportingManager || "-"}
+                    {(() => {
+                      const resolveToName = (val) => {
+                        if (!val) return null;
+                        const found = users.find(user => user.id === val || user.user_id === val);
+                        return found ? capitalize(found.name) : (typeof val === 'string' ? capitalize(val) : null);
+                      };
+                      const role = (u.role || "").toUpperCase();
+                      if (["ADMIN", "SUPER_ADMIN", "CEO"].includes(role)) return "-";
+                      if (role === "AGENT") {
+                        if (u.assistantManager) {
+                          const name = resolveToName(u.assistantManager);
+                          if (name) return name;
+                        }
+                        if (u.reportingManager) {
+                          const name = resolveToName(u.reportingManager);
+                          if (name) return name;
+                        }
+                        return "-";
+                      }
+                      if (role === "QA") {
+                        if (u.assistantManager) {
+                          const name = resolveToName(u.assistantManager);
+                          if (name) return name;
+                        }
+                        return "-";
+                      }
+                      if (role === "ASSISTANT_MANAGER") {
+                        if (u.reportingManager) {
+                          const name = resolveToName(u.reportingManager);
+                          if (name) return name;
+                        }
+                        if (u.project_manager_id) {
+                          const name = resolveToName(u.project_manager_id);
+                          if (name) return name;
+                        }
+                        return "-";
+                      }
+                      if (role === "PROJECT_MANAGER") {
+                        if (u.reportingManager) {
+                          const name = resolveToName(u.reportingManager);
+                          if (name) return name;
+                        }
+                        return "-";
+                      }
+                      if (role === "FINANCE_HR") {
+                        if (u.reportingManager) {
+                          const name = resolveToName(u.reportingManager);
+                          if (name) return name;
+                        }
+                        return "-";
+                      }
+                      return "-";
+                    })()}
                   </td>
-
                   <td className="px-4 py-3 min-w-[100px]">
                     <span
                       className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase whitespace-nowrap ${u.role === "ADMIN"
@@ -86,7 +125,6 @@ const UsersTable = ({
                       {roleLabel || "-"}
                     </span>
                   </td>
-
                   <td className="px-4 py-3 text-xs min-w-40">
                     <div className="flex items-center gap-2">
                       <span className="tracking-widest font-mono">
@@ -106,7 +144,6 @@ const UsersTable = ({
                       </button>
                     </div>
                   </td>
-
                   <td className="px-4 py-3">
                     <button
                       onClick={() => !readOnly && handleToggleStatus(u)}
@@ -125,7 +162,6 @@ const UsersTable = ({
                       />
                     </button>
                   </td>
-
                   <td className="px-4 py-3 text-right min-w-[120px]">
                     <div className="flex items-center justify-end gap-2">
                       {readOnly ? (
@@ -163,7 +199,6 @@ const UsersTable = ({
                       )}
                     </div>
                   </td>
-
                 </tr>
               );
             })}

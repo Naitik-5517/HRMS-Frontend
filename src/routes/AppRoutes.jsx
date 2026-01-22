@@ -1,3 +1,15 @@
+import UserMonthlyTargetCard from "../pages/UserMonthlyTargetCard";
+        {/* User Monthly Target Card Page */}
+        <Route
+          path="/user-monthly-target"
+          element={
+            <ProtectedRoute allowedRoles={[1,2,3,4,5,6]}>
+              <AppLayout>
+                <UserMonthlyTargetCard />
+              </AppLayout>
+            </ProtectedRoute>
+          }
+        />
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 
 import LoginPage from "../pages/LoginPage";

@@ -1,5 +1,7 @@
 import React from 'react';
 import { Edit, Trash2, Plus, ChevronDown, ChevronUp } from 'lucide-react';
+import axios from 'axios';
+import { toast } from 'react-hot-toast';
 import TaskTable from './TaskTable';
 import EditTaskModal from './EditTaskModal';
 import TasksModal from './TasksModal';
@@ -30,6 +32,58 @@ const ProjectCard = ({
             </div>
             <h1 className="text-sm font-bold text-slate-800 truncate">{project.name}</h1>
             <div className="flex items-center gap-2 ml-4">
+              {/* Download Project File Button */}
+              <button
+                onClick={async () => {
+                  try {
+                    // Use project.project_file from API response
+                    const filePath = project.project_file;
+                    if (!filePath || filePath === 'null') {
+                      toast.error('No file available for this project.');
+                      return;
+                    }
+                    // Extract file name from path
+                    const fileName = filePath.split(/[\\/]/).filter(Boolean).pop() || 'project-file';
+                    // Backend endpoint to serve file (adjust as needed)
+                    const response = await axios.get(`/project/file?path=${encodeURIComponent(filePath)}`, {
+                      responseType: 'blob',
+                    });
+                    const url = window.URL.createObjectURL(new Blob([response.data]));
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.setAttribute('download', fileName);
+                    document.body.appendChild(link);
+                    link.click();
+                    link.parentNode.removeChild(link);
+                  } catch (err) {
+                    toast.error('Failed to download file.');
+                  }
+                }}
+                className="p-0 bg-transparent focus:outline-none group"
+                title="Download Project File"
+                aria-label="Download Project File"
+                style={{
+                  borderRadius: '9999px',
+                  background: 'linear-gradient(90deg, #e0e7ff 0%, #bae6fd 100%)',
+                  boxShadow: '0 2px 8px 0 rgba(59,130,246,0.08)',
+                  marginRight: '2px',
+                  transition: 'background 0.2s, box-shadow 0.2s',
+                  padding: '4px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+                onMouseOver={e => {
+                  e.currentTarget.style.background = 'linear-gradient(90deg, #2563eb 0%, #38bdf8 100%)';
+                  e.currentTarget.style.boxShadow = '0 4px 16px 0 rgba(59,130,246,0.16)';
+                }}
+                onMouseOut={e => {
+                  e.currentTarget.style.background = 'linear-gradient(90deg, #e0e7ff 0%, #bae6fd 100%)';
+                  e.currentTarget.style.boxShadow = '0 2px 8px 0 rgba(59,130,246,0.08)';
+                }}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-download w-5 h-5" aria-hidden="true" style={{transition: 'color 0.2s'}}><path d="M12 15V3"></path><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><path d="m7 10 5 5 5-5"></path></svg>
+              </button>
               <button
                 onClick={() => openEditModal(project)}
                 className="p-0 bg-transparent hover:bg-transparent focus:outline-none"

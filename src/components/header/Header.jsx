@@ -85,6 +85,13 @@ const Header = ({
     
     console.log('🚀 [Header goTo] view:', view, 'roleId:', roleId, 'role:', role);
     
+    // Handle Analytics tab for all roles: always go to /dashboard
+    if (view === ViewState.DASHBOARD || view === 'DASHBOARD' || view === 'Analytics') {
+      console.log('🚀 [Header goTo] Navigating to admin dashboard /dashboard');
+      navigate('/dashboard');
+      setIsMobileMenuOpen(false);
+      return;
+    }
     // Handle QA-specific views
     if (view === 'TRACKER_REPORT') {
       console.log('🚀 [Header goTo] Navigating to Tracker Report');
@@ -165,7 +172,7 @@ const Header = ({
         }
         if (roleId === 3 || (role && role.includes('PROJECT_MANAGER'))) {
           return [
-            // { view: ViewState.DASHBOARD, label: "Analytics", icon: LayoutDashboard },
+            { view: ViewState.DASHBOARD, label: "Analytics", icon: LayoutDashboard },
             { view: ViewState.ADMIN_PANEL, label: "Manage", icon: Settings },
             { view: ViewState.ENTRY, label: "User Permission", icon: PenTool },
           ];
@@ -182,7 +189,7 @@ const Header = ({
         }
         // All other role_ids (admin/superadmin, etc.) - REMOVE Analytics
         return [
-          // { view: ViewState.DASHBOARD, label: "Analytics", icon: LayoutDashboard },
+          { view: ViewState.DASHBOARD, label: "Analytics", icon: LayoutDashboard },
           // { view: ViewState.QUALITY, label: "Quality", icon: Award },
           // { view: ViewState.SCHEDULER, label: "Scheduler", icon: CalendarClock },
           { view: ViewState.ADMIN_PANEL, label: "Manage", icon: Settings },
@@ -215,20 +222,15 @@ const Header = ({
       ];
     }
     
-    // Admin tabs (Quality and Scheduler temporarily removed) - REMOVE Analytics
-    if (role.includes('ADMIN')) {
+    // Admin and Project Manager tabs - SHOW Analytics
+    // Normalize project manager detection for Analytics tab
+    const isProjectManagerRole =
+      role.includes('PROJECT_MANAGER') ||
+      role.replace(/\s+/g, '').toLowerCase() === 'projectmanager' ||
+      (currentUser?.role_id && Number(currentUser.role_id) === 3);
+    if (role.includes('ADMIN') || isProjectManagerRole) {
       return [
-        // { view: ViewState.DASHBOARD, label: "Analytics", icon: LayoutDashboard },
-        // { view: ViewState.QUALITY, label: "Quality", icon: Award },
-        // { view: ViewState.SCHEDULER, label: "Scheduler", icon: CalendarClock },
-        { view: ViewState.ADMIN_PANEL, label: "Manage", icon: Settings },
-        { view: ViewState.ENTRY, label: "User Permission", icon: PenTool },
-      ];
-    }
-    // Project Manager tabs - REMOVE Analytics
-    if (role.includes('PROJECT_MANAGER')) {
-      return [
-        // { view: ViewState.DASHBOARD, label: "Analytics", icon: LayoutDashboard },
+        { view: ViewState.DASHBOARD, label: "Analytics", icon: LayoutDashboard },
         { view: ViewState.ADMIN_PANEL, label: "Manage", icon: Settings },
         { view: ViewState.ENTRY, label: "User Permission", icon: PenTool },
       ];
