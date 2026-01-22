@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import dayjs from "dayjs";
 // import { DatePicker } from "antd";
-import "antd/dist/antd.css";
+// import "antd/dist/antd.css";
 
 // Dummy data for multiple months
 const monthsData = [
