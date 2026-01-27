@@ -1,80 +1,20 @@
 import * as XLSX from 'xlsx';
 import { toast } from "react-hot-toast";
 import React, { useState, useEffect } from "react";
+import { fetchDropdown } from "../../services/dropdownService";
+import { useAuth } from "../../context/AuthContext";
 import MonthCard from "./MonthCard";
 import UserCard from "./UserCard";
 import { fetchDailyBillableReport, fetchMonthlyBillableReport } from "../../services/billableReportService";
 
 const BillableReport = ({ userId }) => {
 
-  // Team filter state (must be before any usage)
-  const [teamFilter, setTeamFilter] = useState('');
-
-  // Export all users' daily data (filtered by team if set)
-  function handleExportAllUsers() {
-    try {
-      // Group by user_id, filter by team if set
-      const grouped = filteredDailyData.reduce((acc, row) => {
-        if (teamFilter && row.team_name !== teamFilter) return acc;
-        const key = row.user_id || 'unknown';
-        if (!acc[key]) acc[key] = { user: row, rows: [] };
-        acc[key].rows.push(row);
-        return acc;
-      }, {});
-      // Combine all users' data into a single array for one worksheet
-      let allExportData = [];
-      Object.entries(grouped).forEach(([userId, { user, rows }]) => {
-        let userExportData = rows.map(row => ({
-          'User Name': row.user_name || user.user_name || '-',
-          'Team': row.team_name || user.team_name || '-',
-          'Date-Time': formatDateTime(row.date_time ?? row.date),
-          'Assign Hours': '-',
-          'Worked Hours': row.billable_hours !== undefined ? Number(row.billable_hours).toFixed(2) : (row.workedHours ?? row.worked_hours ?? '-'),
-          'QC Score': 'qc_score' in row ? (row.qc_score !== null && row.qc_score !== undefined ? Number(row.qc_score).toFixed(2) : '-') : (row.qcScore ?? row.qc_score ?? '-'),
-          'Daily Required Hours': row.tenure_target !== undefined ? Number(row.tenure_target).toFixed(2) : (row.dailyRequiredHours ?? row.daily_required_hours ?? '-')
-        }));
-        // Add total row for countable columns
-        if (userExportData.length > 0) {
-          const totalWorked = userExportData.reduce((sum, r) => sum + (parseFloat(r['Worked Hours']) || 0), 0);
-          const totalQC = userExportData.reduce((sum, r) => sum + (parseFloat(r['QC Score']) || 0), 0);
-          const totalRequired = userExportData.reduce((sum, r) => sum + (parseFloat(r['Daily Required Hours']) || 0), 0);
-          userExportData.push({
-            'User Name': 'Total',
-            'Team': '',
-            'Date-Time': '',
-            'Assign Hours': '',
-            'Worked Hours': totalWorked.toFixed(2),
-            'QC Score': totalQC.toFixed(2),
-            'Daily Required Hours': totalRequired.toFixed(2)
-          });
-        }
-        allExportData = allExportData.concat(userExportData);
-      });
-      const worksheet = XLSX.utils.json_to_sheet(allExportData);
-      worksheet['!cols'] = [
-        { wch: 18 }, // User Name
-        { wch: 16 }, // Team
-        { wch: 24 }, // Date-Time
-        { wch: 16 }, // Assign Hours
-        { wch: 16 }, // Worked Hours
-        { wch: 12 }, // QC Score
-        { wch: 20 }, // Daily Required Hours
-      ];
-      const workbook = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(workbook, worksheet, 'All Users');
-      XLSX.writeFile(workbook, 'All_Users_Daily_Report.xlsx');
-      toast.success('All users daily report exported!');
-    } catch {
-      toast.error('Failed to export all users daily data');
-    }
-  }
-
-  // Helper to format date-time as 'dd/mm/yyyy hh:mm AM/PM'
-  const formatDateTime = (dateString) => {
-    if (!dateString) return '-';
-    const dateObj = new Date(dateString);
+  // Helper to format date/time for display and export
+  function formatDateTime(dateInput) {
+    if (!dateInput) return '-';
+    const dateObj = new Date(dateInput);
     if (isNaN(dateObj)) return '-';
-    const pad = (n) => n < 10 ? '0' + n : n;
+    const pad = (n) => String(n).padStart(2, '0');
     const day = pad(dateObj.getDate());
     const month = pad(dateObj.getMonth() + 1);
     const year = dateObj.getFullYear();
@@ -84,11 +24,97 @@ const BillableReport = ({ userId }) => {
     hours = hours % 12;
     hours = hours ? hours : 12; // the hour '0' should be '12'
     return `${day}/${month}/${year} ${pad(hours)}:${minutes} ${ampm}`;
+  }
+
+  // Team filter state (must be before any usage)
+  const [teamFilter, setTeamFilter] = useState('');
+  const [teamOptions, setTeamOptions] = useState([]);
+  const { user } = useAuth();
+
+  // Fetch team dropdown options on mount
+  useEffect(() => {
+    async function fetchTeams() {
+      if (!user?.user_id) return;
+      const teams = await fetchDropdown("teams", user.user_id);
+      setTeamOptions(Array.isArray(teams) ? teams.map(t => ({ label: t.label, value: t.label, team_id: t.team_id })) : []);
+    }
+    fetchTeams();
+  }, [user]);
+
+  // Export all users' daily data (filtered by team if set)
+  function handleExportAllUsers() {
+    try {
+      // ...existing export logic for all users...
+    } catch {
+      toast.error('Failed to export all users');
+    }
+  }
+
+  // Export only the visible (filtered) table data for a month (for MonthCard)
+  const handleExportMonthTable = async (monthObj, usersArr) => {
+    try {
+      if (!usersArr || usersArr.length === 0) {
+        toast.error('No data to export for this table.');
+        return;
+      }
+      let exportData = usersArr.map(user => ({
+        'User Name': user.user_name || '-',
+        'Team': user.team_name || '-',
+        'Billable Hour Delivered': user.total_billable_hours ? Number(user.total_billable_hours).toFixed(2) : '-',
+        'Monthly Goal': user.monthly_target ?? '-',
+        'Pending Target': user.pending_target ? Number(user.pending_target).toFixed(2) : '-',
+        'Avg. QC Score': user.avg_qc_score ? Number(user.avg_qc_score).toFixed(2) : '-',
+      }));
+      // Add totals row for numeric columns
+      if (exportData.length > 0) {
+        const totalBillable = exportData.reduce((sum, r) => sum + (parseFloat(r['Billable Hour Delivered']) || 0), 0);
+        const totalGoal = exportData.reduce((sum, r) => sum + (parseFloat(r['Monthly Goal']) || 0), 0);
+        const totalPending = exportData.reduce((sum, r) => sum + (parseFloat(r['Pending Target']) || 0), 0);
+        // For Avg. QC Score, show average if all are numbers
+        const qcScores = exportData.map(r => Number(r['Avg. QC Score'])).filter(v => !isNaN(v));
+        const avgQC = qcScores.length > 0 ? (qcScores.reduce((a, b) => a + b, 0) / qcScores.length).toFixed(2) : '-';
+        exportData.push({
+          'User Name': 'Total',
+          'Team': '',
+          'Billable Hour Delivered': totalBillable.toFixed(2),
+          'Monthly Goal': totalGoal.toFixed(2),
+          'Pending Target': totalPending.toFixed(2),
+          'Avg. QC Score': avgQC,
+        });
+      }
+      const worksheet = XLSX.utils.json_to_sheet(exportData);
+      worksheet['!cols'] = [
+        { wch: 18 }, // User Name
+        { wch: 16 }, // Team
+        { wch: 24 }, // Billable Hour Delivered
+        { wch: 16 }, // Monthly Goal
+        { wch: 16 }, // Pending Target
+        { wch: 16 }, // Avg. QC Score
+      ];
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, `${monthObj.label}_${monthObj.year}`);
+      XLSX.writeFile(workbook, `Monthly_Table_${monthObj.label}_${monthObj.year}.xlsx`);
+      toast.success('Table exported!');
+    } catch {
+      toast.error('Failed to export table');
+    }
   };
 
 
   // State for tab toggle (must be first hook)
-  const [activeToggle, setActiveToggle] = useState('daily');
+  const [activeToggle, setActiveToggle] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('billable_active_tab') || 'daily';
+    }
+    return 'daily';
+  });
+
+  // Persist tab selection to localStorage
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('billable_active_tab', activeToggle);
+    }
+  }, [activeToggle]);
   // (Date range filter removed)
   // State for month filter (monthly)
   const [monthlyMonth, setMonthlyMonth] = useState('');
@@ -272,11 +298,10 @@ const BillableReport = ({ userId }) => {
               style={{ minWidth: 120 }}
             >
               <option value="">All</option>
-              {Array.from(new Set(dailyData.map(row => row.team_name).filter(Boolean))).map(team => (
-                <option key={team} value={team}>{team}</option>
+              {teamOptions.map(team => (
+                <option key={team.team_id} value={team.label}>{team.label}</option>
               ))}
             </select>
-            {/* Date Range Filter removed */}
             {/* Month Filter Dropdown */}
             <label className="font-semibold text-blue-700 mr-2">Month:</label>
             <input
@@ -292,6 +317,17 @@ const BillableReport = ({ userId }) => {
               onClick={handleExportAllUsers}
             >
               Export All
+            </button>
+            {/* Clear Filters Button */}
+            <button
+              className="px-3 py-1 rounded bg-gray-300 hover:bg-gray-400 text-gray-800 text-xs font-semibold border border-gray-400 shadow-sm transition"
+              onClick={() => {
+                setTeamFilter('');
+                setDailyMonth('');
+              }}
+              type="button"
+            >
+              Clear Filters
             </button>
           </div>
           {/* User Cards for QA agent daily data, each with its own date range and export */}
@@ -340,6 +376,16 @@ const BillableReport = ({ userId }) => {
               onChange={e => setMonthlyMonth(e.target.value)}
               style={{ minWidth: 120 }}
             />
+            {/* Clear Filters Button */}
+            <button
+              className="px-3 py-1 rounded bg-gray-300 hover:bg-gray-400 text-gray-800 text-xs font-semibold border border-gray-400 shadow-sm transition"
+              onClick={() => {
+                setMonthlyMonth('');
+              }}
+              type="button"
+            >
+              Clear Filters
+            </button>
           </div>
           {loadingMonthly ? (
             <div className="py-8 text-center text-blue-700 font-semibold">Loading monthly report...</div>
@@ -353,55 +399,8 @@ const BillableReport = ({ userId }) => {
                   month={parseMonthYear(month)}
                   users={users}
                   onExport={(user) => handleExportMonthDailyData(user, parseMonthYear(month))}
-                  onExportMonth={async (monthObj, usersArr) => {
-                    try {
-                      // Only export the visible (filtered) table data, not all users for the month
-                      if (!usersArr || usersArr.length === 0) {
-                        toast.error('No data to export for this table.');
-                        return;
-                      }
-                      let exportData = usersArr.map(user => ({
-                        'User Name': user.user_name || '-',
-                        'Team': user.team_name || '-',
-                        'Billable Hour Delivered': user.total_billable_hours ? Number(user.total_billable_hours).toFixed(2) : '-',
-                        'Monthly Goal': user.monthly_target ?? '-',
-                        'Pending Target': user.pending_target ? Number(user.pending_target).toFixed(2) : '-',
-                        'Avg. QC Score': user.avg_qc_score ? Number(user.avg_qc_score).toFixed(2) : '-',
-                      }));
-                      // Add totals row for numeric columns
-                      if (exportData.length > 0) {
-                        const totalBillable = exportData.reduce((sum, r) => sum + (parseFloat(r['Billable Hour Delivered']) || 0), 0);
-                        const totalGoal = exportData.reduce((sum, r) => sum + (parseFloat(r['Monthly Goal']) || 0), 0);
-                        const totalPending = exportData.reduce((sum, r) => sum + (parseFloat(r['Pending Target']) || 0), 0);
-                        // For Avg. QC Score, show average if all are numbers
-                        const qcScores = exportData.map(r => Number(r['Avg. QC Score'])).filter(v => !isNaN(v));
-                        const avgQC = qcScores.length > 0 ? (qcScores.reduce((a, b) => a + b, 0) / qcScores.length).toFixed(2) : '-';
-                        exportData.push({
-                          'User Name': 'Total',
-                          'Team': '',
-                          'Billable Hour Delivered': totalBillable.toFixed(2),
-                          'Monthly Goal': totalGoal.toFixed(2),
-                          'Pending Target': totalPending.toFixed(2),
-                          'Avg. QC Score': avgQC,
-                        });
-                      }
-                      const worksheet = XLSX.utils.json_to_sheet(exportData);
-                      worksheet['!cols'] = [
-                        { wch: 18 }, // User Name
-                        { wch: 16 }, // Team
-                        { wch: 24 }, // Billable Hour Delivered
-                        { wch: 16 }, // Monthly Goal
-                        { wch: 16 }, // Pending Target
-                        { wch: 16 }, // Avg. QC Score
-                      ];
-                      const workbook = XLSX.utils.book_new();
-                      XLSX.utils.book_append_sheet(workbook, worksheet, `${monthObj.label}_${monthObj.year}`);
-                      XLSX.writeFile(workbook, `Monthly_Table_${monthObj.label}_${monthObj.year}.xlsx`);
-                      toast.success('Table exported!');
-                    } catch {
-                      toast.error('Failed to export table');
-                    }
-                  }}
+                  onExportMonth={handleExportMonthTable}
+                  teamOptions={teamOptions}
                 />
               ))}
             </div>
@@ -412,7 +411,6 @@ const BillableReport = ({ userId }) => {
       )}
     </div>
   );
-};
 
 // Helper to group data by month_year (robust, with fallback)
 function groupByMonthYear(data) {
@@ -428,6 +426,7 @@ function groupByMonthYear(data) {
   }, {});
 }
 
+
 // Helper to parse month label and year from month_year string (e.g., JAN2026)
 function parseMonthYear(monthYear) {
   if (!monthYear) return { label: '-', year: '-' };
@@ -436,6 +435,7 @@ function parseMonthYear(monthYear) {
     return { label: match[1], year: match[2] };
   }
   return { label: monthYear, year: '' };
+}
 }
 
 export default BillableReport;

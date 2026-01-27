@@ -2,16 +2,17 @@ import React, { useState, useMemo } from "react";
 import CustomSelect from "../common/CustomSelect";
 import { useUser } from "../../context/UserContext";
 
-export default function MonthCard({ month, users, onExport, onExportMonth }) {
+export default function MonthCard({ month, users, onExport, onExportMonth, teamOptions = [] }) {
   const [expanded, setExpanded] = useState(false);
   const [selectedTeam, setSelectedTeam] = useState("");
   const { isAgent } = useUser();
 
-  // Build unique team list from users prop (table data)
+  // Use teamOptions from API if provided, else fallback to unique teams from users
   const teams = useMemo(() => {
+    if (teamOptions.length > 0) return [{ label: "All Teams", value: "" }, ...teamOptions.map(t => ({ label: t.label, value: t.label }))];
     const unique = Array.from(new Set(users.map(u => u.team_name).filter(Boolean)));
-    return unique.map(team => ({ label: team, value: team }));
-  }, [users]);
+    return [{ label: "All Teams", value: "" }, ...unique.map(team => ({ label: team, value: team }))];
+  }, [users, teamOptions]);
 
   // Only filter by team if not agent
   const filteredUsers = !isAgent && selectedTeam
@@ -30,13 +31,20 @@ export default function MonthCard({ month, users, onExport, onExportMonth }) {
         </div>
         <div className="flex-1" />
         {!isAgent && (
-          <div className="w-48 mr-4">
+          <div className="flex items-center gap-2 w-64 mr-4">
             <CustomSelect
               value={selectedTeam}
               onChange={setSelectedTeam}
-              options={[{ label: "All Teams", value: "" }, ...teams]}
+              options={teams}
               placeholder="Filter by Team"
             />
+            <button
+              className="px-2 py-1 rounded bg-gray-300 hover:bg-gray-400 text-gray-800 text-xs font-semibold border border-gray-400 shadow-sm transition"
+              onClick={() => setSelectedTeam("")}
+              type="button"
+            >
+              Clear
+            </button>
           </div>
         )}
         <button

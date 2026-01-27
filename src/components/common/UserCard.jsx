@@ -88,6 +88,13 @@ export default function UserCard({ user, dailyData, defaultCollapsed, formatDate
             <input type="date" className="border rounded px-2 py-1 text-xs" style={{height: 24}} value={start} onChange={e => e.stopPropagation() || setStart(e.target.value)} />
             <span className="mx-2">to</span>
             <input type="date" className="border rounded px-2 py-1 text-xs" style={{height: 24}} value={end} onChange={e => e.stopPropagation() || setEnd(e.target.value)} />
+            <button
+              className="ml-2 px-2 py-1 rounded bg-gray-300 hover:bg-gray-400 text-gray-800 text-xs font-semibold border border-gray-400 shadow-sm transition"
+              onClick={() => { setStart(''); setEnd(''); }}
+              type="button"
+            >
+              Clear
+            </button>
           </div>
           <button
             onClick={e => {

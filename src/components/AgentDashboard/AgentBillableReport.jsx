@@ -5,9 +5,58 @@ import dayjs from "dayjs";
 import customParseFormat from "dayjs/plugin/customParseFormat";
 dayjs.extend(customParseFormat);
 import { fetchDailyBillableReport, fetchMonthlyBillableReport } from "../../services/billableReportService";
-import api from "../../services/api";
+import { useAuth } from "../../context/AuthContext";
+
+
 
 const BillableReport = () => {
+    // Export the visible monthly report table (with filters applied)
+    const handleExportMonthlyTable = () => {
+      try {
+        const exportData = monthlySummaryData.map(row => ({
+          'Year & Month': row.month_year,
+          'Billable Hours Delivered': row.total_billable_hours
+            ? Number(row.total_billable_hours).toFixed(2)
+            : (row.total_billable_hours_month
+              ? Number(row.total_billable_hours_month).toFixed(2)
+              : '-'),
+          'Monthly Goal': row.monthly_target ?? row.monthly_goal,
+          'Pending Target': row.pending_target ? Number(row.pending_target).toFixed(2) : '-',
+          'Avg. QC Score': row.avg_qc_score ?? '-',
+        }));
+
+        // Calculate totals
+        const totalBillable = exportData.reduce((sum, r) => sum + (Number(r['Billable Hours Delivered']) || 0), 0);
+        const totalGoal = exportData.reduce((sum, r) => sum + (Number(r['Monthly Goal']) || 0), 0);
+        const totalPending = exportData.reduce((sum, r) => sum + (Number(r['Pending Target']) || 0), 0);
+        const qcScores = exportData.map(r => Number(r['Avg. QC Score'])).filter(v => !isNaN(v));
+        const avgQC = qcScores.length > 0 ? (qcScores.reduce((a, b) => a + b, 0) / qcScores.length).toFixed(2) : '-';
+
+        exportData.push({
+          'Year & Month': 'TOTAL',
+          'Billable Hours Delivered': totalBillable,
+          'Monthly Goal': totalGoal,
+          'Pending Target': totalPending,
+          'Avg. QC Score': avgQC,
+        });
+
+        const worksheet = XLSX.utils.json_to_sheet(exportData);
+        worksheet['!cols'] = [
+          { wch: 16 },
+          { wch: 24 },
+          { wch: 16 },
+          { wch: 16 },
+          { wch: 16 },
+        ];
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, 'Monthly Report');
+        const filename = `Monthly_Report.xlsx`;
+        XLSX.writeFile(workbook, filename);
+        toast.success('Monthly report exported!');
+      } catch {
+        toast.error('Failed to export monthly report');
+      }
+    };
   // Export to Excel for a single monthly summary row
   const handleExportMonthlyExcelRow = (row) => {
     try {
@@ -89,7 +138,20 @@ const BillableReport = () => {
   };
 
   // State for tab toggle (must be first hook)
-  const [activeToggle, setActiveToggle] = useState('daily');
+  const [activeToggle, setActiveToggle] = useState(() => {
+    // Try to get from localStorage, fallback to 'daily'
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('agent_billable_active_tab') || 'daily';
+    }
+    return 'daily';
+  });
+
+  // Persist tab selection to localStorage
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('agent_billable_active_tab', activeToggle);
+    }
+  }, [activeToggle]);
   // State for date range filter
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
@@ -133,17 +195,28 @@ const BillableReport = () => {
   const [monthlySummaryData, setMonthlySummaryData] = useState([]);
   const [loadingMonthly, setLoadingMonthly] = useState(false);
   const [errorMonthly, setErrorMonthly] = useState(null);
+  const [monthlyMonth, setMonthlyMonth] = useState("");
+  const { user } = useAuth();
 
-  // Fetch monthly report data from API when monthly tab is active
+  // Fetch monthly report data from API when monthly tab is active or month filter changes
   useEffect(() => {
     if (activeToggle !== 'monthly') return;
     const fetchData = async () => {
       setLoadingMonthly(true);
       setErrorMonthly(null);
       try {
-        const payload = {};
+        let payload = {};
+        if (monthlyMonth) {
+          // monthlyMonth is in format YYYY-MM
+          const [year, month] = monthlyMonth.split('-');
+          const monthNames = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
+          const monthLabel = monthNames[Number(month) - 1];
+          payload = { month_year: `${monthLabel}${year}` };
+        }
+        if (user?.user_id) {
+          payload.logged_in_user_id = user.user_id;
+        }
         const res = await fetchMonthlyBillableReport(payload);
-        console.log('[AgentBillableReport] Monthly API response:', res);
         setMonthlySummaryData(Array.isArray(res.data) ? res.data : []);
       } catch {
         setErrorMonthly("Failed to fetch monthly report data");
@@ -152,7 +225,7 @@ const BillableReport = () => {
       }
     };
     fetchData();
-  }, [activeToggle]);
+  }, [activeToggle, monthlyMonth, user]);
 
   // No need to filter here, as API returns filtered data
   const filteredDailyData = dailyData;
@@ -248,6 +321,18 @@ const BillableReport = () => {
                 onChange={e => setMonthFilter(e.target.value)}
                 style={{ minWidth: 120 }}
               />
+              {/* Clear Filters Button */}
+              <button
+                className="ml-4 px-3 py-1 rounded bg-gray-300 hover:bg-gray-400 text-gray-800 text-xs font-semibold border border-gray-400 shadow-sm transition"
+                onClick={() => {
+                  setStartDate('');
+                  setEndDate('');
+                  setMonthFilter('');
+                }}
+                type="button"
+              >
+                Clear Filters
+              </button>
             </div>
             <button
               onClick={handleExportDailyExcel}
@@ -304,6 +389,31 @@ const BillableReport = () => {
       {/* Monthly Report view (summary table, per-row export) */}
       {activeToggle === 'monthly' && (
         <div className="w-full max-w-7xl mx-auto mt-4">
+          <div className="flex flex-wrap items-center gap-4 mb-6">
+            <label className="font-semibold text-blue-700">Month:</label>
+            <input
+              type="month"
+              className="border border-blue-300 rounded px-3 py-1 text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-500 bg-white shadow-sm transition"
+              value={monthlyMonth}
+              onChange={e => setMonthlyMonth(e.target.value)}
+              style={{ minWidth: 120 }}
+            />
+            {/* Clear Filters Button */}
+            <button
+              className="px-3 py-1 rounded bg-gray-300 hover:bg-gray-400 text-gray-800 text-xs font-semibold border border-gray-400 shadow-sm transition"
+              onClick={() => setMonthlyMonth("")}
+              type="button"
+            >
+              Clear Filters
+            </button>
+            <div className="flex-1" />
+            <button
+              onClick={handleExportMonthlyTable}
+              className="px-3 py-1 rounded bg-linear-to-r from-green-500 to-green-700 hover:from-green-600 hover:to-green-800 text-white text-xs font-semibold border border-green-700 shadow-sm transition mr-2"
+            >
+              Export Month
+            </button>
+          </div>
           <div className="p-6 overflow-x-auto bg-white rounded-2xl shadow-lg w-full">
             {loadingMonthly ? (
               <div className="py-8 text-center text-blue-700 font-semibold">Loading monthly report...</div>
