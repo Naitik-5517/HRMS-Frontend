@@ -1,7 +1,7 @@
 // context/UserContext.jsx
 import React, { createContext, useContext, useState, useMemo } from 'react';
 
-const UserContext = createContext();
+export const UserContext = createContext();
 
 export const useUser = () => {
   const context = useContext(UserContext);

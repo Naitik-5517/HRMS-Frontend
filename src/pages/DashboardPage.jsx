@@ -1,3 +1,5 @@
+// import AgentBillableReport from '../components/AgentDashboard/AgentBillableReport';
+// import BillableReport from '../components/AgentDashboard/BillableReport';
 import AgentDashboard from '../components/AgentDashboard/AgentDashboard';
 import React, { useMemo, useState, useCallback, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
@@ -14,13 +16,14 @@ import AssistantManagerDashboard from '../components/dashboard/AssistantManagerD
 import { useAuth } from '../context/AuthContext'; // Updated to use AuthContext
 import { useDeviceInfo } from '../hooks/useDeviceInfo';
 import { useUserDropdowns } from '../hooks/useUserDropdowns';
+import BillableReportCommon from '../components/common/BillableReport';
+import AgentBillableReport from '../components/AgentDashboard/AgentBillableReport';
 
 // Import the split admin components
 import UsersManagement from '../components/dashboard/manage/user/UsersManagement';
 import ProjectsManagement from '../components/dashboard/manage/project/ProjectsManagement';
 import { fetchUsersList } from '../services/authService';
 import { fetchProjectsList } from '../services/projectService';
-import UserMonthlyTargetCard from './UserMonthlyTargetCard';
 import { toast } from 'react-hot-toast';
 
 // Import db if needed for admin operations
@@ -494,19 +497,22 @@ const DashboardPage = ({
           />
       )}
 
-      {/* Show TabsNavigation only for admins, hide for agents, QA, assistant manager, and on manage tab */}
-      {!isAgent && !isQA && !isAssistantManager && activeTab !== 'manage' && (
-        <TabsNavigation
-          activeTab={activeTab}
-          setActiveTab={setActiveTab}
-          isAgent={isAgent}
-          isQA={isQA}
-          isAdmin={isAdmin}
-          canViewIncentivesTab={canViewIncentivesTab}
-          canViewAdherence={canViewAdherence}
-          canAccessManage={canAccessManage}
-        />
-      )}
+        {/* Show TabsNavigation for non-agents, non-QA, non-AssistantManager */}
+        {!isAgent && !isQA && !isAssistantManager && activeTab !== 'manage' && (
+          <TabsNavigation
+            activeTab={activeTab}
+            setActiveTab={setActiveTab}
+            isAgent={isAgent}
+            isQA={isQA}
+            isAdmin={isAdmin}
+            isAssistantManager={isAssistantManager}
+            isProjectManager={isProjectManager}
+            isSuperAdmin={isSuperAdmin}
+            canViewIncentivesTab={canViewIncentivesTab}
+            canViewAdherence={canViewAdherence}
+            canAccessManage={canAccessManage}
+          />
+        )}
 
       {/* Debug: Show current active tab */}
       {console.log('[DashboardPage Render] activeTab:', activeTab)}
@@ -569,8 +575,24 @@ const DashboardPage = ({
       )}
 
 
-      {/* User Monthly Target Card - only show when tab is active (tab id is 'bookings') */}
-      {activeTab === 'bookings' && <UserMonthlyTargetCard />}
+
+      {/* Billable Report Card - only show when tab is active (tab id is 'bookings') for non-agent roles */}
+      {activeTab === 'bookings' && !isAgent && (
+        (isQA || isAssistantManager || isProjectManager || isAdmin || isSuperAdmin) ? (
+          <div className="max-w-7xl mx-auto mt-6">
+            <h2 className="text-2xl font-bold text-blue-700 mb-4">Billable Report</h2>
+            <BillableReportCommon />
+          </div>
+        ) : null
+      )}
+
+      {/* Agent Billable Report tab and view */}
+      {activeTab === 'billable_report' && isAgent && (
+        <div className="max-w-7xl mx-auto mt-6">
+          <h2 className="text-2xl font-bold text-blue-700 mb-4">Billable Report</h2>
+          <AgentBillableReport />
+        </div>
+      )}
 
       {/* Other tabs would go here - they can be added later as needed */}
 

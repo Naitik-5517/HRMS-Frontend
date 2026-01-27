@@ -14,6 +14,10 @@ function getLoggedInUserId() {
 export const fetchDailyBillableReport = async (payload = {}) => {
   const user_id = getLoggedInUserId();
   const reqBody = { logged_in_user_id: user_id, ...payload };
+  // Debug: log the payload being sent
+  if (process.env.NODE_ENV !== 'production') {
+    console.log('[fetchDailyBillableReport] Payload:', reqBody);
+  }
   const res = await api.post("/tracker/view", reqBody);
   return res.data;
 };

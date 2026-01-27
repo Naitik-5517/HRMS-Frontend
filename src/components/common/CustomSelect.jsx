@@ -57,9 +57,9 @@ const CustomSelect = ({
               No options available
             </div>
           ) : (
-            options.map((option) => (
+            options.map((option, idx) => (
               <button
-                key={option.value}
+                key={option.value ?? idx}
                 type="button"
                 onClick={() => {
                   onChange(option.value);

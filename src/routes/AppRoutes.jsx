@@ -1,11 +1,9 @@
-import UserMonthlyTargetCard from "../pages/UserMonthlyTargetCard";
-        {/* User Monthly Target Card Page */}
+        {/* Billable Report Card Page */}
         <Route
           path="/user-monthly-target"
           element={
             <ProtectedRoute allowedRoles={[1,2,3,4,5,6]}>
               <AppLayout>
-                <UserMonthlyTargetCard />
               </AppLayout>
             </ProtectedRoute>
           }

@@ -14,6 +14,9 @@ const TabsNavigation = ({
   isAgent,
   isQA,
   isAdmin,
+  isAssistantManager,
+  isProjectManager,
+  isSuperAdmin,
   canViewIncentivesTab,
   canViewAdherence
 }) => {
@@ -21,12 +24,10 @@ const TabsNavigation = ({
     
   const tabs = [
     { id: 'overview', label: 'Overview', icon: LayoutGrid, alwaysVisible: true },
-    // Only show Billable Report tab for agents
-    ...(isAgent ? [
-      { id: 'billable_report', label: 'Billable Report', icon: Briefcase, visible: true },
-      // Agent Dashboard tab removed for agents
-    ] : []),
-    { id: 'bookings', label: 'User Monthly Target', icon: Briefcase, visible: !isAgent && !isQA},
+    // Billable Report tab: for agents and for QA, Assistant Manager, Project Manager, Admin, Super Admin
+    ...(isAgent
+      ? [{ id: 'billable_report', label: 'Billable Report', icon: Briefcase, visible: true }]
+      : [{ id: 'bookings', label: 'Billable Report', icon: Briefcase, visible: (isQA || isAssistantManager || isProjectManager || isAdmin || isSuperAdmin) }]),
     { id: 'agents', label: 'Agent Performance', icon: Users, visible: !isQA,disabled:true },
     { id: 'adherence', label: 'Reporting Adherence', icon: FileWarning,disabled:true, visible: canViewAdherence && !isQA },
     { id: 'incentives', label: 'Agent Incentives', icon: DollarSign,disabled:true, visible: canViewIncentivesTab && !isQA },

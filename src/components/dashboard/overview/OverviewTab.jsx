@@ -5,8 +5,8 @@ import HourlyChart from './HourlyChart';
 import { Activity, Calendar, Target, Users, Clock, CheckCircle, TrendingUp, Award, Briefcase } from 'lucide-react';
 import { useAuth } from '../../../context/AuthContext';
 import { useDeviceInfo } from '../../../hooks/useDeviceInfo';
-import UserMonthlyTargetCard from '../../../pages/UserMonthlyTargetCard';
-import BillableReport from '../../AgentDashboard/BillableReport';
+import AgentBillableReport from '../../AgentDashboard/AgentBillableReport';
+import AgentTabsNavigation from '../../AgentDashboard/AgentTabsNavigation';
 
 // Clear dashboard data when date range changes to force UI refresh
 // (must be inside the component, not before imports)
@@ -148,23 +148,14 @@ const OverviewTab = ({ analytics, hourlyChartData, isAgent, dateRange: externalD
 
     return (
       <div className="space-y-4 md:space-y-6 animate-fade-in">
-        {/* Show TabsNavigation above StatCards for agents only */}
-        {isAgent && TabsNavigation && (
-          <Suspense fallback={<div className="py-4 text-center text-blue-600">Loading navigation...</div>}>
-            <TabsNavigation
-              activeTab={activeTab}
-              setActiveTab={setActiveTab}
-              isAgent={isAgent}
-              isQA={false}
-              isAdmin={false}
-              canViewIncentivesTab={true}
-              canViewAdherence={true}
-            />
-          </Suspense>
+        {/* Agent tab navigation above counting cards */}
+        {isAgent && (
+          <AgentTabsNavigation activeTab={activeTab} setActiveTab={setActiveTab} />
         )}
+        {/* No navigation tabs for agents */}
         {/* Show Billable Report tab content for agents */}
         {isAgent && activeTab === 'billable_report' ? (
-          <BillableReport />
+          <AgentBillableReport />
         ) : isAgent && activeTab === 'overview' ? (
           <>
             {/* Counting cards for agent */}
@@ -288,10 +279,6 @@ const OverviewTab = ({ analytics, hourlyChartData, isAgent, dateRange: externalD
         {/* Project Billable Hours section removed for agents */}
 
         {/* Conditional content based on user role */}
-        {/* Render UserMonthlyTargetCard when the User Monthly Target button is clicked */}
-        {activeTab === 'userMonthlyTarget' && (
-          <UserMonthlyTargetCard />
-        )}
       </div>
     );
 };
