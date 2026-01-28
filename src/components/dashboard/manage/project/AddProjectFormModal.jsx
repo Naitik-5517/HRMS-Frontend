@@ -32,11 +32,33 @@ const AddProjectFormModal = ({
      });
 
      // Debug logs for edit mode
+     // In edit mode, ensure selected IDs are set from project data if not already set
      useEffect(() => {
-          if (isEditMode) {
-          } else {
+          if (isEditMode && newProject) {
+               // Helper to extract string IDs from any array of IDs or objects
+               const extractIds = (arr, key = 'user_id') => {
+                    if (!arr) return [];
+                    if (Array.isArray(arr) && typeof arr[0] === 'object') {
+                         return arr.map(u => String(u[key] ?? u.id)).filter(Boolean);
+                    }
+                    return arr.map(id => String(id)).filter(Boolean);
+               };
+
+               // Only update if not already set (avoid overwriting user changes)
+               if ((!newProject.assistantManagerIds || newProject.assistantManagerIds.length === 0) && newProject.asst_project_managers) {
+                    const ids = extractIds(newProject.asst_project_managers, 'user_id');
+                    onFieldChange('assistantManagerIds', ids);
+               }
+               if ((!newProject.qaManagerIds || newProject.qaManagerIds.length === 0) && newProject.qa_users) {
+                    const ids = extractIds(newProject.qa_users, 'user_id');
+                    onFieldChange('qaManagerIds', ids);
+               }
+               if ((!newProject.teamIds || newProject.teamIds.length === 0) && newProject.project_team) {
+                    const ids = extractIds(newProject.project_team, 'user_id');
+                    onFieldChange('teamIds', ids);
+               }
           }
-     }, [isEditMode, newProject, projectManagers, assistantManagers, qaManagers, teams]);
+     }, [isEditMode, newProject, onFieldChange]);
 
      // Handle multiple selection - Updated to handle array of objects
      const handleMultipleSelect = (field, userId, isChecked) => {
@@ -294,11 +316,11 @@ const AddProjectFormModal = ({
                                                                                                                              {/* Show each user only once, checked if selected */}
                                                                                                                              {[
                                                                                                                                   ...newProject.assistantManagerIds
-                                                                                                                                       .map(id => processedAssistantManagers.find(am => String(am.user_id) === String(id)) || { user_id: id, label: `Unknown (${id})` }),
+                                                                                                                                       .map((id, idx) => processedAssistantManagers.find(am => String(am.user_id) === String(id)) || { user_id: id, label: `Unknown (${id})`, _idx: idx }),
                                                                                                                                   ...processedAssistantManagers.filter(am => !newProject.assistantManagerIds.includes(am.user_id))
-                                                                                                                             ].map((am) => (
+                                                                                                                             ].map((am, idx) => (
                                                                                                                                   <label
-                                                                                                                                       key={am.user_id}
+                                                                                                                                       key={am.user_id + '-' + (am._idx !== undefined ? am._idx : idx)}
                                                                                                                                        className="flex items-center px-3 py-2 hover:bg-gray-50 cursor-pointer"
                                                                                                                                   >
                                                                                                                                        <input
@@ -323,10 +345,10 @@ const AddProjectFormModal = ({
                                    </div>
                                    {newProject.assistantManagerIds?.length > 0 && (
                                         <div className="flex flex-wrap gap-2 mt-2">
-                                             {newProject.assistantManagerIds.map(id => {
+                                             {newProject.assistantManagerIds.map((id, idx) => {
                                                   const am = processedAssistantManagers.find(a => String(a.user_id ?? a.id) === String(id));
                                                   return am ? (
-                                                       <span key={id} className="inline-flex items-center gap-1 px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded-full">
+                                                       <span key={id + '-' + idx} className="inline-flex items-center gap-1 px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded-full">
                                                             {am.label}
                                                             <button
                                                                  type="button"
@@ -361,15 +383,15 @@ const AddProjectFormModal = ({
                                         {dropdownOpen.qaManagers && (
                                              <div ref={dropdownRefs.qaManagers} className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg">
                                                                                                                              {/* Show each user only once, checked if selected */}
-                                                                                                                             {[
-                                                                                                                                  ...newProject.qaManagerIds
-                                                                                                                                       .map(id => processedQaManagers.find(qa => String(qa.user_id) === String(id)) || { user_id: id, label: `Unknown (${id})` }),
-                                                                                                                                  ...processedQaManagers.filter(qa => !newProject.qaManagerIds.includes(qa.user_id))
-                                                                                                                             ].map((qa) => (
-                                                                                                                                  <label
-                                                                                                                                       key={qa.user_id}
-                                                                                                                                       className="flex items-center px-3 py-2 hover:bg-gray-50 cursor-pointer"
-                                                                                                                                  >
+                                                                                                                                 {[
+                                                                                                                                      ...newProject.qaManagerIds
+                                                                                                                                           .map((id, idx) => processedQaManagers.find(qa => String(qa.user_id) === String(id)) || { user_id: id, label: `Unknown (${id})`, _idx: idx }),
+                                                                                                                                      ...processedQaManagers.filter(qa => !newProject.qaManagerIds.includes(qa.user_id))
+                                                                                                                                 ].map((qa, idx) => (
+                                                                                                                                      <label
+                                                                                                                                           key={qa.user_id + '-' + (qa._idx !== undefined ? qa._idx : idx)}
+                                                                                                                                           className="flex items-center px-3 py-2 hover:bg-gray-50 cursor-pointer"
+                                                                                                                                      >
                                                                                                                                        <input
                                                                                                                                             type="checkbox"
                                                                                                                                             checked={isSelected('qaManagerIds', qa.user_id)}
@@ -386,10 +408,10 @@ const AddProjectFormModal = ({
                                    </div>
                                    {newProject.qaManagerIds?.length > 0 && (
                                         <div className="flex flex-wrap gap-2 mt-2">
-                                             {newProject.qaManagerIds.map(id => {
+                                             {newProject.qaManagerIds.map((id, idx) => {
                                                   const qa = processedQaManagers.find(q => String(q.user_id ?? q.id) === String(id));
                                                   return qa ? (
-                                                       <span key={id} className="inline-flex items-center gap-1 px-2 py-1 text-xs bg-green-100 text-green-800 rounded-full">
+                                                       <span key={id + '-' + idx} className="inline-flex items-center gap-1 px-2 py-1 text-xs bg-green-100 text-green-800 rounded-full">
                                                             {qa.label}
                                                             <button
                                                                  type="button"

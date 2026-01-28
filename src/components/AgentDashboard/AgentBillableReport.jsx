@@ -1,6 +1,8 @@
 import * as XLSX from 'xlsx';
 import { toast } from "react-hot-toast";
 import React, { useState, useEffect } from "react";
+import { getFriendlyErrorMessage } from '../../utils/errorMessages';
+import ErrorMessage from '../common/ErrorMessage';
 import dayjs from "dayjs";
 import customParseFormat from "dayjs/plugin/customParseFormat";
 dayjs.extend(customParseFormat);
@@ -53,8 +55,9 @@ const BillableReport = () => {
         const filename = `Monthly_Report.xlsx`;
         XLSX.writeFile(workbook, filename);
         toast.success('Monthly report exported!');
-      } catch {
-        toast.error('Failed to export monthly report');
+      } catch (err) {
+        const msg = getFriendlyErrorMessage(err);
+        toast.error(msg);
       }
     };
   // Export to Excel for a single monthly summary row
@@ -80,8 +83,9 @@ const BillableReport = () => {
       const filename = `Monthly_Summary_${row.month}.xlsx`;
       XLSX.writeFile(workbook, filename);
       toast.success(`Exported ${row.month} summary!`);
-    } catch {
-      toast.error('Failed to export monthly summary');
+    } catch (err) {
+      const msg = getFriendlyErrorMessage(err);
+      toast.error(msg);
     }
   };
 
@@ -132,8 +136,9 @@ const BillableReport = () => {
       const filename = `Month_Daily_Report_${monthYear}.xlsx`;
       XLSX.writeFile(workbook, filename);
       toast.success('Month daily report exported!');
-    } catch {
-      toast.error('Failed to export month daily report');
+    } catch (err) {
+      const msg = getFriendlyErrorMessage(err);
+      toast.error(msg);
     }
   };
 
@@ -182,8 +187,8 @@ const BillableReport = () => {
         }
         const res = await fetchDailyBillableReport(payload);
         setDailyData(Array.isArray(res.data?.trackers) ? res.data.trackers : []);
-      } catch {
-        setErrorDaily("Failed to fetch daily report data");
+      } catch (err) {
+        setErrorDaily(getFriendlyErrorMessage(err));
       } finally {
         setLoadingDaily(false);
       }
@@ -218,8 +223,8 @@ const BillableReport = () => {
         }
         const res = await fetchMonthlyBillableReport(payload);
         setMonthlySummaryData(Array.isArray(res.data) ? res.data : []);
-      } catch {
-        setErrorMonthly("Failed to fetch monthly report data");
+      } catch (err) {
+        setErrorMonthly(getFriendlyErrorMessage(err));
       } finally {
         setLoadingMonthly(false);
       }
@@ -349,7 +354,7 @@ const BillableReport = () => {
             {loadingDaily ? (
               <div className="py-8 text-center text-blue-700 font-semibold">Loading daily report...</div>
             ) : errorDaily ? (
-              <div className="py-8 text-center text-red-600 font-semibold">{errorDaily}</div>
+              <ErrorMessage message={errorDaily} />
             ) : (
               <table className="min-w-full divide-y divide-blue-100 text-sm">
                 <thead>

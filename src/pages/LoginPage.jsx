@@ -197,6 +197,7 @@ const LoginPage = () => {
                   className={`block w-full pl-10 pr-3 py-3 border rounded-lg 
                     focus:outline-none focus:ring-2 bg-gray-50 tracking-widest
                     ${
+
                       passwordError || backendPasswordError
                         ? "border-red-500 focus:ring-red-500"
                         : "border-gray-200 focus:ring-blue-500"

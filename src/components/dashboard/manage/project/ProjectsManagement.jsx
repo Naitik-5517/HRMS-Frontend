@@ -5,6 +5,7 @@ import { useProjectManagement } from "../../../../hooks/useProjectManagement";
 
 
 import AddProjectForm from './AddProjectForm';
+import EditProjectModal from './EditProjectModal';
 import ProjectCard from './ProjectCard';
 import DeleteProjectModal from './DeleteProjectModal';
 import { useUserDropdowns } from "../../../../hooks/useUserDropdowns";
@@ -149,12 +150,11 @@ const ProjectsManagement = ({
 
   return (
     <div className="space-y-8 animate-fade-in p-4 md:p-0 w-full overflow-x-hidden">
-      {!readOnly && (
+      {!readOnly && !isEditMode && (
         <AddProjectForm
           newProject={newProject}
           onFieldChange={updateNewProjectField}
           onSubmit={handleAddProject}
-          onUpdateSubmit={handleUpdateProject}
 
           // ⬇️ normalized dropdown data
           projectManagers={normalizedProjectManagers}
@@ -171,9 +171,22 @@ const ProjectsManagement = ({
           handleProjectFilesChange={handleProjectFilesChange}
           handleRemoveProjectFile={handleRemoveProjectFile}
           handleModalClose={handleModalClose}
-          isEditMode={isEditMode}
-          showEditModal={showEditModal}
-          closeEditModal={closeEditModal}
+        />
+      )}
+
+      {showEditModal && isEditMode && (
+        <EditProjectModal
+          project={newProject}
+          onClose={closeEditModal}
+          onUpdate={handleUpdateProject}
+          projectManagers={normalizedProjectManagers}
+          assistantManagers={normalizedAssistantManagers}
+          qaManagers={normalizedQaManagers}
+          teams={normalizedTeams}
+          formErrors={formErrors}
+          isSubmitting={isSubmitting}
+          handleProjectFilesChange={handleProjectFilesChange}
+          handleRemoveProjectFile={handleRemoveProjectFile}
         />
       )}
 

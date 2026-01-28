@@ -330,33 +330,34 @@ export const useProjectManagement = (initialProjects, onUpdateProjects, loadProj
      };
 
      // Add function to handle project update
-     const handleUpdateProject = async () => {
+     const handleUpdateProject = async (editedProject) => {
           // Similar validation as handleAddProject
           const errors = {};
 
-          if (!newProject.name?.trim()) {
+          const projectData = editedProject || newProject;
+          if (!projectData.name?.trim()) {
                errors.name = "This field is required";
           }
 
-          if (!newProject.code?.trim()) {
+          if (!projectData.code?.trim()) {
                errors.code = "This field is required";
-          } else if (!/^[a-zA-Z0-9]+$/.test(newProject.code)) {
+          } else if (!/^[a-zA-Z0-9]+$/.test(projectData.code)) {
                errors.code = "Only alphanumeric characters allowed";
           }
 
-          if (!newProject.projectManagerId) {
+          if (!projectData.projectManagerId) {
                errors.projectManagerId = "This field is required";
           }
 
-          if (!newProject.assistantManagerIds?.length) {
+          if (!projectData.assistantManagerIds?.length) {
                errors.assistantManagerIds = "This field is required";
           }
 
-          if (!newProject.qaManagerIds?.length) {
+          if (!projectData.qaManagerIds?.length) {
                errors.qaManagerIds = "This field is required";
           }
 
-          if (!newProject.teamIds?.length) {
+          if (!projectData.teamIds?.length) {
                errors.teamIds = "This field is required";
           }
 
@@ -375,13 +376,13 @@ export const useProjectManagement = (initialProjects, onUpdateProjects, loadProj
 
                const payload = {
                     project_id: editingProjectId,
-                    project_name: newProject.name.trim(),
-                    project_code: newProject.code.trim(),
-                    project_description: newProject.description?.trim() || null,
-                    project_manager_id: Number(newProject.projectManagerId),
-                    asst_project_manager_id: newProject.assistantManagerIds.map(id => Number(id)),
-                    project_qa_id: newProject.qaManagerIds.map(id => Number(id)),
-                    project_team_id: newProject.teamIds.map(id => Number(id)),
+                    project_name: projectData.name.trim(),
+                    project_code: projectData.code.trim(),
+                    project_description: projectData.description?.trim() || null,
+                    project_manager_id: Number(projectData.projectManagerId),
+                    asst_project_manager_id: projectData.assistantManagerIds.map(id => Number(id)),
+                    project_qa_id: projectData.qaManagerIds.map(id => Number(id)),
+                    project_team_id: projectData.teamIds.map(id => Number(id)),
                     ...(base64Files.length > 0 && { files: base64Files }),
                };
 

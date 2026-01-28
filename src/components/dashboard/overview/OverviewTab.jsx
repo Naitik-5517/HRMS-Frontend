@@ -13,12 +13,23 @@ import AgentTabsNavigation from '../../AgentDashboard/AgentTabsNavigation';
 import api from '../../../services/api';
 import { toast } from 'react-hot-toast';
 
-const OverviewTab = ({ analytics, hourlyChartData, isAgent, dateRange: externalDateRange }) => {
+const OverviewTab = ({ analytics, hourlyChartData, isAgent, isQA, dateRange: externalDateRange }) => {
   const { user } = useAuth();
   const { device_id, device_type } = useDeviceInfo();
   const [dashboardData, setDashboardData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('overview'); // New state for active tab
+
+  // QA dashboard filter states
+  const getTodayDate = () => {
+    const today = new Date();
+    return today.toISOString().split('T')[0];
+  };
+  const [qaStartDate, setQaStartDate] = useState(getTodayDate());
+  const [qaEndDate, setQaEndDate] = useState(getTodayDate());
+  const [qaSummary, setQaSummary] = useState(null);
+  const [qaTrackers, setQaTrackers] = useState([]);
+  const [qaLoading, setQaLoading] = useState(false);
 
   // Dynamically import TabsNavigation for agent side to avoid circular dependency and SSR issues
   const TabsNavigation = isAgent ? lazy(() => import('../TabsNavigation')) : null;
@@ -47,11 +58,11 @@ const OverviewTab = ({ analytics, hourlyChartData, isAgent, dateRange: externalD
     return externalDateRange;
   }, [externalDateRange, firstDayStr, lastDayStr]);
 
+
   // Fetch dashboard data for agents
   const fetchDashboardData = React.useCallback(async () => {
     try {
       setLoading(true);
-      // Always send date_from and date_to for agent dashboard (default: current month)
       let payload = {
         logged_in_user_id: user.user_id,
         device_id: device_id || 'web123',
@@ -59,34 +70,57 @@ const OverviewTab = ({ analytics, hourlyChartData, isAgent, dateRange: externalD
         date_from: dateRange.start ? dateRange.start.slice(0, 10) : undefined,
         date_to: dateRange.end ? dateRange.end.slice(0, 10) : undefined
       };
-      console.log('[OverviewTab] FINAL API PAYLOAD:', JSON.stringify(payload, null, 2));
-      console.log('[OverviewTab] 📤 Sending request to /dashboard/filter');
-      console.log('[OverviewTab] 📤 Payload:', JSON.stringify(payload, null, 2));
       const response = await api.post('/dashboard/filter', payload);
-      console.log('[OverviewTab] 📥 Response received:', response);
       if (response.data?.status === 200) {
         setDashboardData(response.data.data);
       } else {
-        console.error('[OverviewTab] Unexpected response status:', response.data?.status);
         toast.error('Failed to load dashboard data');
       }
     } catch (error) {
-      console.error('[OverviewTab] Error fetching dashboard data:', error);
-      console.error('[OverviewTab] Error response:', error.response?.data);
-      console.error('[OverviewTab] Error status:', error.response?.status);
-      console.error('[OverviewTab] Error message:', error.message);
-      const errorMessage = error.response?.data?.message || error.message || 'Failed to load dashboard data';
-      toast.error(`Backend Error: ${errorMessage}`);
+      toast.error('Failed to load dashboard data');
     } finally {
       setLoading(false);
     }
   }, [user.user_id, device_id, device_type, dateRange]);
+
+  // Fetch QA dashboard data (trackers + summary) with date range filter
+  const fetchQADashboardData = React.useCallback(async () => {
+    try {
+      setQaLoading(true);
+      const payload = {
+        logged_in_user_id: user.user_id,
+        date_from: qaStartDate,
+        date_to: qaEndDate
+      };
+      const response = await api.post('/tracker/view', payload);
+      if (response.data?.status === 200) {
+        setQaSummary(response.data.data?.month_summary || []);
+        setQaTrackers(response.data.data?.trackers || []);
+      } else {
+        toast.error('Failed to load QA dashboard data');
+        setQaSummary([]);
+        setQaTrackers([]);
+      }
+    } catch (error) {
+      toast.error('Failed to load QA dashboard data');
+      setQaSummary([]);
+      setQaTrackers([]);
+    } finally {
+      setQaLoading(false);
+    }
+  }, [user.user_id, qaStartDate, qaEndDate]);
 
   useEffect(() => {
     if (isAgent && user?.user_id) {
       fetchDashboardData();
     }
   }, [isAgent, user?.user_id, device_id, device_type, dateRange, fetchDashboardData]);
+
+  useEffect(() => {
+    if (isQA && user?.user_id) {
+      fetchQADashboardData();
+    }
+  }, [isQA, user?.user_id, qaStartDate, qaEndDate, fetchQADashboardData]);
 
   // Extract agent stats from API response
   // Note: API returns only the logged-in agent's data based on logged_in_user_id
@@ -152,7 +186,62 @@ const OverviewTab = ({ analytics, hourlyChartData, isAgent, dateRange: externalD
         {isAgent && (
           <AgentTabsNavigation activeTab={activeTab} setActiveTab={setActiveTab} />
         )}
-        {/* No navigation tabs for agents */}
+
+        {/* QA DASHBOARD FILTERS & ANALYTICS */}
+        {isQA && (
+          <div className="mb-6">
+            <div className="flex flex-col md:flex-row md:items-end gap-4 mb-4">
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Start Date</label>
+                <input type="date" value={qaStartDate} onChange={e => setQaStartDate(e.target.value)} className="border rounded px-2 py-1 text-sm" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">End Date</label>
+                <input type="date" value={qaEndDate} onChange={e => setQaEndDate(e.target.value)} className="border rounded px-2 py-1 text-sm" />
+              </div>
+              <button onClick={() => { setQaStartDate(getTodayDate()); setQaEndDate(getTodayDate()); }} className="px-3 py-1.5 text-xs bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-md font-medium transition">Today</button>
+            </div>
+            {/* QA Analytics Summary */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-4">
+              <StatCard title="Total Agents" value={qaSummary ? qaSummary.length : 0} subtext="In range" icon={Users} trend="neutral" tooltip="Total agents in summary." className="min-w-0" />
+              <StatCard title="Total Billable Hours" value={qaSummary ? qaSummary.reduce((sum, s) => sum + (parseFloat(s.total_billable_hours_month) || 0), 0).toFixed(2) : '0.00'} subtext="All agents" icon={Clock} trend="neutral" tooltip="Sum of billable hours for all agents." className="min-w-0" />
+              <StatCard title="Month" value={qaSummary && qaSummary[0] ? qaSummary[0].month_year : '-'} subtext="Current" icon={Calendar} trend="neutral" tooltip="Month-Year of summary." className="min-w-0" />
+              <StatCard title="Pending Days" value={qaSummary && qaSummary[0] ? (qaSummary[0].pending_days ?? '-') : '-'} subtext="Current" icon={Award} trend="neutral" tooltip="Pending days for first agent." className="min-w-0" />
+            </div>
+            {/* QA Trackers Table */}
+            <div className="overflow-x-auto bg-white rounded-2xl border border-slate-200 shadow-sm">
+              {qaLoading ? (
+                <div className="py-8 text-center text-blue-700 font-semibold">Loading QA dashboard...</div>
+              ) : qaTrackers.length === 0 ? (
+                <div className="py-8 text-center text-gray-500">No tracker data found for this range.</div>
+              ) : (
+                <table className="min-w-full divide-y divide-blue-100 text-sm">
+                  <thead>
+                    <tr className="bg-blue-50">
+                      <th className="px-6 py-3 text-left font-semibold text-blue-700 uppercase tracking-wider">Date-Time</th>
+                      <th className="px-6 py-3 text-left font-semibold text-blue-700 uppercase tracking-wider">Agent</th>
+                      <th className="px-6 py-3 text-left font-semibold text-blue-700 uppercase tracking-wider">Project</th>
+                      <th className="px-6 py-3 text-left font-semibold text-blue-700 uppercase tracking-wider">Task</th>
+                      <th className="px-6 py-3 text-center font-semibold text-blue-700 uppercase tracking-wider">Billable Hours</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-blue-50">
+                    {qaTrackers.map((row, idx) => (
+                      <tr key={row.tracker_id || idx} className="hover:bg-blue-50 transition group">
+                        <td className="px-6 py-3 text-black font-medium whitespace-nowrap">{row.date_time ? row.date_time : '-'}</td>
+                        <td className="px-6 py-3 text-black">{row.user_name || '-'}</td>
+                        <td className="px-6 py-3 text-black">{row.project_name || '-'}</td>
+                        <td className="px-6 py-3 text-black">{row.task_name || '-'}</td>
+                        <td className="px-6 py-3 text-center text-black">{row.billable_hours ? Number(row.billable_hours).toFixed(2) : '-'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Show Billable Report tab content for agents */}
         {isAgent && activeTab === 'billable_report' ? (
           <AgentBillableReport />

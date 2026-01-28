@@ -11,9 +11,12 @@ import api from "../../services/api";
 import { useAuth } from "../../context/AuthContext";
 import { useDeviceInfo } from "../../hooks/useDeviceInfo";
 import { log, logError } from "../../config/environment";
+import { getFriendlyErrorMessage } from '../../utils/errorMessages';
+import ErrorMessage from '../common/ErrorMessage';
 import AppLayout from "../../layouts/AppLayout";
 import QATabsNavigation from "./QATabsNavigation";
 import BillableReport from "../common/BillableReport";
+import QAFilterBar from "./QAFilterBar";
 
 const QAAgentDashboard = ({ embedded = false }) => {
       // StatCard component for dashboard stats
@@ -38,6 +41,8 @@ const QAAgentDashboard = ({ embedded = false }) => {
   const { user } = useAuth();
   const { device_id, device_type } = useDeviceInfo();
   
+
+  const [error, setError] = useState(null);
   const [stats, setStats] = useState({
     totalAgents: 0,
     pendingQCFiles: 0,
@@ -47,117 +52,160 @@ const QAAgentDashboard = ({ embedded = false }) => {
   const [pendingFiles, setPendingFiles] = useState([]);
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
+  // By default, show today's data
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const [dateRange, setDateRange] = useState({
+    start: todayStr,
+    end: todayStr
+  });
 
   // Fetch dashboard data on mount
   // Call dashboard/filter on any filter change (add date/task/project if needed)
-  useEffect(() => {
-    const today = new Date().toISOString().slice(0, 10);
-    const payload = {
-      logged_in_user_id: user?.user_id,
-      device_id,
-      device_type,
-      date: today
-    };
-    const fetchDashboardData = async () => {
-      try {
-        setLoading(true);
-        log('[QAAgentDashboard] Fetching dashboard data');
-        const res = await api.post('/dashboard/filter', payload);
-        if (res.status === 200 && res.data?.data) {
-          const responseData = res.data.data;
-          const trackers = responseData.tracker || [];
-          const users = responseData.users || [];
-          const tasks = responseData.tasks || [];
-          const summary = responseData.summary || {};
-          // Create a map for task lookup
-          const taskMap = {};
-          tasks.forEach(task => {
-            taskMap[task.task_id] = {
-              task_name: task.task_name,
-              task_target: task.task_target
-            };
-          });
-          // Filter trackers with files and enrich with task names
-          const trackersWithFiles = trackers
-            .filter(tracker => tracker.tracker_file)
-            .map(tracker => {
-              const taskInfo = taskMap[tracker.task_id] || {};
-              return {
-                ...tracker,
-                task_name: taskInfo.task_name || 'N/A'
-              };
-            })
-            .slice(0, 5); // Get latest 5
-          // Set stats
-          setStats({
-            totalAgents: users.length || 0,
-            pendingQCFiles: trackersWithFiles.length || 0,
-            placeholder1: summary.tracker_rows || 0,
-            placeholder2: summary.project_count || 0
-          });
-          setPendingFiles(trackersWithFiles);
-          log('[QAAgentDashboard] Dashboard data loaded - Agents:', users.length, 'Files:', trackersWithFiles.length);
-        } else {
-          setStats({
-            totalAgents: 0,
-            pendingQCFiles: 0,
-            placeholder1: 0,
-            placeholder2: 0
-          });
-          setPendingFiles([]);
-        }
-      } catch (err) {
-        logError('[QAAgentDashboard] Error fetching dashboard data:', err);
-        toast.error("Failed to load dashboard data");
-      } finally {
-        setLoading(false);
+
+  // Fetch dashboard data with filter
+  const fetchDashboardData = async (customRange) => {
+    try {
+      setLoading(true);
+      log('[QAAgentDashboard] Fetching dashboard data');
+      let payload = {
+        logged_in_user_id: user?.user_id,
+        device_id,
+        device_type
+      };
+      if (customRange && customRange.start && customRange.end) {
+        payload = { ...payload, from_date: customRange.start, to_date: customRange.end };
+      } else {
+        const today = new Date().toISOString().slice(0, 10);
+        payload = { ...payload, date: today };
       }
-    };
-    if (user?.user_id) {
-      fetchDashboardData();
+      const res = await api.post('/dashboard/filter', payload);
+      if (res.status === 200 && res.data?.data) {
+        const responseData = res.data.data;
+        const trackers = responseData.tracker || [];
+        const users = responseData.users || [];
+        const tasks = responseData.tasks || [];
+        const summary = responseData.summary || {};
+        // Create a map for task lookup
+        const taskMap = {};
+        tasks.forEach(task => {
+          taskMap[task.task_id] = {
+            task_name: task.task_name,
+            task_target: task.task_target
+          };
+        });
+        // Filter trackers with files and enrich with task names
+        const trackersWithFiles = trackers
+          .filter(tracker => tracker.tracker_file)
+          .map(tracker => {
+            const taskInfo = taskMap[tracker.task_id] || {};
+            return {
+              ...tracker,
+              task_name: taskInfo.task_name || 'N/A'
+            };
+          })
+          .slice(0, 5); // Get latest 5
+        // Set stats
+        setStats({
+          totalAgents: users.length || 0,
+          pendingQCFiles: trackersWithFiles.length || 0,
+          placeholder1: summary.tracker_rows || 0,
+          placeholder2: summary.project_count || 0
+        });
+        setPendingFiles(trackersWithFiles);
+        log('[QAAgentDashboard] Dashboard data loaded - Agents:', users.length, 'Files:', trackersWithFiles.length);
+      } else {
+        setStats({
+          totalAgents: 0,
+          pendingQCFiles: 0,
+          placeholder1: 0,
+          placeholder2: 0
+        });
+        setPendingFiles([]);
+      }
+    } catch (err) {
+      logError('[QAAgentDashboard] Error fetching dashboard data:', err);
+      setError(getFriendlyErrorMessage(err));
+      toast.error(getFriendlyErrorMessage(err));
+    } finally {
+      setLoading(false);
     }
+  };
+
+  // On mount, show today's data by default
+  useEffect(() => {
+    if (user?.user_id) {
+      fetchDashboardData({ start: todayStr, end: todayStr });
+      setDateRange({ start: todayStr, end: todayStr });
+    }
+    // eslint-disable-next-line
   }, [user, device_id, device_type]);
+
+  // Auto-apply filter on date change
+  useEffect(() => {
+    if (dateRange.start && dateRange.end) {
+      fetchDashboardData(dateRange);
+    }
+    // eslint-disable-next-line
+  }, [dateRange.start, dateRange.end]);
+
+  const handleDateRangeChange = (field, value) => {
+    setDateRange(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleClear = () => {
+    setDateRange({ start: todayStr, end: todayStr });
+  };
 
   const content = (
     <div className="space-y-6 max-w-7xl mx-auto pb-10">
+      {/* Filter Bar for Organization Analytics (before navigation tabs) */}
+      <QAFilterBar
+        dateRange={dateRange}
+        handleDateRangeChange={handleDateRangeChange}
+        handleClear={handleClear}
+      />
       {/* Navigation Tabs after filter */}
       <QATabsNavigation activeTab={activeTab} setActiveTab={setActiveTab} />
       {/* Stats Cards */}
       {activeTab === 'overview' && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <StatCard
-            icon={Users}
-            title="Total Agents"
-            value={stats.totalAgents}
-            subtitle="Assigned agents"
-            iconBgColor="bg-blue-50"
-            iconColor="text-blue-600"
-          />
-          <StatCard
-            icon={FileCheck}
-            title="Pending QC Files"
-            value={stats.pendingQCFiles}
-            subtitle="Files to review"
-            iconBgColor="bg-blue-50"
-            iconColor="text-blue-600"
-          />
-          <StatCard
-            icon={TrendingUp}
-            title="Placeholder 1"
-            value={stats.placeholder1}
-            subtitle="Data pending"
-            iconBgColor="bg-blue-50"
-            iconColor="text-blue-600"
-          />
-          <StatCard
-            icon={Activity}
-            title="Placeholder 2"
-            value={stats.placeholder2}
-            subtitle="Data pending"
-            iconBgColor="bg-blue-50"
-            iconColor="text-blue-600"
-          />
-        </div>
+        error ? (
+          <ErrorMessage message={error} />
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <StatCard
+              icon={Users}
+              title="Total Agents"
+              value={stats.totalAgents}
+              subtitle="Assigned agents"
+              iconBgColor="bg-blue-50"
+              iconColor="text-blue-600"
+            />
+            <StatCard
+              icon={FileCheck}
+              title="Pending QC Files"
+              value={stats.pendingQCFiles}
+              subtitle="Files to review"
+              iconBgColor="bg-blue-50"
+              iconColor="text-blue-600"
+            />
+            <StatCard
+              icon={TrendingUp}
+              title="Placeholder 1"
+              value={stats.placeholder1}
+              subtitle="Data pending"
+              iconBgColor="bg-blue-50"
+              iconColor="text-blue-600"
+            />
+            <StatCard
+              icon={Activity}
+              title="Placeholder 2"
+              value={stats.placeholder2}
+              subtitle="Data pending"
+              iconBgColor="bg-blue-50"
+              iconColor="text-blue-600"
+            />
+          </div>
+        )
       )}
       {activeTab === 'billable_report' && <BillableReport />}
       {/* Latest Pending QC Files */}

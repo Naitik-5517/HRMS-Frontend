@@ -113,87 +113,105 @@ const QAAgentList = () => {
   };
 
   return (
-    <div className="space-y-4">
-      <div className="mb-6">
-        <h2 className="text-2xl font-bold text-blue-700 tracking-tight">Agent File Report</h2>
+    <div className="space-y-8 max-w-5xl mx-auto py-8">
+      <div className="mb-8 flex items-center gap-3">
+        <UsersIcon className="w-8 h-8 text-blue-600" />
+        <h2 className="text-3xl font-extrabold text-blue-800 tracking-tight drop-shadow-sm">Agent File Report</h2>
       </div>
       <div>
         {loading ? (
-          <div className="text-center py-8 text-blue-600 font-semibold">Loading...</div>
+          <div className="flex flex-col items-center justify-center py-16">
+            <span className="loader mb-4"></span>
+            <span className="text-blue-600 font-semibold text-lg animate-pulse">Loading...</span>
+          </div>
         ) : agents.length === 0 ? (
-          <div className="text-center py-8 text-slate-500">No agent data found.</div>
+          <div className="flex flex-col items-center justify-center py-16">
+            <span className="text-4xl text-slate-300 mb-2"><UsersIcon className="w-10 h-10" /></span>
+            <span className="text-slate-400 text-lg">No agent data found.</span>
+          </div>
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-8">
             {agents.map((agent) => {
               const trackers = agentTrackers[agent.user_id] || [];
               return (
-                <div key={agent.user_id} className="mb-8 border rounded-lg shadow-sm bg-white">
-                  <div className="flex items-center justify-between px-6 py-4 cursor-pointer select-none border-b bg-slate-50" onClick={() => toggleAgent(agent.user_id)}>
-                    <div className="flex items-center gap-2">
-                      <UsersIcon className="w-5 h-5 text-blue-600" />
-                      <span className="font-semibold text-blue-700 text-lg">{agent.user_name}</span>
+                <div
+                  key={agent.user_id}
+                  className="mb-4 rounded-2xl shadow-lg bg-gradient-to-br from-blue-50 via-white to-slate-50 border border-slate-200 hover:shadow-2xl transition-shadow duration-300"
+                >
+                  <div
+                    className="flex items-center justify-between px-8 py-5 cursor-pointer select-none border-b border-slate-100 bg-gradient-to-r from-blue-100/60 to-white/80 rounded-t-2xl"
+                    onClick={() => toggleAgent(agent.user_id)}
+                  >
+                    <div className="flex items-center gap-3">
+                      <UsersIcon className="w-6 h-6 text-blue-700" />
+                      <span className="font-bold text-blue-800 text-xl tracking-tight drop-shadow-sm">
+                        {agent.user_name}
+                      </span>
                     </div>
-                    <div>
-                      {expandedAgents[agent.user_id] ? <ChevronUp /> : <ChevronDown />}
+                    <div className="flex items-center">
+                      <span className="inline-block rounded-full bg-blue-100 text-blue-700 px-3 py-1 text-xs font-semibold mr-3 shadow-sm">
+                        {trackers.length} file{trackers.length !== 1 ? 's' : ''}
+                      </span>
+                      {expandedAgents[agent.user_id] ? (
+                        <ChevronUp className="w-6 h-6 text-blue-600" />
+                      ) : (
+                        <ChevronDown className="w-6 h-6 text-blue-600" />
+                      )}
                     </div>
                   </div>
                   {expandedAgents[agent.user_id] && (
-                    <div className="p-6">
+                    <div className="p-8 bg-white rounded-b-2xl">
                       {trackers.length > 0 ? (
                         <div className="overflow-x-auto">
-                          <table className="min-w-full text-sm">
-                            <thead className="bg-slate-50 border-b border-slate-200">
+                          <table className="min-w-full text-sm rounded-xl overflow-hidden shadow border border-slate-200">
+                            <thead className="bg-gradient-to-r from-blue-100 to-blue-50 border-b border-slate-200">
                               <tr>
-                                <th className="px-4 py-3 text-left font-semibold text-slate-700">Date/Time</th>
-                                <th className="px-4 py-3 text-left font-semibold text-slate-700">Agent Name</th>
-                                <th className="px-4 py-3 text-left font-semibold text-slate-700">Project Name</th>
-                                <th className="px-4 py-3 text-left font-semibold text-slate-700">Task Name</th>
-                                <th className="px-4 py-3 text-center font-semibold text-slate-700">File</th>
-                                <th className="px-4 py-3 text-center font-semibold text-slate-700">Action</th>
+                                <th className="px-5 py-3 text-left font-bold text-blue-800 uppercase tracking-wider">Date/Time</th>
+                                <th className="px-5 py-3 text-left font-bold text-blue-800 uppercase tracking-wider">Project Name</th>
+                                <th className="px-5 py-3 text-left font-bold text-blue-800 uppercase tracking-wider">Task Name</th>
+                                <th className="px-5 py-3 text-center font-bold text-blue-800 uppercase tracking-wider">File</th>
+                                <th className="px-5 py-3 text-center font-bold text-blue-800 uppercase tracking-wider">Action</th>
                               </tr>
                             </thead>
                             <tbody>
                               {trackers.map((tracker, index) => (
                                 <tr
                                   key={tracker.tracker_id || index}
-                                  className="border-b border-slate-100 hover:bg-blue-50 transition-colors"
+                                  className="border-b border-slate-100 hover:bg-blue-50/60 transition-colors group"
                                 >
-                                  <td className="px-4 py-3 text-slate-700">
+                                  <td className="px-5 py-3 text-slate-700 whitespace-nowrap">
                                     {tracker.date_time
                                       ? format(new Date(tracker.date_time), "M/d/yyyy h:mma")
                                       : "-"}
                                   </td>
-                                  <td className="px-4 py-3 text-slate-700 font-medium">
-                                    {tracker.user_name || agent.user_name}
-                                  </td>
-                                  <td className="px-4 py-3 text-slate-700">
+                                  <td className="px-5 py-3 text-slate-700 whitespace-nowrap">
                                     {tracker.project_name || "-"}
                                   </td>
-                                  <td className="px-4 py-3 text-slate-700">
+                                  <td className="px-5 py-3 text-slate-700 whitespace-nowrap">
                                     {tracker.task_name || "-"}
                                   </td>
-                                  <td className="px-4 py-3 text-center">
+                                  <td className="px-5 py-3 text-center">
                                     {tracker.tracker_file ? (
                                       <a
                                         href={tracker.tracker_file}
                                         download
                                         target="_blank"
                                         rel="noopener noreferrer"
-                                        className="inline-flex items-center justify-center text-blue-600 hover:text-blue-800 transition-colors"
+                                        className="inline-flex items-center justify-center text-blue-600 hover:text-blue-800 transition-colors bg-blue-50 group-hover:bg-blue-100 rounded-full p-2 shadow-sm"
                                         title="Download file"
                                       >
                                         <Download className="w-5 h-5" />
                                       </a>
                                     ) : (
-                                      <span className="text-slate-400">—</span>
+                                      <span className="text-slate-300">—</span>
                                     )}
                                   </td>
-                                  <td className="px-4 py-3 text-center">
+                                  <td className="px-5 py-3 text-center">
                                     <button
                                       onClick={() => handleQCForm(tracker)}
-                                      className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-md transition-colors flex items-center gap-1.5 mx-auto"
+                                      className="px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 text-white text-xs font-bold rounded-lg shadow-md transition-all flex items-center gap-2 mx-auto focus:outline-none focus:ring-2 focus:ring-blue-300"
                                     >
-                                      <FileText className="w-3.5 h-3.5" />
+                                      <FileText className="w-4 h-4" />
                                       QC Form
                                     </button>
                                   </td>
@@ -203,7 +221,7 @@ const QAAgentList = () => {
                           </table>
                         </div>
                       ) : (
-                        <div className="text-center text-slate-400">No tracker data for this agent.</div>
+                        <div className="text-center text-slate-400 text-base py-8">No tracker data for this agent.</div>
                       )}
                     </div>
                   )}
@@ -213,6 +231,21 @@ const QAAgentList = () => {
           </div>
         )}
       </div>
+      {/* Loader spinner style */}
+      <style>{`
+        .loader {
+          border: 4px solid #e0e7ef;
+          border-top: 4px solid #2563eb;
+          border-radius: 50%;
+          width: 36px;
+          height: 36px;
+          animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+      `}</style>
     </div>
   );
 }

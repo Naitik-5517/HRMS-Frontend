@@ -30,115 +30,49 @@ const QATrackerReport = () => {
   const [selectedAgent, setSelectedAgent] = useState("");
   const [startDate, setStartDate] = useState(getTodayDate());
   const [endDate, setEndDate] = useState(getTodayDate());
+  const [summary, setSummary] = useState([]);
 
   // Store per-hour targets from dropdown API
   const [dropdownTaskMap, setDropdownTaskMap] = useState({});
 
-  // Fetch agents, trackers, and per-hour targets from dropdown/get and dashboard/filter
+  // Fetch trackers and summary from tracker/view API with date range and agent filter
   useEffect(() => {
-    const fetchDashboardData = async () => {
+    const fetchData = async () => {
       try {
-        setLoadingAgents(true);
         setLoading(true);
-        // Fetch trackers from tracker/view
-        const trackerRes = await api.post("/tracker/view", {
-          logged_in_user_id: user?.user_id
-        });
-        const trackerData = trackerRes.data?.data || {};
-        const allTrackers = trackerData.trackers || [];
-        // Get unique agent IDs from trackers
-        const agentIdSet = new Set(allTrackers.map(t => String(t.user_id)));
-        // Fetch agent details from dropdown/get (projects with tasks)
-        const agentsRes = await api.post("/dropdown/get", {
-          dropdown_type: "projects with tasks",
-          logged_in_user_id: user?.user_id
-        });
-        const projectsWithTasks = agentsRes.data?.data || [];
-        let allAgents = [];
-        projectsWithTasks.forEach(project => {
-          (project.team || []).forEach(agent => {
-            if (agentIdSet.has(String(agent.user_id))) {
-              allAgents.push(agent);
-            }
-          });
-        });
-        // Build task map
-        const taskMap = {};
-        projectsWithTasks.forEach(project => {
-          (project.tasks || []).forEach(task => {
-            taskMap[task.task_id] = task.task_target;
-          });
-        });
-        setDropdownTaskMap(taskMap);
-        // Build task name map
-        const taskNameMap = {};
-        projectsWithTasks.forEach(project => {
-          (project.tasks || []).forEach(task => {
-            taskNameMap[task.task_id] = task.task_name || task.label;
-          });
-        });
-        // Build userId-to-userName map from all users in all projects
-        const userIdNameMap = {};
-        projectsWithTasks.forEach(project => {
-          (project.team || []).forEach(agent => {
-            // userIdNameMap no longer needed if user_name is present in tracker/view
-          });
-        });
-        console.log('[QATrackerReport] userIdNameMap:', userIdNameMap);
-        // Build project map
-        const projectMap = {};
-        projectsWithTasks.forEach(project => {
-          projectMap[String(project.project_id)] = project.project_name;
-        });
-        // Enrich trackers with user_name, project_name, and task_name
-        const enrichedTrackers = allTrackers.map(tracker => {
-          const mappedName = tracker.user_name || "-";
-          return {
-            ...tracker,
-            user_name: mappedName,
-            project_name: tracker.project_name || projectMap[String(tracker.project_id)] || "-",
-            task_name: tracker.task_name || taskNameMap[tracker.task_id] || "-"
-          };
-        });
-        // setAssignedAgents can be set directly from tracker data if needed
-        setTrackers(enrichedTrackers);
-        log('[QATrackerReport] Agents loaded:', Object.keys(userIdNameMap).length, 'Trackers loaded:', enrichedTrackers.length);
+        setLoadingAgents(true);
+        const payload = {
+          logged_in_user_id: user?.user_id,
+          date_from: startDate,
+          date_to: endDate,
+        };
+        if (selectedAgent) payload.user_id = selectedAgent;
+        const res = await api.post("/tracker/view", payload);
+        const data = res.data?.data || {};
+        setTrackers(Array.isArray(data.trackers) ? data.trackers : []);
+        setSummary(Array.isArray(data.month_summary) ? data.month_summary : []);
+        // Optionally, set assigned agents from summary
+        const agentList = Array.isArray(data.month_summary)
+          ? data.month_summary.map(s => ({ user_id: s.user_id, user_name: s.user_name }))
+          : [];
+        setAssignedAgents(agentList);
       } catch (err) {
-        logError('[QATrackerReport] Error fetching dashboard/filter:', err);
-        toast.error("Failed to load agent/tracker data");
-        setAssignedAgents([]);
+        logError('[QATrackerReport] Error fetching tracker/view:', err);
+        toast.error("Failed to load tracker data");
         setTrackers([]);
+        setSummary([]);
+        setAssignedAgents([]);
       } finally {
-        setLoadingAgents(false);
         setLoading(false);
+        setLoadingAgents(false);
       }
     };
     if (user?.user_id) {
-      fetchDashboardData();
+      fetchData();
     }
-  }, [user?.user_id, user?.device_id, user?.device_type, user?.role_name, user?.user_role]);
+  }, [user?.user_id, startDate, endDate, selectedAgent]);
 
-  // Filter trackers by selected agent and date range
-  useEffect(() => {
-    if (!user?.user_id) return;
-    setLoading(true);
-    setError("");
-    // Filter trackers in memory (already loaded from API)
-    setTrackers(prev => {
-      let filtered = prev;
-      if (selectedAgent) {
-        filtered = filtered.filter(t => String(t.user_id) === String(selectedAgent));
-      }
-      if (startDate) {
-        filtered = filtered.filter(t => t.date_time && t.date_time >= startDate);
-      }
-      if (endDate) {
-        filtered = filtered.filter(t => t.date_time && t.date_time <= endDate + ' 23:59:59');
-      }
-      return filtered;
-    });
-    setLoading(false);
-  }, [selectedAgent, startDate, endDate, user?.user_id]);
+  // Remove in-memory filtering; handled by API
 
   // Clear filters
   const handleClearFilters = () => {
@@ -212,65 +146,74 @@ const QATrackerReport = () => {
   };
 
   return (
-    <div className="space-y-4">
-      <div className="mb-6">
-        <h2 className="text-2xl font-bold text-blue-700 tracking-tight">Tracker Report</h2>
+    <div className="space-y-10 max-w-6xl mx-auto py-8">
+      <div className="mb-8 flex items-center gap-3">
+        <UsersIcon className="w-9 h-9 text-blue-700" />
+        <h2 className="text-3xl font-extrabold text-blue-800 tracking-tight drop-shadow-sm">QA Tracker Report</h2>
       </div>
 
       {/* Filter Section */}
-      <div className="bg-blue-50 rounded-lg p-3 mb-4">
-        <div className="flex items-center gap-1.5 mb-2 justify-between">
-          <div className="flex items-center gap-1.5">
-            <Filter className="w-4 h-4 text-blue-700" />
-            <h3 className="text-sm font-semibold text-blue-700">Filters</h3>
+      <div className="bg-gradient-to-br from-blue-50 via-white to-indigo-50 rounded-2xl p-6 mb-6 shadow border border-blue-100">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
+          <div className="flex items-center gap-2">
+            <Filter className="w-5 h-5 text-blue-700" />
+            <h3 className="text-base font-bold text-blue-700 tracking-wide">Filters</h3>
           </div>
-          <button
-            onClick={handleExportToExcel}
-            disabled={loading || trackers.length === 0}
-            className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded font-semibold text-xs flex items-center gap-1 disabled:bg-gray-400 disabled:cursor-not-allowed transition"
-            title="Export filtered data to Excel"
-          >
-            <FileDown className="w-3 h-3" />
-            Export
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={handleExportToExcel}
+              disabled={loading || trackers.length === 0}
+              className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white px-4 py-2 rounded-lg font-bold text-xs flex items-center gap-2 shadow disabled:bg-gray-400 disabled:cursor-not-allowed transition-all"
+              title="Export filtered data to Excel"
+            >
+              <FileDown className="w-4 h-4" />
+              Export
+            </button>
+            <button
+              onClick={handleClearFilters}
+              className="px-4 py-2 text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-bold shadow transition-all"
+            >
+              Clear Filters
+            </button>
+          </div>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {/* Start Date */}
           <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">
+            <label className="block text-xs font-semibold text-blue-900 mb-1">
               Start Date <span className="text-red-500">*</span>
             </label>
             <input
               type="date"
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
-              className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="w-full px-3 py-2 text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white shadow-sm"
             />
           </div>
 
           {/* End Date */}
           <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">
+            <label className="block text-xs font-semibold text-blue-900 mb-1">
               End Date <span className="text-red-500">*</span>
             </label>
             <input
               type="date"
               value={endDate}
               onChange={(e) => setEndDate(e.target.value)}
-              className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="w-full px-3 py-2 text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white shadow-sm"
             />
           </div>
 
           {/* Assigned Agent Dropdown */}
           <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">
+            <label className="block text-xs font-semibold text-blue-900 mb-1">
               Assigned Agent
             </label>
             <select
               value={selectedAgent}
               onChange={(e) => setSelectedAgent(e.target.value)}
               disabled={loadingAgents}
-              className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+              className="w-full px-3 py-2 text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white shadow-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
             >
               <option value="">All Agents</option>
               {assignedAgents.map((agent) => (
@@ -284,23 +227,13 @@ const QATrackerReport = () => {
             )}
           </div>
         </div>
-
-        {/* Clear Filters Button */}
-        <div className="mt-2.5 flex justify-end">
-          <button
-            onClick={handleClearFilters}
-            className="px-3 py-1.5 text-xs bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-md font-medium transition"
-          >
-            Clear Filters
-          </button>
-        </div>
       </div>
 
-      {error && <div className="text-red-600 mb-2 text-sm">{error}</div>}
-      
+      {error && <div className="text-red-600 mb-2 text-sm font-semibold">{error}</div>}
+
       {/* Scrollable table container */}
-      <div className="overflow-x-auto max-h-[600px] overflow-y-auto border border-slate-200 rounded-lg shadow-sm">
-        <table className="min-w-full text-sm text-slate-700 table-fixed">
+      <div className="overflow-x-auto max-h-[600px] overflow-y-auto border border-slate-200 rounded-2xl shadow-lg bg-white">
+        <table className="min-w-full text-sm text-slate-700 table-fixed rounded-xl overflow-hidden">
           <colgroup>
             <col style={{ width: '14%' }}/>
             <col style={{ width: '12%' }}/>
@@ -311,31 +244,31 @@ const QATrackerReport = () => {
             <col style={{ width: '12%' }}/>
             <col style={{ width: '6%' }}/>
           </colgroup>
-          <thead className="bg-blue-50 sticky top-0 z-10">
+          <thead className="bg-gradient-to-r from-blue-100 to-blue-50 sticky top-0 z-10">
             <tr>
-              <th className="px-4 py-3 font-semibold text-left border-b border-slate-200">Date/Time</th>
-              <th className="px-4 py-3 font-semibold text-left border-b border-slate-200">Agent</th>
-              <th className="px-4 py-3 font-semibold text-left border-b border-slate-200">Project</th>
-              <th className="px-4 py-3 font-semibold text-left border-b border-slate-200">Task</th>
-              <th className="px-4 py-3 font-semibold text-left border-b border-slate-200">Per Hour Target</th>
-              <th className="px-4 py-3 font-semibold text-left border-b border-slate-200">Production</th>
-              <th className="px-4 py-3 font-semibold text-left border-b border-slate-200">Billable Hours</th>
-              <th className="px-4 py-3 font-semibold text-center border-b border-slate-200">File</th>
+              <th className="px-5 py-3 font-bold text-blue-800 uppercase tracking-wider border-b border-slate-200">Date/Time</th>
+              <th className="px-5 py-3 font-bold text-blue-800 uppercase tracking-wider border-b border-slate-200">Agent</th>
+              <th className="px-5 py-3 font-bold text-blue-800 uppercase tracking-wider border-b border-slate-200">Project</th>
+              <th className="px-5 py-3 font-bold text-blue-800 uppercase tracking-wider border-b border-slate-200">Task</th>
+              <th className="px-5 py-3 font-bold text-blue-800 uppercase tracking-wider border-b border-slate-200">Per Hour Target</th>
+              <th className="px-5 py-3 font-bold text-blue-800 uppercase tracking-wider border-b border-slate-200">Production</th>
+              <th className="px-5 py-3 font-bold text-blue-800 uppercase tracking-wider border-b border-slate-200">Billable Hours</th>
+              <th className="px-5 py-3 font-bold text-blue-800 uppercase tracking-wider border-b border-slate-200 text-center">File</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={8} className="text-center py-12">
-                  <div className="flex flex-col items-center gap-2">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                    <span className="text-gray-500">Loading tracker data...</span>
+                <td colSpan={8} className="text-center py-16">
+                  <div className="flex flex-col items-center gap-3">
+                    <div className="loader mb-2"></div>
+                    <span className="text-blue-600 font-semibold text-lg animate-pulse">Loading tracker data...</span>
                   </div>
                 </td>
               </tr>
             ) : trackers.length === 0 ? (
               <tr>
-                <td colSpan={8} className="text-center py-12">
+                <td colSpan={8} className="text-center py-16">
                   <div className="flex flex-col items-center gap-2">
                     <UsersIcon className="w-12 h-12 text-gray-300" />
                     <span className="text-gray-500 font-medium">No tracker data found</span>
@@ -346,47 +279,47 @@ const QATrackerReport = () => {
             ) : trackers.map((tracker, index) => (
               <tr 
                 key={tracker.tracker_id || index} 
-                className="border-b border-slate-100 hover:bg-blue-50 transition-colors"
+                className="border-b border-slate-100 hover:bg-blue-50/60 transition-colors group"
               >
-                <td className="px-4 py-3 align-middle">
+                <td className="px-5 py-3 align-middle whitespace-nowrap">
                   {tracker.date_time
                     ? format(new Date(tracker.date_time), "M/d/yyyy h:mma")
                     : "-"}
                 </td>
-                <td className="px-4 py-3 align-middle font-medium text-blue-700">
+                <td className="px-5 py-3 align-middle font-semibold text-blue-700 whitespace-nowrap">
                   {tracker.user_name || "-"}
                 </td>
-                <td className="px-4 py-3 align-middle">
+                <td className="px-5 py-3 align-middle whitespace-nowrap">
                   {tracker.project_name || "-"}
                 </td>
-                <td className="px-4 py-3 align-middle">
+                <td className="px-5 py-3 align-middle whitespace-nowrap">
                   {tracker.task_name || "-"}
                 </td>
-                <td className="px-4 py-3 align-middle">
+                <td className="px-5 py-3 align-middle whitespace-nowrap">
                   {tracker.tenure_target || dropdownTaskMap[tracker.task_id] || "0"}
                 </td>
-                <td className="px-4 py-3 align-middle font-semibold text-green-700">
+                <td className="px-5 py-3 align-middle font-bold text-green-700 whitespace-nowrap">
                   {tracker.production || "0"}
                 </td>
-                <td className="px-4 py-3 align-middle font-semibold text-purple-700">
+                <td className="px-5 py-3 align-middle font-bold text-purple-700 whitespace-nowrap">
                   {tracker.billable_hours !== null && tracker.billable_hours !== undefined
                     ? Number(tracker.billable_hours).toFixed(2)
                     : "0.00"}
                 </td>
-                <td className="px-4 py-3 align-middle text-center">
+                <td className="px-5 py-3 align-middle text-center">
                   {tracker.tracker_file ? (
                     <a
                       href={tracker.tracker_file}
                       download
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center justify-center text-blue-600 hover:text-blue-800 transition-colors"
+                      className="inline-flex items-center justify-center text-blue-600 hover:text-blue-800 transition-colors bg-blue-50 group-hover:bg-blue-100 rounded-full p-2 shadow-sm"
                       title="Download file"
                     >
                       <Download className="w-5 h-5" />
                     </a>
                   ) : (
-                    <span className="text-slate-400">—</span>
+                    <span className="text-slate-300">—</span>
                   )}
                 </td>
               </tr>
@@ -395,34 +328,48 @@ const QATrackerReport = () => {
         </table>
       </div>
 
-      {/* Totals Summary Card */}
-      {!loading && trackers.length > 0 && (
-        <div className="mt-4 bg-linear-to-r from-blue-50 to-indigo-50 rounded-lg p-5 border border-blue-200 shadow-sm">
-          <h3 className="text-sm font-semibold text-blue-900 mb-4 flex items-center gap-2">
+      {/* Totals Summary Card (from API summary) */}
+      {!loading && summary.length > 0 && (
+        <div className="mt-6 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-2xl p-6 border border-blue-200 shadow-lg">
+          <h3 className="text-lg font-bold text-blue-900 mb-6 flex items-center gap-2">
             <span className="inline-block w-2 h-2 bg-blue-600 rounded-full"></span>
             Summary Totals
           </h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {/* Total Per Hour Target */}
-            <div className="bg-white rounded-lg p-4 shadow-sm border border-blue-100">
-              <p className="text-xs text-gray-600 mb-1 uppercase tracking-wide">Total Per Hour Target</p>
-              <p className="text-2xl font-bold text-blue-700">{totals.tenureTarget.toFixed(2)}</p>
-            </div>
-
-            {/* Total Production */}
-            <div className="bg-white rounded-lg p-4 shadow-sm border border-green-100">
-              <p className="text-xs text-gray-600 mb-1 uppercase tracking-wide">Total Production</p>
-              <p className="text-2xl font-bold text-green-700">{totals.production.toFixed(2)}</p>
-            </div>
-
-            {/* Total Billable Hours */}
-            <div className="bg-white rounded-lg p-4 shadow-sm border border-purple-100">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* Total Billable Hours (sum for all agents) */}
+            <div className="bg-white rounded-xl p-6 shadow border border-blue-100 flex flex-col items-center">
               <p className="text-xs text-gray-600 mb-1 uppercase tracking-wide">Total Billable Hours</p>
-              <p className="text-2xl font-bold text-purple-700">{totals.billableHours.toFixed(2)}</p>
+              <p className="text-3xl font-extrabold text-blue-700">{summary.reduce((sum, s) => sum + (parseFloat(s.total_billable_hours_month) || 0), 0).toFixed(2)}</p>
+            </div>
+            {/* Total Agents */}
+            <div className="bg-white rounded-xl p-6 shadow border border-green-100 flex flex-col items-center">
+              <p className="text-xs text-gray-600 mb-1 uppercase tracking-wide">Total Agents</p>
+              <p className="text-3xl font-extrabold text-green-700">{summary.length}</p>
+            </div>
+            {/* Month-Year */}
+            <div className="bg-white rounded-xl p-6 shadow border border-purple-100 flex flex-col items-center">
+              <p className="text-xs text-gray-600 mb-1 uppercase tracking-wide">Month-Year</p>
+              <p className="text-3xl font-extrabold text-purple-700">{summary[0]?.month_year || '-'}</p>
             </div>
           </div>
         </div>
       )}
+
+      {/* Loader spinner style */}
+      <style>{`
+        .loader {
+          border: 4px solid #e0e7ef;
+          border-top: 4px solid #2563eb;
+          border-radius: 50%;
+          width: 36px;
+          height: 36px;
+          animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+      `}</style>
     </div>
   );
 };

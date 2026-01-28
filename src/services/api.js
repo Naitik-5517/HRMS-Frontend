@@ -1,5 +1,6 @@
 import axios from "axios";
 import config, { log, logError } from "../config/environment";
+import { getFriendlyErrorMessage } from "../utils/errorMessages";
 
 const api = axios.create({
   baseURL: config.apiBaseUrl,
@@ -35,7 +36,7 @@ api.interceptors.response.use(
   },
   (error) => {
     logError('[API Response Error]', error.response?.status, error.message);
-    
+
     // Handle 401 unauthorized - token expired or invalid
     if (error.response?.status === 401) {
       localStorage.removeItem(config.tokenKey);
@@ -43,17 +44,23 @@ api.interceptors.response.use(
       sessionStorage.clear();
       window.location.href = '/login';
     }
-    
+
     // Handle 403 forbidden - insufficient permissions
     if (error.response?.status === 403) {
       logError('[API] Access forbidden - Insufficient permissions');
     }
-    
+
     // Handle 500 server errors
     if (error.response?.status >= 500) {
       logError('[API] Server error occurred');
     }
-    
+
+    // Map backend error to friendly message
+    let friendlyMessage = getFriendlyErrorMessage(
+      error.response?.data?.code || error.response?.data?.message || error.message
+    );
+    error.friendlyMessage = friendlyMessage;
+
     return Promise.reject(error);
   }
 );

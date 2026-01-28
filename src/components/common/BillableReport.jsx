@@ -44,7 +44,63 @@ const BillableReport = ({ userId }) => {
   // Export all users' daily data (filtered by team if set)
   function handleExportAllUsers() {
     try {
-      // ...existing export logic for all users...
+      // Filter daily data by team and month
+      const exportRows = dailyData.filter(row => {
+        if (teamFilter && row.team_name !== teamFilter) return false;
+        if (dailyMonth) {
+          const rowDate = row.date_time || row.date;
+          if (!rowDate) return false;
+          const d = new Date(rowDate);
+          if (isNaN(d)) return false;
+          const monthStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+          if (monthStr !== dailyMonth) return false;
+        }
+        return true;
+      });
+
+      if (!exportRows.length) {
+        toast.error('No data to export.');
+        return;
+      }
+
+      // Prepare export data
+      const exportData = exportRows.map(row => ({
+        'User Name': row.user_name || '-',
+        'Team': row.team_name || '-',
+        'Date-Time': formatDateTime(row.date_time ?? row.date),
+        'Worked Hours': row.billable_hours !== undefined ? Number(row.billable_hours).toFixed(2) : (row.workedHours ?? row.worked_hours ?? '-'),
+        'QC Score': 'qc_score' in row ? (row.qc_score !== null && row.qc_score !== undefined ? Number(row.qc_score).toFixed(2) : '-') : (row.qcScore ?? row.qc_score ?? '-'),
+        'Daily Required Hours': row.tenure_target !== undefined ? Number(row.tenure_target).toFixed(2) : (row.dailyRequiredHours ?? row.daily_required_hours ?? '-')
+      }));
+
+      // Add total row for countable columns
+      if (exportData.length > 0) {
+        const totalWorked = exportData.reduce((sum, r) => sum + (parseFloat(r['Worked Hours']) || 0), 0);
+        const totalQC = exportData.reduce((sum, r) => sum + (parseFloat(r['QC Score']) || 0), 0);
+        const totalRequired = exportData.reduce((sum, r) => sum + (parseFloat(r['Daily Required Hours']) || 0), 0);
+        exportData.push({
+          'User Name': 'Total',
+          'Team': '',
+          'Date-Time': '',
+          'Worked Hours': totalWorked.toFixed(2),
+          'QC Score': totalQC.toFixed(2),
+          'Daily Required Hours': totalRequired.toFixed(2)
+        });
+      }
+
+      const worksheet = XLSX.utils.json_to_sheet(exportData);
+      worksheet['!cols'] = [
+        { wch: 18 }, // User Name
+        { wch: 16 }, // Team
+        { wch: 24 }, // Date-Time
+        { wch: 16 }, // Worked Hours
+        { wch: 12 }, // QC Score
+        { wch: 20 }, // Daily Required Hours
+      ];
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Daily_Report');
+      XLSX.writeFile(workbook, 'All_Users_Daily_Report.xlsx');
+      toast.success('Exported all users daily report!');
     } catch {
       toast.error('Failed to export all users');
     }

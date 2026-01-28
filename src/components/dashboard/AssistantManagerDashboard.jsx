@@ -2,6 +2,8 @@ import React, { useEffect, useState } from "react";
 import { format } from "date-fns";
 import { FileText, Users, Clock, TrendingUp, Download, Filter } from "lucide-react";
 
+import { getFriendlyErrorMessage } from '../../utils/errorMessages';
+import ErrorMessage from '../common/ErrorMessage';
 import api from "../../services/api";
 import { useAuth } from "../../context/AuthContext";
 import { useDeviceInfo } from '../../hooks/useDeviceInfo';
@@ -52,6 +54,7 @@ const AssistantManagerDashboard = () => {
     latestQc: [],
   });
   const [loading, setLoading] = useState(false); // Restored loading state for async fetch
+  const [error, setError] = useState(null);
 
   // Fetch dashboard data
   useEffect(() => {
@@ -100,11 +103,14 @@ const AssistantManagerDashboard = () => {
         }
       } catch (err) {
         console.error('[AssistantManagerDashboard] Error fetching dashboard:', err);
-        if (err.response) {
-          console.error('[AssistantManagerDashboard] Error response:', err.response.data);
-        }
+        setError(getFriendlyErrorMessage(err));
       } finally {
         setLoading(false);
+      }
+      // ...existing code...
+      // Render error message if error exists
+      if (error) {
+        return <ErrorMessage message={error} />;
       }
     };
     fetchDashboard();

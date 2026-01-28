@@ -25,6 +25,8 @@ import ProjectsManagement from '../components/dashboard/manage/project/ProjectsM
 import { fetchUsersList } from '../services/authService';
 import { fetchProjectsList } from '../services/projectService';
 import { toast } from 'react-hot-toast';
+import { getFriendlyErrorMessage } from '../utils/errorMessages';
+import ErrorMessage from '../components/common/ErrorMessage';
 
 // Import db if needed for admin operations
 import db from '../utils/db';
@@ -130,34 +132,23 @@ const DashboardPage = ({
   }, [managedProjects]);
 
   // Load users for Manage → Users tab from backend
+  const [error, setError] = useState(null);
   const loadUsers = useCallback(async () => {
     try {
       setLoadingManagedUsers(true);
       const userId = currentUser?.user_id || currentUser?.id;
-      
       if (!userId) {
-        console.warn('No user_id found in current user');
-        toast.error('User session invalid. Please log in again.');
+        setError(getFriendlyErrorMessage('User session invalid. Please log in again.'));
         return;
       }
-      
-      // Load designations if not already loaded
       if (!dropdowns.designations || dropdowns.designations.length === 0) {
         await loadDropdowns();
       }
-      
       const res = await fetchUsersList(userId, device_id, device_type);
-      
       if (res.status === 200 || res.status === '200') {
-        // fetchUsersList returns response.data which is { data: [...], status: 200, message: '...' }
-        // So the actual users array is in res.data
         const usersArray = Array.isArray(res.data) ? res.data : [];
-        
         const formatted = usersArray.map(u => {
-          // Map designation_id to designation name
           let designationName = u.designation || u.designation_name || '';
-          
-          // If no designation name but has designation_id, look it up
           if (!designationName && u.designation_id && dropdowns.designations) {
             const designationObj = dropdowns.designations.find(
               d => d.designation_id === u.designation_id || d.id === u.designation_id
@@ -166,12 +157,9 @@ const DashboardPage = ({
               designationName = designationObj.designation_name || designationObj.name || '';
             }
           }
-          
-          // Log each user's designation field to debug
           if (!designationName && u.designation_id) {
             console.log('[DashboardPage] User missing designation:', u.user_name, 'designation_id:', u.designation_id, 'Available fields:', Object.keys(u));
           }
-          
           return {
             id: u.user_id,
             user_id: u.user_id,
@@ -199,24 +187,12 @@ const DashboardPage = ({
             is_active: u.is_active ?? 1
           };
         });
-        
         setManagedUsers(formatted);
       } else {
-        toast.error(res.message || 'Failed to load users');
+        setError(getFriendlyErrorMessage(res.message || 'Failed to load users'));
       }
     } catch (err) {
-      console.error('Failed to fetch users:', err);
-      console.error('Error response:', err.response?.data);
-      
-      // For Assistant Managers or users without full permissions, show a softer error
-      const isAssistantManager = roleId === 4 || role.includes('ASSISTANT');
-      if (isAssistantManager && !canManageUsers) {
-        console.log('[DashboardPage] Assistant Manager without user management permission - showing empty list');
-        setManagedUsers([]);
-        // Don't show error toast for read-only users
-      } else {
-        toast.error(err.response?.data?.message || 'Failed to load users');
-      }
+      setError(getFriendlyErrorMessage(err));
     } finally {
       setLoadingManagedUsers(false);
     }
@@ -234,20 +210,15 @@ const DashboardPage = ({
   const loadProjects = useCallback(async () => {
     try {
       setLoadingManagedProjects(true);
-      
       const res = await fetchProjectsList();
-      
       if (res.status === 200 || res.status === '200') {
         const projectsArray = Array.isArray(res.data) ? res.data : [];
-        
         const formatted = projectsArray.map(p => {
-          // Helper to ensure arrays are properly formatted
           const ensureArray = (value) => {
             if (!value) return [];
             if (Array.isArray(value)) return value;
             return [value];
           };
-          
           return {
             id: p.project_id,
             name: p.project_name,
@@ -266,18 +237,21 @@ const DashboardPage = ({
             updated_at: p.updated_at,
           };
         });
-        
         setManagedProjects(formatted);
       } else {
-        toast.error(res.message || 'Failed to load projects');
+        setError(getFriendlyErrorMessage(res.message || 'Failed to load projects'));
       }
     } catch (err) {
-      console.error('Failed to fetch projects:', err);
-      toast.error(err.response?.data?.message || 'Failed to load projects');
+      setError(getFriendlyErrorMessage(err));
     } finally {
       setLoadingManagedProjects(false);
     }
   }, []);
+  // ...existing code...
+  // Render error message if error exists
+  if (error) {
+    return <ErrorMessage message={error} />;
+  }
 
   useEffect(() => {
     // Load projects ONLY when on the Manage tab AND Projects sub-tab is active
@@ -479,8 +453,8 @@ const DashboardPage = ({
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto pb-10">
-      {/* Show FilterBar for all tabs except dataentry, manage, and QA special views */}
-      {activeTab !== 'dataentry' && activeTab !== 'manage' && !viewParam && !isAssistantManager && (
+      {/* Show FilterBar for all tabs except dataentry, manage, QA, and QA special views */}
+      {activeTab !== 'dataentry' && activeTab !== 'manage' && !viewParam && !isAssistantManager && !isQA && (
         <FilterBar
             isAgent={isAgent}
             isQA={isQA}
