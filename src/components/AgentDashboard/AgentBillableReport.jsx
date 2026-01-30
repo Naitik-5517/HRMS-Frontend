@@ -228,7 +228,7 @@ const BillableReport = () => {
           payload.month_year = `${monthLabel}${year}`;
         }
         // Use the new API endpoint for monthly report
-        const res = await axios.post("/user_monthly_tracker/list", payload);
+        const res = await axios.post("/python/user_monthly_tracker/list", payload);
         setMonthlySummaryData(Array.isArray(res.data?.data) ? res.data.data : []);
       } catch (err) {
         setErrorMonthly(getFriendlyErrorMessage(err));
