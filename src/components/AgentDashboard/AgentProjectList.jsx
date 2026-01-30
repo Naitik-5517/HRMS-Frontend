@@ -172,7 +172,7 @@ function DocxPreview({ html }) {
     </div>
   );
 }
-import * as mammoth from "mammoth";
+import mammoth from "mammoth";
 // For date comparison
 const getTodayString = () => {
   const today = new Date();
@@ -182,7 +182,7 @@ const getTodayString = () => {
 const initialProjects = [
   {
     id: 1,
-    name: "Project Alpha",
+    name: "MFUND",
     pprtFile: "https://example.com/files/alpha-pprt.pdf",
     instructionFile: "/dummy-docs/Project%20Instructions.docx", // Local dummy docx file for demo
     tasks: [
