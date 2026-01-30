@@ -134,7 +134,8 @@ const QAAgentDashboard = ({ embedded = false }) => {
         }
         trackersWithFiles = trackersWithFiles.filter(tracker => {
           if (!tracker.date_time) return false;
-          const trackerDate = new Date(tracker.date_time.slice(0, 10));
+          // Use the full date string for robust parsing (works for both ISO and RFC formats)
+          const trackerDate = new Date(tracker.date_time);
           return trackerDate >= fromDate && trackerDate <= toDate;
         });
         console.log('[QAAgentDashboard] trackersWithFiles after date filter:', trackersWithFiles);
