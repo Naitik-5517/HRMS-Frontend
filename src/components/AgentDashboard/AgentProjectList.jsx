@@ -172,7 +172,6 @@ function DocxPreview({ html }) {
     </div>
   );
 }
-import mammoth from "mammoth";
 // For date comparison
 const getTodayString = () => {
   const today = new Date();
