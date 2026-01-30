@@ -4,6 +4,8 @@
  * Description: QA Agent Dashboard with stats and pending QC files
  */
 import React, { useEffect, useState } from "react";
+// Set your backend base URL here or use an environment variable (Vite uses import.meta.env)
+const BACKEND_BASE_URL = import.meta.env.VITE_BACKEND_URL || "";
 import { format } from "date-fns";
 import { Users, FileCheck, Download, FileText, TrendingUp, Activity } from "lucide-react";
 import { toast } from "react-hot-toast";
@@ -59,6 +61,15 @@ const QAAgentDashboard = ({ embedded = false }) => {
     end: ''
   });
 
+  // Helper to get full file URL for download
+  const getFileUrl = (filePath) => {
+    if (!filePath) return "";
+    // If filePath is already absolute (starts with http), return as is
+    if (/^https?:\/\//i.test(filePath)) return filePath;
+    // Otherwise, prepend backend base URL
+    return BACKEND_BASE_URL + filePath;
+  };
+
   // Fetch dashboard data on mount
   // Call dashboard/filter on any filter change (add date/task/project if needed)
 
@@ -90,6 +101,7 @@ const QAAgentDashboard = ({ embedded = false }) => {
         const users = responseData.users || [];
         const tasks = responseData.tasks || [];
         const summary = responseData.summary || {};
+        console.log('[QAAgentDashboard] Raw trackers:', trackers);
         // Create a map for task lookup
         const taskMap = {};
         tasks.forEach(task => {
@@ -108,6 +120,7 @@ const QAAgentDashboard = ({ embedded = false }) => {
               task_name: taskInfo.task_name || 'N/A'
             };
           });
+        console.log('[QAAgentDashboard] trackersWithFiles after file filter:', trackersWithFiles);
 
         // Filter by date range if set, otherwise by today
         let fromDate, toDate;
@@ -124,6 +137,7 @@ const QAAgentDashboard = ({ embedded = false }) => {
           const trackerDate = new Date(tracker.date_time.slice(0, 10));
           return trackerDate >= fromDate && trackerDate <= toDate;
         });
+        console.log('[QAAgentDashboard] trackersWithFiles after date filter:', trackersWithFiles);
 
         // Sort by date_time descending (latest first)
         trackersWithFiles.sort((a, b) => new Date(b.date_time) - new Date(a.date_time));
@@ -182,6 +196,16 @@ const QAAgentDashboard = ({ embedded = false }) => {
   const handleClear = () => {
     setDateRange({ start: '', end: '' });
   };
+
+  // Debug: log pendingFiles to help diagnose production issues
+  useEffect(() => {
+    if (pendingFiles) {
+      console.log('[QAAgentDashboard] pendingFiles:', pendingFiles);
+      pendingFiles.forEach((file, idx) => {
+        console.log(`[QAAgentDashboard] File #${idx + 1} download URL:`, getFileUrl(file.tracker_file));
+      });
+    }
+  }, [pendingFiles]);
 
   const content = (
     <div className="space-y-6 max-w-7xl mx-auto pb-10">
@@ -313,7 +337,7 @@ const QAAgentDashboard = ({ embedded = false }) => {
                           <p className="text-xs text-slate-500 mb-0.5">File</p>
                           {file.tracker_file ? (
                             <a
-                              href={file.tracker_file}
+                              href={getFileUrl(file.tracker_file)}
                               download
                               target="_blank"
                               rel="noopener noreferrer"
