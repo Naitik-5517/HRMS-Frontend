@@ -82,7 +82,7 @@ const ProjectCard = ({
                 onClick={async () => {
                   try {
                     // 1. Fetch latest project list
-                    const res = await axios.post('/project/list', { logged_in_user_id: 93 });
+                    const res = await axios.post('/python/project/list', { logged_in_user_id: 93 });
                     const projects = res.data?.data || [];
                     console.log('[DEBUG] /project/list response:', projects);
                     // 2. Find this project by id
