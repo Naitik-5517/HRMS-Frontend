@@ -84,13 +84,20 @@ const ProjectCard = ({
                     // 1. Fetch latest project list
                     const res = await axios.post('/project/list', { logged_in_user_id: 93 });
                     const projects = res.data?.data || [];
+                    console.log('[DEBUG] /project/list response:', projects);
                     // 2. Find this project by id
                     const current = projects.find(p => p.project_id === (project.id || project.project_id));
-                    if (!current || !current.project_file || current.project_file === 'null') {
-                      toast.error('No file available for this project.');
+                    console.log('[DEBUG] Selected project:', current);
+                    if (!current) {
+                      toast.error('Project not found in latest list.');
+                      return;
+                    }
+                    if (!current.project_file || current.project_file === 'null') {
+                      toast.error('No file available for this project. (project_file is null or empty)');
                       return;
                     }
                     const filePath = current.project_file;
+                    console.log('[DEBUG] Resolved filePath:', filePath);
                     // Extract file name from path
                     const fileName = filePath.split(/[\\/]/).filter(Boolean).pop() || 'project-file';
                     // 3. Attempt to download file by opening the filePath as a direct link
@@ -102,7 +109,8 @@ const ProjectCard = ({
                     link.click();
                     link.parentNode.removeChild(link);
                   } catch (err) {
-                    toast.error('Failed to download file.');
+                    console.error('[DEBUG] Download error:', err);
+                    toast.error('Failed to download file. See console for details.');
                   }
                 }}
                 className="p-0 bg-transparent focus:outline-none group"
