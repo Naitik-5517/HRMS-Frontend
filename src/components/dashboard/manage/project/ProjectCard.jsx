@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Edit, Trash2, Plus, ChevronDown, ChevronUp } from 'lucide-react';
 import axios from 'axios';
 import { toast } from 'react-hot-toast';
@@ -6,6 +6,13 @@ import TaskTable from './TaskTable';
 import EditTaskModal from './EditTaskModal';
 import TasksModal from './TasksModal';
 
+// Helper to fetch project list
+const fetchProjectList = async (logged_in_user_id) => {
+  const res = await axios.post('/project/list', { logged_in_user_id });
+  return res.data.data;
+};
+
+// If this is a single card, keep as is. If you want to show a list, use below:
 const ProjectCard = ({
   project,
   readOnly,
@@ -15,11 +22,48 @@ const ProjectCard = ({
   openEditModal,
   openDeleteModal,
   expanded,
-  setExpanded
+  setExpanded,
+  fetchList,
 }) => {
-  const [editTaskModal, setEditTaskModal] = React.useState({ open: false, task: null });
-  const [showTasksModal, setShowTasksModal] = React.useState(false);
-  const [taskTableRefresh, setTaskTableRefresh] = React.useState(Date.now());
+  const [editTaskModal, setEditTaskModal] = useState({ open: false, task: null });
+  const [showTasksModal, setShowTasksModal] = useState(false);
+  const [taskTableRefresh, setTaskTableRefresh] = useState(Date.now());
+
+  // Optionally, fetch project list if fetchList prop is true
+  const [projects, setProjects] = useState([]);
+  useEffect(() => {
+    if (fetchList) {
+      fetchProjectList(93)
+        .then(setProjects)
+        .catch(() => toast.error('Failed to fetch project list'));
+    }
+  }, [fetchList]);
+
+  // If fetchList, render all projects
+  if (fetchList) {
+    return (
+      <div>
+        {projects.map((proj) => (
+          <ProjectCard
+            key={proj.project_id}
+            project={{
+              ...proj,
+              name: proj.project_name,
+              id: proj.project_id,
+            }}
+            readOnly={readOnly}
+            onAddTask={onAddTask}
+            onUpdateTask={onUpdateTask}
+            onDeleteTask={onDeleteTask}
+            openEditModal={openEditModal}
+            openDeleteModal={openDeleteModal}
+            expanded={expanded}
+            setExpanded={setExpanded}
+          />
+        ))}
+      </div>
+    );
+  }
 
   return (
     <>
@@ -34,23 +78,25 @@ const ProjectCard = ({
             <div className="flex items-center gap-2 ml-4">
               {/* Download Project File Button */}
               <button
+                // Download Project File: fetch latest project_file from /project/list and open as direct link
                 onClick={async () => {
                   try {
-                    // Use project.project_file from API response
-                    const filePath = project.project_file;
-                    if (!filePath || filePath === 'null') {
+                    // 1. Fetch latest project list
+                    const res = await axios.post('/project/list', { logged_in_user_id: 93 });
+                    const projects = res.data?.data || [];
+                    // 2. Find this project by id
+                    const current = projects.find(p => p.project_id === (project.id || project.project_id));
+                    if (!current || !current.project_file || current.project_file === 'null') {
                       toast.error('No file available for this project.');
                       return;
                     }
+                    const filePath = current.project_file;
                     // Extract file name from path
                     const fileName = filePath.split(/[\\/]/).filter(Boolean).pop() || 'project-file';
-                    // Backend endpoint to serve file (adjust as needed)
-                    const response = await axios.get(`/project/file?path=${encodeURIComponent(filePath)}`, {
-                      responseType: 'blob',
-                    });
-                    const url = window.URL.createObjectURL(new Blob([response.data]));
+                    // 3. Attempt to download file by opening the filePath as a direct link
+                    // This will only work if the backend serves the file statically
                     const link = document.createElement('a');
-                    link.href = url;
+                    link.href = filePath;
                     link.setAttribute('download', fileName);
                     document.body.appendChild(link);
                     link.click();
