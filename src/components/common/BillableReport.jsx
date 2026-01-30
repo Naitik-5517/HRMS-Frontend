@@ -22,12 +22,9 @@ const BillableReport = ({ userId }) => {
     const day = pad(dateObj.getDate());
     const month = pad(dateObj.getMonth() + 1);
     const year = dateObj.getFullYear();
-    let hours = dateObj.getHours();
+    const hours = pad(dateObj.getHours());
     const minutes = pad(dateObj.getMinutes());
-    const ampm = hours >= 12 ? 'PM' : 'AM';
-    hours = hours % 12;
-    hours = hours ? hours : 12; // the hour '0' should be '12'
-    return `${day}/${month}/${year} ${pad(hours)}:${minutes} ${ampm}`;
+    return `${day}/${month}/${year} ${hours}:${minutes}`;
   }
 
   // Team filter state (must be before any usage)

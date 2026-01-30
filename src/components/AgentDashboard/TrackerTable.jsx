@@ -205,7 +205,7 @@ const TrackerTable = ({ userId, projects, onClose }) => {
       // Prepare data for export
       const exportData = trackers.map((tracker) => ({
         'Date/Time': tracker.date_time
-          ? format(new Date(tracker.date_time), "M/d/yyyy h:mm a")
+          ? format(new Date(tracker.date_time), "dd/MM/yyyy HH:mm")
           : "-",
         'Project': tracker.project_name || getProjectName(tracker.project_id),
         'Task': tracker.task_name || '-',
@@ -396,7 +396,7 @@ const TrackerTable = ({ userId, projects, onClose }) => {
               <tr key={tracker.tracker_id} className="border-b border-slate-100 hover:bg-blue-50/60 transition-colors group">
                 <td className="px-5 py-3 align-middle whitespace-nowrap">
                   {tracker.date_time
-                    ? format(new Date(tracker.date_time), "dd/MM/yyyy")
+                    ? format(new Date(tracker.date_time), "dd/MM/yyyy HH:mm")
                     : "-"}
                 </td>
                 <td className="px-5 py-3 align-middle whitespace-nowrap">{tracker.project_name || getProjectName(tracker.project_id)}</td>

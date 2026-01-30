@@ -82,7 +82,7 @@ const AssistantManagerDashboard = () => {
           payload.date_to = dateRange.end;
         } else if (!dateRange.start && !dateRange.end) {
           // Default: show today's data only
-          const today = format(new Date(), 'yyyy-MM-dd');
+          const today = format(new Date(), 'yyyy-MM-dd'); // No time displayed here, so nothing to change
           payload.date_from = today;
           payload.date_to = today;
         }

@@ -102,7 +102,7 @@ const BillableReport = () => {
         let formattedDateTime = '';
         if (row.date_time) {
           const d = dayjs(row.date_time);
-          formattedDateTime = d.isValid() ? d.format('DD-MM-YYYY hh:mm A') : row.date_time;
+          formattedDateTime = d.isValid() ? d.format('DD-MM-YYYY HH:mm') : row.date_time;
         }
         return {
           'Date-Time': formattedDateTime,
@@ -250,7 +250,7 @@ const BillableReport = () => {
         let formattedDateTime = '';
         if (row.date_time) {
           const d = dayjs(row.date_time);
-          formattedDateTime = d.isValid() ? d.format('DD-MM-YYYY hh:mm A') : row.date_time;
+          formattedDateTime = d.isValid() ? d.format('DD-MM-YYYY HH:mm') : row.date_time;
         }
         return {
           'Date-Time': formattedDateTime,
@@ -376,7 +376,7 @@ const BillableReport = () => {
                     filteredDailyData.map((row, idx) => (
                       <tr key={idx} className="hover:bg-blue-50 transition group">
                         <td className="px-6 py-3 text-black font-medium whitespace-nowrap">{
-                          row.date_time ? dayjs(row.date_time).format('DD-MMM-YYYY hh:mm A').toUpperCase() : '-'
+                          row.date_time ? dayjs(row.date_time).format('DD-MMM-YYYY HH:mm').toUpperCase() : '-'
                         }</td>
                         <td className="px-6 py-3 text-center text-black">-</td>
                         <td className="px-6 py-3 text-center text-black">{row.billable_hours ? Number(row.billable_hours).toFixed(2) : '-'}</td>

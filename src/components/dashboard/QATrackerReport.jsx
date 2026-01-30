@@ -108,7 +108,7 @@ const QATrackerReport = () => {
       // Prepare data for export
       const exportData = trackers.map((tracker) => ({
         'Date/Time': tracker.date_time
-          ? format(new Date(tracker.date_time), "M/d/yyyy h:mm a")
+          ? format(new Date(tracker.date_time), "dd/MM/yyyy HH:mm")
           : "-",
         'Agent': tracker.user_name || "-",
         'Project': tracker.project_name || "-",
@@ -291,7 +291,7 @@ const QATrackerReport = () => {
               >
                 <td className="px-5 py-3 align-middle whitespace-nowrap">
                   {tracker.date_time
-                    ? format(new Date(tracker.date_time), "M/d/yyyy h:mma")
+                    ? format(new Date(tracker.date_time), "dd/MM/yyyy HH:mm")
                     : "-"}
                 </td>
                 <td className="px-5 py-3 align-middle font-semibold text-blue-700 whitespace-nowrap">

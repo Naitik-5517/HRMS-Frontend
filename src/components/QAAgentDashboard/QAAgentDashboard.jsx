@@ -311,12 +311,12 @@ const QAAgentDashboard = ({ embedded = false }) => {
                           <p className="text-xs text-slate-500 mb-0.5">Date/Time</p>
                           <p className="text-sm font-medium text-slate-700">
                             {file.date_time
-                              ? format(new Date(file.date_time), "M/d/yyyy")
+                              ? format(new Date(file.date_time), "dd/MM/yyyy")
                               : "-"}
                           </p>
                           <p className="text-xs text-slate-500">
                             {file.date_time
-                              ? format(new Date(file.date_time), "h:mma")
+                              ? format(new Date(file.date_time), "HH:mm")
                               : ""}
                           </p>
                         </div>

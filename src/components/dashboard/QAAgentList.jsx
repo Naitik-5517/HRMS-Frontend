@@ -181,7 +181,7 @@ const QAAgentList = () => {
                                 >
                                   <td className="px-5 py-3 text-slate-700 whitespace-nowrap">
                                     {tracker.date_time
-                                      ? format(new Date(tracker.date_time), "M/d/yyyy h:mma")
+                                      ? format(new Date(tracker.date_time), "dd/MM/yyyy HH:mm")
                                       : "-"}
                                   </td>
                                   <td className="px-5 py-3 text-slate-700 whitespace-nowrap">
