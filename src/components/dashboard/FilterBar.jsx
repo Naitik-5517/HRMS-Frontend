@@ -195,7 +195,7 @@ const FilterBar = ({
           />
         </div>
 
-        {/* TO DATE */}
+        {/* TO DATE + Clear Button */}
         <div
           className="
             col-span-2 sm:col-span-1
@@ -210,6 +210,20 @@ const FilterBar = ({
             onChange={(e) => handleDateRangeChange('end', e.target.value)}
             className="flex-1 bg-white border border-slate-300 text-slate-700 text-sm rounded px-2 py-1.5 outline-none"
           />
+          {/* Clear Filter Button (shows only if either date is set) */}
+          {(dateRange.start || dateRange.end) && (
+            <button
+              type="button"
+              className="ml-2 px-2 py-1 rounded bg-gray-200 hover:bg-gray-300 text-gray-700 text-xs font-semibold border border-gray-300 shadow-sm transition"
+              onClick={() => {
+                handleDateRangeChange('start', '');
+                handleDateRangeChange('end', '');
+              }}
+              title="Clear date filter"
+            >
+              Clear
+            </button>
+          )}
         </div>
       </div>
     </div>

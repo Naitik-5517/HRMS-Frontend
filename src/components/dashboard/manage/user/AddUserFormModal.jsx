@@ -334,6 +334,7 @@ const AddUserFormModal = ({
      /**
       * Effect to reset the file name display when switching modes
       */
+     // Reset state when switching to create mode
      useEffect(() => {
           if (!isEditMode) {
                setFileName("");
@@ -344,8 +345,12 @@ const AddUserFormModal = ({
                     ...prev,
                     role: ""
                }));
-          } else {
-               // Map string values to dropdown IDs for correct selection
+          }
+     }, [isEditMode]);
+
+     // Map string values to dropdown IDs for correct selection in edit mode only
+     useEffect(() => {
+          if (isEditMode) {
                setNewUser((prev) => {
                     const mapped = {
                          ...prev,
@@ -390,10 +395,12 @@ const AddUserFormModal = ({
                               String(t.team_id) === String(prev.team)
                          )?.team_id || prev.team || "",
                     };
-                    return mapped;
+                    // Only update if mapped values are different from prev
+                    const isSame = Object.keys(mapped).every(key => mapped[key] === prev[key]);
+                    return isSame ? prev : mapped;
                });
           }
-     }, [isEditMode, roles, designations, projectManagers, assistantManagers, qas, teams, setNewUser]);
+     }, [isEditMode, roles, designations, projectManagers, assistantManagers, qas, teams]);
 
      // Helper function to get error message (prioritize backend errors)
      const getErrorMessage = (fieldName) => {
@@ -676,16 +683,14 @@ const AddUserFormModal = ({
                                    {getErrorMessage("password") && (
                                         <p className="mt-1 text-xs text-red-600">{getErrorMessage("password")}</p>
                                    )}
-                                   {isEditMode && (
-                                        <p className="mt-1 text-xs text-gray-500">Optional: Enter new password to change it</p>
-                                   )}
-                              </div>
+                                   </div>
 
 
-                              {/* Tenure Input */}
-                              <div>
+
+                              {/* Tenure Field */}
+                              <div className="md:col-span-1">
                                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                        Tenure (years) <span className="text-red-600">*</span>
+                                        Tenure <span className="text-red-600">*</span>
                                    </label>
                                    <input
                                         type="number"

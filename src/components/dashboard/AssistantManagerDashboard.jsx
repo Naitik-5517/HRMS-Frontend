@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import AssistantManagerTabsNavigation from "./AssistantManagerTabsNavigation";
 import { format } from "date-fns";
 import { FileText, Users, Clock, TrendingUp, Download, Filter } from "lucide-react";
 
@@ -7,8 +8,13 @@ import ErrorMessage from '../common/ErrorMessage';
 import api from "../../services/api";
 import { useAuth } from "../../context/AuthContext";
 import { useDeviceInfo } from '../../hooks/useDeviceInfo';
+import BillableReport from "../common/BillableReport";
+import QATrackerReport from './QATrackerReport';
+import QAAgentList from './QAAgentList';
 
 const AssistantManagerDashboard = () => {
+  // Tab state for navigation
+  const [activeTab, setActiveTab] = useState('overview');
   const { user } = useAuth();
   // Project/task name mapping state
   const [projectNameMap, setProjectNameMap] = useState({});
@@ -42,9 +48,10 @@ const AssistantManagerDashboard = () => {
     }
   }, [user?.user_id]);
   const { device_id, device_type } = useDeviceInfo();
+  // By default, no date range (empty strings)
   const [dateRange, setDateRange] = useState({
-    start: format(new Date(), "yyyy-MM-dd"),
-    end: format(new Date(), "yyyy-MM-dd"),
+    start: '',
+    end: '',
   });
   const [stats, setStats] = useState({
     totalAgents: 0,
@@ -61,60 +68,60 @@ const AssistantManagerDashboard = () => {
     const fetchDashboard = async () => {
       setLoading(true);
       try {
-        // Use logged_in_user_id and device info from hook (matches backend requirements)
-        const payload = {
+        // If no filter applied, show today's data only (but do not set date in filter UI)
+        let payload = {
           logged_in_user_id: user?.user_id || user?.id,
+          device_id,
+          device_type,
         };
-        console.log('[AssistantManagerDashboard] 📤 Payload:', payload);
-        // Fetch trackers from tracker/view
-        const trackerRes = await api.post("/tracker/view", payload);
-        console.log('[AssistantManagerDashboard] 🟢 API response:', trackerRes.data);
-        if (trackerRes.data && trackerRes.data.status === 200) {
-          const trackerData = trackerRes.data.data || {};
-          const allTrackers = trackerData.trackers || [];
-          // Build agent list from tracker data only
-          const uniqueAgentIds = new Set(allTrackers.filter(row => row.tracker_file).map(row => String(row.user_id)));
-          // Calculate stats
-          const qcPending = allTrackers.filter(row => row.tracker_file && row.qc_status === 'pending').length;
-          const billableHours = allTrackers.filter(row => row.tracker_file).reduce((acc, row) => acc + (Number(row.billable_hours) || 0), 0).toFixed(2);
-          const qcScoreTrackers = allTrackers.filter(row => row.tracker_file && row.qc_score !== undefined && row.qc_score !== null && row.qc_score !== '');
-          const avgQcScore = qcScoreTrackers.length > 0 ? (
-            qcScoreTrackers.reduce((acc, row) => acc + (Number(row.qc_score) || 0), 0) / qcScoreTrackers.length
-          ).toFixed(2) : '0.00';
+        // Do NOT send user_id in the payload, only logged_in_user_id
+        // (If user_id is present elsewhere, ensure it's not included)
+        // If user applies a date filter, use it; otherwise, send today's date in API only
+        if (dateRange.start && dateRange.end) {
+          payload.date_from = dateRange.start;
+          payload.date_to = dateRange.end;
+        } else if (!dateRange.start && !dateRange.end) {
+          // Default: show today's data only
+          const today = format(new Date(), 'yyyy-MM-dd');
+          payload.date_from = today;
+          payload.date_to = today;
+        }
+        const res = await api.post('/dashboard/filter', payload);
+        if (res.data && res.data.status === 200) {
+          const data = res.data.data || {};
+          console.log('[AssistantManagerDashboard] Dashboard API data:', data);
+          // Only show trackers with files, sorted by date_time desc, limit 5
+          const latestQc = (data.tracker || [])
+            .filter(row => !!row.tracker_file)
+            .sort((a, b) => new Date(b.date_time) - new Date(a.date_time))
+            .slice(0, 5)
+            .map(row => ({
+              ...row,
+              user_name: row.user_name || '-',
+              project_name: projectNameMap[String(row.project_id)] || row.project_name || String(row.project_id) || '-',
+              file_name: row.tracker_file ? row.tracker_file.split('/').pop() : '-',
+              qc_score: row.qc_score || '-',
+              date: row.date_time ? row.date_time.split(' ')[0] : '-',
+              task_name: taskNameMap[String(row.task_id)] || row.task_name || String(row.task_id) || '-',
+            }));
           setStats({
-            totalAgents: uniqueAgentIds.size,
-            qcPending,
-            billableHours,
-            avgQcScore,
-            latestQc: allTrackers
-              .filter(row => !!row.tracker_file)
-              .map(row => ({
-                ...row,
-                user_name: row.user_name || "-",
-                project_name: projectNameMap[String(row.project_id)] || row.project_name || String(row.project_id) || "-",
-                file_name: projectNameMap[String(row.project_id)] || row.project_name || String(row.project_id) || "-",
-                qc_score: row.qc_score || '-',
-                date: row.date_time ? row.date_time.split(' ')[0] : '-',
-                task_name: taskNameMap[String(row.task_id)] || row.task_name || String(row.task_id) || '-',
-              })),
+            totalAgents: (data.users || []).length,
+            qcPending: (data.tracker || []).filter(row => row.tracker_file && row.qc_status === 'pending').length,
+            billableHours: (data.summary?.total_billable_hours || 0).toFixed(2),
+            avgQcScore: '-', // Not provided in response
+            latestQc,
           });
         } else {
-          console.warn('[AssistantManagerDashboard] Unexpected API response structure:', trackerRes.data);
+          setStats({ totalAgents: 0, qcPending: 0, billableHours: 0, avgQcScore: 0, latestQc: [] });
         }
       } catch (err) {
-        console.error('[AssistantManagerDashboard] Error fetching dashboard:', err);
         setError(getFriendlyErrorMessage(err));
       } finally {
         setLoading(false);
       }
-      // ...existing code...
-      // Render error message if error exists
-      if (error) {
-        return <ErrorMessage message={error} />;
-      }
     };
     fetchDashboard();
-  }, [user, dateRange, device_id, device_type]);
+  }, [user, dateRange, device_id, device_type, projectNameMap, taskNameMap]);
 
   // const handleDateChange = (field, value) => {
   //   setDateRange((prev) => ({ ...prev, [field]: value }));
@@ -127,41 +134,54 @@ const AssistantManagerDashboard = () => {
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto pb-10">
-      {/* Filter Bar */}
-      <div className="bg-white p-3 sm:p-4 rounded-xl shadow-sm border border-slate-100 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between mb-4">
-        {/* Title Section */}
-        <div className="flex items-center gap-2 text-slate-700 font-semibold">
-          <Filter className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" />
-          <span className="text-sm sm:text-base">Organization Analytics</span>
-        </div>
-        {/* Date Range Picker */}
-        <div className="flex flex-row items-center gap-3">
-          {/* Start Date */}
-          <div className="flex flex-col items-start">
-            <label className="text-xs text-slate-500 uppercase font-bold mb-1">FROM</label>
-            <input
-              type="date"
-              value={dateRange.start}
-              onChange={(e) => handleDateRangeChange('start', e.target.value)}
-              className="bg-white border border-slate-300 text-slate-700 text-sm rounded px-2 py-1.5 w-full outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-              aria-label="Start date"
-            />
+      {/* Filter Bar (single card below) */}
+          <div className="bg-white p-3 sm:p-4 rounded-xl shadow-sm border border-slate-100 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between mb-4">
+            {/* Title Section */}
+            <div className="flex items-center gap-2 text-slate-700 font-semibold">
+              <Filter className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" />
+              <span className="text-sm sm:text-base">Organization Analytics</span>
+            </div>
+            {/* Date Range Picker + Clear Filter (grid style) */}
+            <div className="w-full grid grid-cols-2 gap-3 sm:grid-cols-2 sm:gap-4 md:grid-cols-2 lg:flex lg:flex-row lg:gap-4 lg:w-auto">
+              {/* Start Date */}
+              <div className="col-span-2 sm:col-span-1 bg-slate-50 p-3 rounded-lg border border-slate-200 flex flex-row items-center gap-3">
+                <label className="text-xs text-slate-500 uppercase font-bold">FROM</label>
+                <input
+                  className="flex-1 bg-white border border-slate-300 text-slate-700 text-sm rounded px-2 py-1.5 outline-none"
+                  type="date"
+                  value={dateRange.start}
+                  onChange={(e) => handleDateRangeChange('start', e.target.value)}
+                  aria-label="Start date"
+                />
+              </div>
+              {/* End Date */}
+              <div className="col-span-2 sm:col-span-1 bg-slate-50 p-3 rounded-lg border border-slate-200 flex flex-row items-center gap-3">
+                <label className="text-xs text-slate-500 uppercase font-bold">TO</label>
+                <input
+                  className="flex-1 bg-white border border-slate-300 text-slate-700 text-sm rounded px-2 py-1.5 outline-none"
+                  type="date"
+                  value={dateRange.end}
+                  onChange={(e) => handleDateRangeChange('end', e.target.value)}
+                  aria-label="End date"
+                />
+              </div>
+              {/* Clear Filter Button */}
+              <button
+                type="button"
+                onClick={() => setDateRange({ start: '', end: '' })}
+                className="col-span-2 sm:col-span-2 bg-slate-200 hover:bg-slate-300 text-slate-700 font-semibold rounded-lg px-4 py-2 transition-colors"
+              >
+                Clear
+              </button>
+            </div>
           </div>
-          {/* End Date */}
-          <div className="flex flex-col items-start">
-            <label className="text-xs text-slate-500 uppercase font-bold mb-1">TO</label>
-            <input
-              type="date"
-              value={dateRange.end}
-              onChange={(e) => handleDateRangeChange('end', e.target.value)}
-              className="bg-white border border-slate-300 text-slate-700 text-sm rounded px-2 py-1.5 w-full outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-              aria-label="End date"
-            />
-          </div>
+        {/* Navigation Tabs above stat cards */}
+        <div className="mt-2">
+          <AssistantManagerTabsNavigation activeTab={activeTab} setActiveTab={setActiveTab} />
         </div>
-      </div>
-      {/* Stat Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+      {/* Stat Cards (show only for overview tab) */}
+      {activeTab === 'overview' && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
         <div className="bg-white rounded-xl shadow p-6 flex flex-col items-start">
           <div className="flex items-center gap-2 mb-2">
             <Users className="w-5 h-5 text-blue-500" />
@@ -194,9 +214,11 @@ const AssistantManagerDashboard = () => {
           <div className="text-2xl font-bold">{stats.avgQcScore}</div>
           <div className="text-xs text-slate-400 mt-1">Average QC score</div>
         </div>
-      </div>
-      {/* Latest QC Done Files - QAAgentDashboard style */}
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+        </div>
+      )}
+      {/* Latest QC Done Files - show only for overview tab */}
+      {activeTab === 'overview' && (
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
         {/* Blue Header Section - Dashboard-aligned */}
         <div className="bg-blue-600 px-6 py-4 flex items-center gap-4 justify-start">
           <div className="flex items-center justify-center w-12 h-12 bg-blue-500/20 rounded-lg">
@@ -287,7 +309,25 @@ const AssistantManagerDashboard = () => {
             ))}
           </div>
         )}
-      </div>
+        </div>
+      )}
+      {/* Billable Report Tab */}
+      {activeTab === 'billable_report' && (
+        <div className="max-w-7xl mx-auto mt-6">
+          <h2 className="text-2xl font-bold text-blue-700 mb-4">Billable Report</h2>
+          <BillableReport />
+        </div>
+      )}
+      {activeTab === 'tracker_report' && (
+        <div className="max-w-7xl mx-auto mt-6">
+          <QATrackerReport />
+        </div>
+      )}
+      {activeTab === 'agent_file_report' && (
+        <div className="max-w-7xl mx-auto mt-6">
+          <QAAgentList />
+        </div>
+      )}
     </div>
   );
 };

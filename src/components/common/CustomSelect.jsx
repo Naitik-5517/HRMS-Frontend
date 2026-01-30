@@ -6,7 +6,7 @@ const CustomSelect = ({
   onChange, 
   options, 
   icon: Icon, 
-  placeholder = "Select...",
+  placeholder = "",
   className = "",
   disabled = false 
 }) => {
@@ -40,9 +40,11 @@ const CustomSelect = ({
         `}
       >
         {Icon && <Icon className="w-4 h-4 text-slate-500 mr-2.5 shrink-0" />}
-        <span className="text-sm font-medium text-slate-700 flex-1 text-left truncate">
-          {selectedOption?.label || placeholder}
-        </span>
+        {selectedOption?.label && (
+          <span className="text-sm font-medium text-slate-700 flex-1 text-left truncate">
+            {selectedOption.label}
+          </span>
+        )}
         <ChevronDown 
           className={`w-4 h-4 text-slate-400 ml-2 transition-transform duration-200 ${
             isOpen ? 'rotate-180' : ''

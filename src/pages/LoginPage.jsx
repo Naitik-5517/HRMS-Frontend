@@ -1,11 +1,13 @@
 import React, { useState } from "react";
-import { User, Lock, LogIn, Loader2 } from "lucide-react";
+import { User, Lock, LogIn, Loader2, Eye, EyeOff } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-hot-toast";
 import { loginUser } from "../services/authService";
 import { useAuth } from "../context/AuthContext";
 import { useDeviceInfo } from "../hooks/useDeviceInfo";
 import { log, logError } from "../config/environment";
+
+
 
 // Role ID to role string mapping
 const ROLE_MAP = {
@@ -21,8 +23,30 @@ const ROLE_MAP = {
 const isValidEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
 const LoginPage = () => {
+    // Block Ctrl+Shift+C and F12 to prevent opening dev tools/console
+    React.useEffect(() => {
+      const blockConsoleShortcuts = (e) => {
+        // Block Ctrl+Shift+C
+        if (e.ctrlKey && e.shiftKey && e.code === 'KeyC') {
+          e.preventDefault();
+          e.stopPropagation();
+          return false;
+        }
+        // Block F12
+        if (e.key === 'F12' || e.code === 'F12') {
+          e.preventDefault();
+          e.stopPropagation();
+          return false;
+        }
+      };
+      window.addEventListener('keydown', blockConsoleShortcuts, true);
+      return () => {
+        window.removeEventListener('keydown', blockConsoleShortcuts, true);
+      };
+    }, []);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
 
   // Frontend validation errors
   const [usernameError, setUsernameError] = useState("");
@@ -190,19 +214,29 @@ const LoginPage = () => {
               <div className="relative">
                 <Lock className="absolute top-3 left-3 h-5 w-5 text-gray-400" />
                 <input
-                  type="password"
+                  type={showPassword ? "text" : "password"}
                   value={password}
                   onChange={(e) => handlePasswordChange(e.target.value)}
                   placeholder="••••••••"
-                  className={`block w-full pl-10 pr-3 py-3 border rounded-lg 
+                  className={`block w-full pl-10 pr-10 py-3 border rounded-lg appearance-none
                     focus:outline-none focus:ring-2 bg-gray-50 tracking-widest
                     ${
-
                       passwordError || backendPasswordError
                         ? "border-red-500 focus:ring-red-500"
                         : "border-gray-200 focus:ring-blue-500"
                     }`}
+                  style={{ WebkitTextSecurity: showPassword ? 'none' : 'disc' }}
+                  autoComplete="current-password"
                 />
+                <button
+                  type="button"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 transition-colors p-1 rounded hover:bg-gray-200"
+                  onClick={() => setShowPassword((prev) => !prev)}
+                  tabIndex={-1}
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                >
+                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                </button>
               </div>
 
               {/* Frontend validation */}
@@ -248,8 +282,9 @@ const LoginPage = () => {
           </form>
         </div>
       </div>
+
     </div>
   );
-};
+}
 
 export default LoginPage;

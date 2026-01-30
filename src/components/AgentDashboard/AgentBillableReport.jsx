@@ -7,6 +7,7 @@ import dayjs from "dayjs";
 import customParseFormat from "dayjs/plugin/customParseFormat";
 dayjs.extend(customParseFormat);
 import { fetchDailyBillableReport, fetchMonthlyBillableReport } from "../../services/billableReportService";
+import axios from "axios";
 import { useAuth } from "../../context/AuthContext";
 
 
@@ -174,17 +175,22 @@ const BillableReport = () => {
       setLoadingDaily(true);
       setErrorDaily(null);
       try {
-        const payload = {};
+        // Build payload for API
+        const payload = {
+          device_id: 'ABIUGBHIU',
+          device_type: 'Laptop',
+        };
+        // If month filter is applied, use month_year
         if (monthFilter) {
-          // Use 'month_year' in the format 'JAN2026' for the API if a month is selected
           const [year, month] = monthFilter.split('-');
           const monthNames = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
           const monthLabel = monthNames[Number(month) - 1];
           payload.month_year = `${monthLabel}${year}`;
-        } else {
-          if (startDate) payload.date_from = startDate;
-          if (endDate) payload.date_to = endDate;
         }
+        // If date range is applied, use date_from and date_to
+        if (startDate) payload.date_from = startDate;
+        if (endDate) payload.date_to = endDate;
+        // Call API
         const res = await fetchDailyBillableReport(payload);
         setDailyData(Array.isArray(res.data?.trackers) ? res.data.trackers : []);
       } catch (err) {
@@ -211,18 +217,19 @@ const BillableReport = () => {
       setErrorMonthly(null);
       try {
         let payload = {};
+        if (user?.user_id) {
+          payload.logged_in_user_id = user.user_id;
+        }
         if (monthlyMonth) {
           // monthlyMonth is in format YYYY-MM
           const [year, month] = monthlyMonth.split('-');
           const monthNames = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
           const monthLabel = monthNames[Number(month) - 1];
-          payload = { month_year: `${monthLabel}${year}` };
+          payload.month_year = `${monthLabel}${year}`;
         }
-        if (user?.user_id) {
-          payload.logged_in_user_id = user.user_id;
-        }
-        const res = await fetchMonthlyBillableReport(payload);
-        setMonthlySummaryData(Array.isArray(res.data) ? res.data : []);
+        // Use the new API endpoint for monthly report
+        const res = await axios.post("/user_monthly_tracker/list", payload);
+        setMonthlySummaryData(Array.isArray(res.data?.data) ? res.data.data : []);
       } catch (err) {
         setErrorMonthly(getFriendlyErrorMessage(err));
       } finally {
@@ -240,7 +247,6 @@ const BillableReport = () => {
     try {
       // Format and prepare export data
       const exportData = filteredDailyData.map(row => {
-        // Format date-time as dd-mm-yyyy hh:mm am/pm
         let formattedDateTime = '';
         if (row.date_time) {
           const d = dayjs(row.date_time);
@@ -249,24 +255,22 @@ const BillableReport = () => {
         return {
           'Date-Time': formattedDateTime,
           'Assign Hours': '-',
-          'Worked Hours': Number(row.billable_hours ?? row.workedHours ?? row.worked_hours) || 0,
-          'QC score': row.qc_score !== undefined && row.qc_score !== null ? Number(row.qc_score) : (row.qcScore ?? '-'),
-          'Daily Required Hours': Number(row.tenure_target ?? row.dailyRequiredHours ?? row.daily_required_hours) || 0,
+          'Worked Hours': row.billable_hours ? Number(row.billable_hours).toFixed(2) : '-',
+          'QC score': row.qc_score !== undefined && row.qc_score !== null ? Number(row.qc_score).toFixed(2) : '-',
+          'Daily Required Hours': row.tenure_target ? Number(row.tenure_target).toFixed(2) : '-',
         };
       });
 
       // Calculate totals for countable columns
-      const totalAssign = exportData.reduce((sum, r) => sum + (Number(r['Assign Hours']) || 0), 0);
       const totalWorked = exportData.reduce((sum, r) => sum + (Number(r['Worked Hours']) || 0), 0);
       const totalRequired = exportData.reduce((sum, r) => sum + (Number(r['Daily Required Hours']) || 0), 0);
-      // For QC score, show average if all are numbers
       const qcScores = exportData.map(r => Number(r['QC score'])).filter(v => !isNaN(v));
       const avgQC = qcScores.length > 0 ? (qcScores.reduce((a, b) => a + b, 0) / qcScores.length).toFixed(2) : '-';
 
       // Add totals row
       exportData.push({
         'Date-Time': 'TOTAL',
-        'Assign Hours': totalAssign,
+        'Assign Hours': '-',
         'Worked Hours': totalWorked,
         'QC score': avgQC,
         'Daily Required Hours': totalRequired,
@@ -282,7 +286,7 @@ const BillableReport = () => {
       ];
       const workbook = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(workbook, worksheet, 'Daily Report');
-      const filename = `Daily_Report_${startDate || 'all'}_${endDate || 'all'}.xlsx`;
+      const filename = `Daily_Report_${monthFilter || (startDate || 'all') + '_' + (endDate || 'all')}.xlsx`;
       XLSX.writeFile(workbook, filename);
       toast.success('Daily report exported!');
     } catch {
@@ -292,6 +296,7 @@ const BillableReport = () => {
 
   return (
     <div className="max-w-7xl mx-auto py-8 px-2 sm:px-4">
+      {/* Only show daily/monthly toggle, no extra tab navigation */}
       <div className="w-full flex flex-col items-center">
         <div className="w-full max-w-7xl flex items-center gap-4 mb-8">
           <button
@@ -310,7 +315,7 @@ const BillableReport = () => {
       </div>
       {/* Daily Report view (table, filter, export) */}
       {activeToggle === 'daily' && (
-        <div className="w-full max-w-5xl mx-auto mt-8">
+        <div className="w-full max-w-7xl mx-auto mt-8">
           {/* Date Range Filter and Export Button */}
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
             <div className="flex items-center gap-2">
@@ -349,8 +354,8 @@ const BillableReport = () => {
               <span>Export to Excel</span>
             </button>
           </div>
-          {/* Daily Report Table */}
-          <div className="overflow-x-auto bg-white rounded-2xl">
+          {/* Daily Report Table - match monthly report design */}
+          <div className="p-6 overflow-x-auto bg-white rounded-2xl shadow-lg w-full">
             {loadingDaily ? (
               <div className="py-8 text-center text-blue-700 font-semibold">Loading daily report...</div>
             ) : errorDaily ? (
@@ -371,7 +376,7 @@ const BillableReport = () => {
                     filteredDailyData.map((row, idx) => (
                       <tr key={idx} className="hover:bg-blue-50 transition group">
                         <td className="px-6 py-3 text-black font-medium whitespace-nowrap">{
-                          row.date_time ? dayjs(row.date_time).format('DD-MM-YYYY hh:mm A') : '-'
+                          row.date_time ? dayjs(row.date_time).format('DD-MMM-YYYY hh:mm A').toUpperCase() : '-'
                         }</td>
                         <td className="px-6 py-3 text-center text-black">-</td>
                         <td className="px-6 py-3 text-center text-black">{row.billable_hours ? Number(row.billable_hours).toFixed(2) : '-'}</td>
@@ -402,6 +407,8 @@ const BillableReport = () => {
               value={monthlyMonth}
               onChange={e => setMonthlyMonth(e.target.value)}
               style={{ minWidth: 120 }}
+              placeholder="Select month"
+              pattern="[0-9]{4}-[0-9]{2}"
             />
             {/* Clear Filters Button */}
             <button

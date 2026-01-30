@@ -25,7 +25,9 @@ const AddProjectForm = ({
      isEditMode = false,
      showEditModal = false,
      closeEditModal,
-     dropdownLoading = false
+     dropdownLoading = false,
+     projectNameSearch = "",
+     setProjectNameSearch
 }) => {
      const [showModal, setShowModal] = useState(false);
 
@@ -65,63 +67,25 @@ const AddProjectForm = ({
           <>
                {!isEditMode && (
                     <div className="flex flex-col md:flex-row gap-2 bg-slate-50 p-4 rounded-lg border border-slate-200">
-                         <div className="flex-1">
-                              <label className="block text-xs font-bold text-slate-500 mb-1">PROJECT NAME</label>
+                         <div className="w-full">
+                              <label className="block text-xs font-bold text-slate-500 mb-1">Project Name</label>
                               <input
                                    type="text"
-                                   placeholder="e.g. MoveEasy"
-                                   value={newProject.name}
-                                   onChange={e => onFieldChange('name', e.target.value)}
-                                   className="w-full p-2 border rounded-lg text-sm outline-none focus:border-blue-500"
+                                   placeholder="Search by project name"
+                                   value={projectNameSearch || ""}
+                                   onChange={e => setProjectNameSearch(e.target.value)}
+                                   className="w-full p-2 border rounded-lg text-sm outline-none focus:border-blue-500 h-10"
                               />
                          </div>
-                         <div className="w-full md:w-32">
-                              <label className="block text-xs font-bold text-slate-500 mb-1">TEAM OWNER</label>
-                              <select
-                                   value={newProject.teamOwner}
-                                   onChange={e => onFieldChange('teamOwner', e.target.value)}
-                                   className="w-full p-2 border rounded-lg text-sm outline-none focus:border-blue-500 bg-white shadow-sm hover:border-blue-400 transition-colors font-semibold text-blue-700"
-                              >
-                                   <option value="" className="text-slate-400">Select PM</option>
-                                   {potentialOwners.map(u => (
-                                        <option key={u.id} value={u.name} className="text-blue-700 font-semibold hover:bg-blue-50">{u.name}</option>
-                                   ))}
-                              </select>
-                         </div>
-                         <div className="w-full md:w-32">
-                              <label className="block text-xs font-bold text-slate-500 mb-1">APM</label>
-                              <select
-                                   value={newProject.apmOwner}
-                                   onChange={e => onFieldChange('apmOwner', e.target.value)}
-                                   className="w-full p-2 border rounded-lg text-sm outline-none focus:border-blue-500 bg-white shadow-sm hover:border-blue-400 transition-colors font-semibold text-blue-700"
-                              >
-                                   <option value="" className="text-slate-400">Select APM</option>
-                                   {potentialAPMs.map(u => (
-                                        <option key={u.id} value={u.name} className="text-blue-700 font-semibold hover:bg-blue-50">{u.name}</option>
-                                   ))}
-                              </select>
-                         </div>
-                         <div className="w-full md:w-32">
-                              <label className="block text-xs font-bold text-slate-500 mb-1">QA</label>
-                              <select
-                                   value={newProject.qaOwner}
-                                   onChange={e => onFieldChange('qaOwner', e.target.value)}
-                                   className="w-full p-2 border rounded-lg text-sm outline-none focus:border-blue-500 bg-white shadow-sm hover:border-blue-400 transition-colors font-semibold text-blue-700"
-                              >
-                                   <option value="" className="text-slate-400">Select QA</option>
-                                   {potentialQAs.map(u => (
-                                        <option key={u.id} value={u.name} className="text-blue-700 font-semibold hover:bg-blue-50">{u.name}</option>
-                                   ))}
-                              </select>
-                         </div>
-                         <div className="flex items-end">
-                              <button
-                                   onClick={openModal}
-                                   className="bg-blue-600 text-white px-6 py-2 rounded-lg text-sm font-bold hover:bg-blue-700 flex items-center justify-center gap-2 h-10"
-                              >
-                                   <Plus className="w-4 h-4" /> Add
-                              </button>
-                         </div>
+                         {/* Team Owner, APM, and QA filters removed as requested */}
+                              <div className="flex items-end">
+                                   <button
+                                        onClick={openModal}
+                                        className="bg-blue-600 text-white px-6 p-2 rounded-lg text-sm font-bold hover:bg-blue-700 flex items-center justify-center gap-2 h-10 min-h-[40px]"
+                                        style={{ height: '40px' }}>
+                                        <Plus className="w-4 h-4" /> Add
+                                   </button>
+                              </div>
                     </div>
                )}
 

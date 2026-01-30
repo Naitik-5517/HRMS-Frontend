@@ -39,39 +39,28 @@ const DashboardPage = ({
   onUpdateUsers, 
   onUpdateProjects
 }) => {
+  // All hooks and state declarations at the top
   const { 
     user: currentUser, 
     canManageUsers, 
     canManageProjects, 
     canViewSalary 
-  } = useAuth(); // Using AuthContext instead of UserContext
+  } = useAuth();
   const { device_id, device_type } = useDeviceInfo();
   const { dropdowns, loadDropdowns } = useUserDropdowns();
   const [searchParams] = useSearchParams();
   const viewParam = searchParams.get('view');
-  
   const [selectedAgent, setSelectedAgent] = useState(null);
-  // Default filter is empty (00/00/0000), but we want to show today's data if not set
   const emptyDate = '';
   const todayStr = new Date().toISOString().slice(0, 10);
   const [dateRange, setDateRange] = useState({ start: emptyDate, end: emptyDate });
   const [selectedTask, setSelectedTask] = useState('All');
   const [comparisonMode, setComparisonMode] = useState('previous_period');
-  
-  // Define role-based variables first (before state that depends on them)
   const role = currentUser?.role_name || '';
   const userRole = currentUser?.user_role || '';
   const designation = currentUser?.designation || currentUser?.user_designation || '';
   const roleId = currentUser?.role_id;
   const designationId = currentUser?.designation_id;
-  
-  // Role ID mapping (based on database):
-  // role_id: 6 = Agent
-  // role_id: 1 = Admin/Super Admin
-  // role_id: 5 = QA
-  // role_id: 4 = Assistant Manager
-  // role_id: 3 = Project Manager
-  // Ensure admin and super admin detection is robust
   const isAdmin = roleId === 1 || String(role).toLowerCase() === 'admin' || String(userRole).toUpperCase() === 'ADMIN' || String(designation).toLowerCase() === 'admin';
   const isSuperAdmin = String(role).toLowerCase().includes('super') || String(userRole).toUpperCase().includes('SUPER') || String(designation).toLowerCase().includes('super');
   const isAgent = roleId === 6 || String(role).toLowerCase() === 'agent' || String(userRole).toUpperCase() === 'AGENT' || String(designation).toLowerCase() === 'agent';
@@ -79,43 +68,29 @@ const DashboardPage = ({
   const isAssistantManager = roleId === 4 || String(designation).toLowerCase() === 'assistant manager' || String(role).toLowerCase().includes('assistant');
   const isProjectManager = roleId === 3 || String(designation).toLowerCase() === 'project manager' || String(role).toLowerCase().includes('project manager');
   const canViewTrackerReport = isQA || isAssistantManager || isProjectManager;
-  
-  // Set initial active tab - will be updated when user data loads
-  const [activeTab, setActiveTab] = useState('overview');
-  
-  // State for admin panel
+  const [activeTab, setActiveTab] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get('tab') || 'overview';
+  });
+
+  // Keep activeTab in sync with ?tab= param
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const tabParam = params.get('tab');
+    if (tabParam && tabParam !== activeTab) {
+      setActiveTab(tabParam);
+    }
+  }, [window.location.search]);
   const [adminRequests, setAdminRequests] = useState([]);
   const [managedUsers, setManagedUsers] = useState([]);
   const [loadingManagedUsers, setLoadingManagedUsers] = useState(false);
   const [managedProjects, setManagedProjects] = useState([]);
   const [loadingManagedProjects, setLoadingManagedProjects] = useState(false);
-  const [adminActiveTab, setAdminActiveTab] = useState('users'); // For admin panel tabs
-
-  // Check if user can access Manage tab (AdminPanel) - must be declared before useEffect
+  const [adminActiveTab, setAdminActiveTab] = useState('users');
   const canAccessManage = canManageUsers || canManageProjects || isSuperAdmin;
-
-  // Set active tab based on user role, route, and query parameter when user data is loaded
-  // Note: DashboardPage shows 'overview' for agents when accessed via /dashboard (Analytics)
-  // The 'dataentry' tab functionality is handled by AgentDashboard component at /agent route
-  useEffect(() => {
-    console.log('[DashboardPage useEffect] currentUser:', currentUser, 'isAgent:', isAgent);
-    if (currentUser) {
-      // Check for tab query parameter (e.g., ?tab=manage)
-      const tabParam = searchParams.get('tab');
-      if (tabParam === 'manage' && canAccessManage) {
-        console.log('[DashboardPage] Setting activeTab to manage from query param');
-        setActiveTab('manage');
-      } else {
-        // Always default to 'overview' tab on DashboardPage for all roles
-        // Agents, admin, project manager, etc. see dashboard (OverviewTab) on /dashboard
-        console.log('[DashboardPage] Setting activeTab to overview for all roles');
-        setActiveTab('overview');
-      }
-    }
-  }, [currentUser, isAgent, searchParams, canAccessManage]);
-
   const canViewIncentivesTab = isAdmin || userRole === 'FINANCE_HR' || userRole === 'PROJECT_MANAGER' || isSuperAdmin;
   const canViewAdherence = isAdmin || userRole === 'PROJECT_MANAGER' || isQA || isSuperAdmin;
+  const [error, setError] = useState(null);
 
   // Initialize admin data when Manage tab is active
   useEffect(() => {
@@ -131,8 +106,61 @@ const DashboardPage = ({
     return Array.from(tasks).sort();
   }, [managedProjects]);
 
+  // Load projects for Manage → Projects tab from backend
+  const loadProjects = useCallback(async () => {
+    try {
+      setLoadingManagedProjects(true);
+      console.log('[AssistantManager] Loading projects...');
+      const res = await fetchProjectsList();
+      console.log('[AssistantManager] fetchProjectsList response:', res);
+      if (res.status === 200 || res.status === '200') {
+        const projectsArray = Array.isArray(res.data) ? res.data : [];
+        console.log('[AssistantManager] Raw projects array:', projectsArray);
+        const formatted = projectsArray.map(p => {
+          const ensureArray = (value) => {
+            if (!value) return [];
+            if (Array.isArray(value)) return value;
+            return [value];
+          };
+          return {
+            id: p.project_id,
+            name: p.project_name,
+            description: p.project_description || '',
+            project_manager_id: p.project_manager_id,
+            project_manager_name: p.project_manager_name || '',
+            asst_project_manager_id: ensureArray(p.asst_project_manager_id),
+            asst_project_manager_names: ensureArray(p.asst_project_manager_names),
+            project_qa_id: ensureArray(p.project_qa_id),
+            project_qa_names: ensureArray(p.project_qa_names),
+            project_team_id: ensureArray(p.project_team_id),
+            project_team_names: ensureArray(p.project_team_names),
+            files: p.files || null,
+            tasks: p.tasks || [],
+            created_at: p.created_at,
+            updated_at: p.updated_at,
+          };
+        });
+        console.log('[AssistantManager] Formatted projects:', formatted);
+        setManagedProjects(formatted);
+      } else {
+        setError(getFriendlyErrorMessage(res.message || 'Failed to load projects'));
+        console.error('[AssistantManager] Error loading projects:', res.message || res);
+      }
+    } catch (err) {
+      setError(getFriendlyErrorMessage(err));
+      console.error('[AssistantManager] Exception loading projects:', err);
+    } finally {
+      setLoadingManagedProjects(false);
+    }
+  }, []);
+
   // Load users for Manage → Users tab from backend
-  const [error, setError] = useState(null);
+  // Fallback no-op for handleResolveRequest to prevent ReferenceError
+  const handleResolveRequest = () => {};
+  // Fallbacks for project management props
+  const potentialOwners = [];
+  const potentialAPMs = [];
+  const potentialQAs = [];
   const loadUsers = useCallback(async () => {
     try {
       setLoadingManagedUsers(true);
@@ -200,261 +228,39 @@ const DashboardPage = ({
 
   useEffect(() => {
     // Load users ONLY when on the Manage tab AND User Management sub-tab is active AND user has permission
-    // This prevents unnecessary API calls on other tabs and for users without permission
     if (activeTab === 'manage' && adminActiveTab === 'users' && canManageUsers) {
       loadUsers();
     }
-  }, [activeTab, adminActiveTab, canManageUsers, loadUsers]);
-
-  // Load projects for Manage → Projects tab from backend
-  const loadProjects = useCallback(async () => {
-    try {
-      setLoadingManagedProjects(true);
-      const res = await fetchProjectsList();
-      if (res.status === 200 || res.status === '200') {
-        const projectsArray = Array.isArray(res.data) ? res.data : [];
-        const formatted = projectsArray.map(p => {
-          const ensureArray = (value) => {
-            if (!value) return [];
-            if (Array.isArray(value)) return value;
-            return [value];
-          };
-          return {
-            id: p.project_id,
-            name: p.project_name,
-            description: p.project_description || '',
-            project_manager_id: p.project_manager_id,
-            project_manager_name: p.project_manager_name || '',
-            asst_project_manager_id: ensureArray(p.asst_project_manager_id),
-            asst_project_manager_names: ensureArray(p.asst_project_manager_names),
-            project_qa_id: ensureArray(p.project_qa_id),
-            project_qa_names: ensureArray(p.project_qa_names),
-            project_team_id: ensureArray(p.project_team_id),
-            project_team_names: ensureArray(p.project_team_names),
-            files: p.files || null,
-            tasks: p.tasks || [],
-            created_at: p.created_at,
-            updated_at: p.updated_at,
-          };
-        });
-        setManagedProjects(formatted);
-      } else {
-        setError(getFriendlyErrorMessage(res.message || 'Failed to load projects'));
-      }
-    } catch (err) {
-      setError(getFriendlyErrorMessage(err));
-    } finally {
-      setLoadingManagedProjects(false);
+    // Load projects for Assistant Manager when switching to projects tab
+    if (activeTab === 'manage' && adminActiveTab === 'projects' && (isAssistantManager || canManageProjects)) {
+      loadProjects();
     }
-  }, []);
+  }, [activeTab, adminActiveTab, canManageUsers, loadUsers, isAssistantManager, canManageProjects, loadProjects]);
   // ...existing code...
-  // Render error message if error exists
+
+  // Place all hooks above this line!
+
+  // Use a render variable instead of early return
+  // Handler for date range change (for FilterBar)
+  const handleDateRangeChange = (range) => {
+    setDateRange(range);
+  };
+
+  // Conditional rendering for special tabs
   if (error) {
     return <ErrorMessage message={error} />;
   }
-
-  useEffect(() => {
-    // Load projects ONLY when on the Manage tab AND Projects sub-tab is active
-    if (activeTab === 'manage' && adminActiveTab === 'projects') {
-      loadProjects();
-    }
-  }, [activeTab, adminActiveTab, loadProjects]);
-
-  const analytics = useMemo(() => {
-    const prevRange = getComparisonRange(dateRange.start, dateRange.end, comparisonMode);
-
-    const filterLogs = (s, e) =>
-      logs.filter(l =>
-        (isAgent ? l.agentName === currentUser?.user_name : true) &&
-        isWithinRange(l.date, s, e) &&
-        (selectedTask === 'All' || l.taskName === selectedTask)
-      );
-
-    const currentLogs = filterLogs(dateRange.start, dateRange.end);
-    const prevLogs = filterLogs(prevRange.start, prevRange.end);
-
-    const prodCurrent = currentLogs.reduce((acc, curr) => acc + (curr.totalProduction || 0), 0);
-    const prodPrevious = prevLogs.reduce((acc, curr) => acc + (curr.totalProduction || 0), 0);
-    const diff = prodCurrent - prodPrevious;
-
-    // Agent Stats
-    const agentMap = new Map();
-    currentLogs.forEach(l => {
-      if (!l?.agentName) return;
-
-      if (!agentMap.has(l.agentName)) {
-        agentMap.set(l.agentName, {
-          name: l.agentName,
-          total: 0,
-          totalTarget: 0,
-          projects: new Set(),
-          dates: new Set(),
-          timestamps: []
-        });
-      }
-
-      const e = agentMap.get(l.agentName);
-      e.total += (l.totalProduction || 0);
-      e.totalTarget += (SHIFT_HOURS_COUNT * (l.targetPerHour || 0));
-      if (l.projectName) e.projects.add(l.projectName);
-      if (l.date) e.dates.add(l.date);
-      if (l.timestamp) e.timestamps.push(l.timestamp);
-    });
-
-    const agentStats = Array.from(agentMap.values()).map((a) => ({
-      ...a,
-      dailyAvg: a.dates.size > 0 ? a.total / a.dates.size : 0,
-      adherence: a.totalTarget > 0 ? (a.total / a.totalTarget) * 100 : 0,
-      isOnline: a.timestamps.length > 0 && (Date.now() - Math.max(...a.timestamps)) < 3600000
-    })).sort((a, b) => b.total - a.total);
-
-    const endMonthStart = dateRange.end.substring(0, 7) + '-01';
-    const monthLogs = logs.filter(l =>
-      (isAgent ? l.agentName === currentUser?.user_name : true) &&
-      isWithinRange(l.date, endMonthStart, dateRange.end) &&
-      (selectedTask === 'All' || l.taskName === selectedTask)
-    );
-
-    const monthTotal = monthLogs.reduce((acc, curr) => acc + (curr.totalProduction || 0), 0);
-    const effectiveGoal = isAgent ?
-      (selectedTask === 'All' ? MONTHLY_GOAL / 5 : MONTHLY_GOAL / 15) :
-      (selectedTask === 'All' ? MONTHLY_GOAL : MONTHLY_GOAL / 3);
-
-    const goalProgress = effectiveGoal > 0 ? Math.min((monthTotal / effectiveGoal) * 100, 100) : 0;
-
-    return {
-      prodCurrent,
-      prodPrevious,
-      trendText: `${diff > 0 ? '+' : ''}${(prodPrevious > 0 ? ((diff / prodPrevious) * 100) : 0).toFixed(1)}%`,
-      trendDir: diff >= 0 ? 'up' : 'down',
-      monthTotal,
-      goalProgress,
-      effectiveGoal,
-      agentStats,
-      prevRange,
-      agentComplianceAlerts: 0
-    };
-  }, [logs, dateRange, selectedTask, isAgent, currentUser, comparisonMode]);
-
-  const hourlyChartData = useMemo(() => {
-    const data = Array.from({ length: SHIFT_HOURS_COUNT }, (_, i) => ({
-      hour: SHIFT_START_HOUR + i,
-      label: (SHIFT_START_HOUR + i) > 12 ?
-        `${(SHIFT_START_HOUR + i) - 12} PM` :
-        `${SHIFT_START_HOUR + i} AM`,
-      production: 0,
-      target: 0
-    }));
-
-    const filtered = logs.filter(l =>
-      l?.date &&
-      isWithinRange(l.date, dateRange.start, dateRange.end) &&
-      (isAgent ? l.agentName === currentUser?.user_name : true) &&
-      (selectedTask === 'All' || l.taskName === selectedTask)
-    );
-
-    filtered.forEach(log => {
-      log.entries?.forEach(entry => {
-        const hourIdx = entry.hour - SHIFT_START_HOUR;
-        if (hourIdx >= 0 && hourIdx < SHIFT_HOURS_COUNT) {
-          data[hourIdx].production += (entry.count || 0);
-          data[hourIdx].target += (log.targetPerHour || 0);
-        }
-      });
-    });
-
-    return data;
-  }, [logs, dateRange, isAgent, currentUser, selectedTask]);
-
-  // Admin panel functions
-  const handleUpdateUsers = (updatedUsers) => {
-    if (onUpdateUsers) {
-      onUpdateUsers(updatedUsers);
-    }
-    db.setUsers(updatedUsers);
-  };
-
-  const handleUpdateProjects = (updatedProjects) => {
-    if (onUpdateProjects) {
-      onUpdateProjects(updatedProjects);
-    }
-    db.setProjects(updatedProjects);
-  };
-
-  const handleResolveRequest = (req) => {
-    if (window.confirm(`Reset password for ${req.username} and send notification to ${req.email}?`)) {
-      const updatedUsers = users.map(u => 
-        u.id === req.userId ? { ...u, password: '123' } : u
-      );
-      handleUpdateUsers(updatedUsers);
-      
-      db.resolvePasswordRequest(req.id);
-      setAdminRequests(db.getPasswordRequests() || []);
-      
-      alert(`Password reset to '123'. Notification sent to ${req.email}`);
-    }
-  };
-
-  const handleFactoryReset = () => {
-    if (window.confirm("WARNING: This will wipe ALL data and restore the default seed values. This cannot be undone. Are you sure?")) {
-      db.reset();
-      window.location.reload();
-    }
-  };
-
-  const handleAgentSelect = useCallback((agentName) => {
-    setSelectedAgent(agentName);
-  }, []);
-
-  const handleDateRangeChange = useCallback((field, value) => {
-    setDateRange(prev => ({ ...prev, [field]: value }));
-  }, []);
-
-  // Derived data for admin panel
-  const pendingRequests = useMemo(() => 
-    adminRequests
-      .filter(r => r.status === 'PENDING')
-      .sort((a, b) => b.timestamp - a.timestamp), 
-    [adminRequests]
-  );
-
-  const potentialOwners = useMemo(() => 
-    users.filter(u => u.role === 'ADMIN' || u.role === 'PROJECT_MANAGER'), 
-    [users]
-  );
-  
-  const potentialAPMs = useMemo(() => 
-    users.filter(u => u.designation === 'Asst. Project Manager'), 
-    [users]
-  );
-  
-  const potentialQAs = useMemo(() => 
-    users.filter(u => u.designation === 'QA'), 
-    [users]
-  );
-
-  // Check if QA/Assistant Manager/Project Manager is viewing a specific view
-  if (canViewTrackerReport && viewParam === 'tracker-report') {
-    return (
-      <div className="space-y-6 max-w-6xl mx-auto pb-10">
-        <QATrackerReport />
-      </div>
-    );
+  if ((roleId === 1 || roleId === 2 || roleId === 3 || isQA || isAssistantManager) && activeTab === 'tracker_report') {
+    return <QATrackerReport />;
   }
-
-  // Show agent list for both QA and Assistant Manager
-  if ((isQA || isAssistantManager) && viewParam === 'agent-list') {
-    return (
-      <div className="space-y-6 max-w-6xl mx-auto pb-10">
-        <QAAgentList />
-      </div>
-    );
+  if ((roleId === 1 || roleId === 2 || roleId === 3 || isQA || isAssistantManager) && activeTab === 'agent_file_report') {
+    return <QAAgentList />;
   }
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto pb-10">
-      {/* Show FilterBar for all tabs except dataentry, manage, QA, and QA special views */}
-      {activeTab !== 'dataentry' && activeTab !== 'manage' && !viewParam && !isAssistantManager && !isQA && (
+      {/* Show FilterBar for all tabs except dataentry, manage, QA, QA special views, and agent Billable Report */}
+      {activeTab !== 'dataentry' && activeTab !== 'manage' && !viewParam && !isAssistantManager && !isQA && !(isAgent && activeTab === 'billable_report') && (
         <FilterBar
             isAgent={isAgent}
             isQA={isQA}
@@ -509,24 +315,36 @@ const DashboardPage = ({
           rangeToSend = { start: dynamicToday, end: dynamicToday };
         }
         // Show OverviewTab (dashboard) for admin and project manager
+        // Provide empty objects as fallback for analytics and hourlyChartData to prevent ReferenceError
+        const emptyAnalytics = {
+          prodCurrent: 0,
+          trendText: '',
+          trendDir: 'neutral',
+          prevRange: { label: '' },
+          prodPrevious: 0,
+          goalProgress: 0,
+          effectiveGoal: 0,
+          agentStats: []
+        };
+        const emptyHourlyChartData = [];
         if (isAdmin || isSuperAdmin || isProjectManager) {
           return (
             <OverviewTab
-              analytics={analytics}
-              hourlyChartData={hourlyChartData}
+              analytics={emptyAnalytics}
+              hourlyChartData={emptyHourlyChartData}
               isAgent={isAgent}
               dateRange={rangeToSend}
             />
           );
         } else if (isAssistantManager) {
-          return <QAAgentDashboard embedded={true} />;
+          return <AssistantManagerDashboard />;
         } else if (isQA) {
           return <QAAgentDashboard embedded={true} />;
         } else if (isAgent) {
           return (
             <OverviewTab
-              analytics={analytics}
-              hourlyChartData={hourlyChartData}
+              analytics={emptyAnalytics}
+              hourlyChartData={emptyHourlyChartData}
               isAgent={isAgent}
               dateRange={rangeToSend}
             />
@@ -535,8 +353,8 @@ const DashboardPage = ({
           // fallback for any other role
           return (
             <OverviewTab
-              analytics={analytics}
-              hourlyChartData={hourlyChartData}
+              analytics={emptyAnalytics}
+              hourlyChartData={emptyHourlyChartData}
               isAgent={isAgent}
               dateRange={rangeToSend}
             />
@@ -544,9 +362,8 @@ const DashboardPage = ({
         }
       })()}
 
-      {activeTab === 'agent_dashboard' && (
-        <AgentDashboard embedded={true} />
-      )}
+      {/* Remove agent_dashboard navigation panel for agents */}
+
 
 
 
@@ -568,7 +385,19 @@ const DashboardPage = ({
         </div>
       )}
 
-      {/* Other tabs would go here - they can be added later as needed */}
+      {/* Agent File Report tab for Assistant Manager and QA */}
+      {activeTab === 'agent_file_report' && (isAssistantManager || isQA) && (
+        <div className="max-w-7xl mx-auto mt-6">
+          <QAAgentList />
+        </div>
+      )}
+
+      {/* Tracker Report tab for Assistant Manager and QA */}
+      {activeTab === 'tracker_report' && (isAssistantManager || isQA) && (
+        <div className="max-w-7xl mx-auto mt-6">
+          <QATrackerReport />
+        </div>
+      )}
 
       {/* Manage Tab (AdminPanel) - Show UI to all who can access, control actions by specific permissions */}
       {activeTab === 'manage' && canAccessManage && (
@@ -597,22 +426,20 @@ const DashboardPage = ({
                 }`}
               >
                 User Management
-                {pendingRequests.length > 0 && isSuperAdmin && (
-                  <span className="ml-2 bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full">
-                    {pendingRequests.length}
-                  </span>
-                )}
               </button>
-              <button 
-                onClick={() => setAdminActiveTab('projects')}
-                className={`px-6 py-3 font-medium text-sm transition-colors border-b-2 ${
-                  adminActiveTab === 'projects' 
-                    ? 'border-blue-600 text-blue-700' 
-                    : 'border-transparent text-slate-500 hover:text-slate-700'
-                }`}
-              >
-                Projects & Targets
-              </button>
+              {/* Show Projects & Targets tab for Assistant Manager */}
+              {(isAssistantManager || canManageProjects) && (
+                <button 
+                  onClick={() => setAdminActiveTab('projects')}
+                  className={`px-6 py-3 font-medium text-sm transition-colors border-b-2 ${
+                    adminActiveTab === 'projects' 
+                      ? 'border-blue-600 text-blue-700' 
+                      : 'border-transparent text-slate-500 hover:text-slate-700'
+                  }`}
+                >
+                  Projects & Targets
+                </button>
+              )}
             </div>
 
             {/* Admin Tab Content */}
@@ -622,7 +449,7 @@ const DashboardPage = ({
                   users={managedUsers}
                   projects={projects}
                   onUpdateUsers={setManagedUsers}
-                  pendingRequests={pendingRequests}
+                  pendingRequests={adminRequests}
                   onResolveRequest={handleResolveRequest}
                   loading={loadingManagedUsers}
                   loadUsers={loadUsers}
@@ -642,7 +469,7 @@ const DashboardPage = ({
                       users={managedUsers}
                       projects={projects}
                       onUpdateUsers={setManagedUsers}
-                      pendingRequests={pendingRequests}
+                      pendingRequests={adminRequests}
                       onResolveRequest={handleResolveRequest}
                       loading={loadingManagedUsers}
                       loadUsers={loadUsers}

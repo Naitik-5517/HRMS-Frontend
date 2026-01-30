@@ -21,7 +21,8 @@ import {
   Menu,
   X,
   FileText,
-  Users
+  Users,
+  Briefcase
 } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 
@@ -38,6 +39,7 @@ const Header = ({
   // Debug: Log currentUser to check available properties
   useEffect(() => {
     // eslint-disable-next-line
+    Briefcase
     console.log('Header currentUser:', currentUser);
   }, [currentUser]);
   // Helper to get initials from user's name
@@ -85,23 +87,25 @@ const Header = ({
     
     console.log('🚀 [Header goTo] view:', view, 'roleId:', roleId, 'role:', role);
     
-    // Handle Analytics tab for all roles: always go to /dashboard
+    // Handle Analytics tab for all roles: always go to /dashboard?tab=overview
     if (view === ViewState.DASHBOARD || view === 'DASHBOARD' || view === 'Analytics') {
-      console.log('🚀 [Header goTo] Navigating to admin dashboard /dashboard');
-      navigate('/dashboard');
+      console.log('🚀 [Header goTo] Navigating to Analytics tab /dashboard?tab=overview');
+      navigate('/dashboard?tab=overview');
       setIsMobileMenuOpen(false);
       return;
     }
     // Handle QA-specific views
     if (view === 'TRACKER_REPORT') {
       console.log('🚀 [Header goTo] Navigating to Tracker Report');
-      navigate('/dashboard?view=tracker-report');
+      // For Assistant Manager and QA Agent, open the tracker_report tab
+      navigate('/dashboard?tab=tracker_report');
       setIsMobileMenuOpen(false);
       return;
     }
     if (view === 'AGENT_LIST') {
       console.log('🚀 [Header goTo] Navigating to Agent File Report');
-      navigate('/dashboard?view=agent-list');
+      // For Assistant Manager and QA Agent, open the agent_file_report tab
+      navigate('/dashboard?tab=agent_file_report');
       setIsMobileMenuOpen(false);
       return;
     }
@@ -122,6 +126,13 @@ const Header = ({
       } else if (view === ViewState.DASHBOARD || view === 'DASHBOARD') {
         console.log('🚀 [Header goTo] Navigating agent to /dashboard');
         navigate("/dashboard");
+      } else if (view === 'billable_report') {
+        // Set the billable_report tab for agent
+        navigate('/dashboard?tab=billable_report');
+      } else if (view === 'AGENT_PROJECTS') {
+        navigate("/agent-projects");
+        setIsMobileMenuOpen(false);
+        return;
       } else {
         const target = ROUTES[view] || "/agent";
         console.log('🚀 [Header goTo] Navigating agent to:', target);
@@ -148,31 +159,43 @@ const Header = ({
   }, [currentUser]);
 
   const getNavItems = () => {
+    const roleId = Number(currentUser?.role_id);
     const role = (currentUser?.role || currentUser?.role_name || currentUser?.user_role || '').toString().toUpperCase();
+    // Always show for admin and super admin (by role_id)
+    if (roleId === 1 || roleId === 2) {
+      return [
+        { view: ViewState.DASHBOARD, label: "Analytics", icon: LayoutDashboard },
+        { view: "TRACKER_REPORT", label: "Tracker Report", icon: FileText },
+        { view: "AGENT_LIST", label: "Agent File Report", icon: Users },
+        { view: ViewState.ADMIN_PANEL, label: "Manage", icon: Settings },
+        { view: ViewState.ENTRY, label: "User Permission", icon: PenTool },
+      ];
+    }
+    // For agents (role_id 6 or role includes 'AGENT')
+    if (roleId === 6 || role.includes('AGENT')) {
+      return [
+        { view: ViewState.DASHBOARD, label: "Analytics", icon: LayoutDashboard },
+        // Billable Report tab removed for agents in header
+        { view: ViewState.ENTRY, label: "Tracker", icon: PenTool },
+        { view: "AGENT_PROJECTS", label: "Projects", icon: Database, disabled: true },
+        // Roster tab temporarily removed for agents
+      ];
+    }
     if (!role) {
       // Try role_id mapping if role string is missing
       if (currentUser?.role_id) {
-        const roleId = Number(currentUser.role_id);
-        // For agent, QA, PM, AM, show Analytics; for admin/superadmin, remove Analytics
-        if (roleId === 6) {
-          return [
-            { view: ViewState.DASHBOARD, label: "Analytics", icon: LayoutDashboard },
-            { view: ViewState.ENTRY, label: "Tracker", icon: PenTool },
-            // { view: ViewState.SCHEDULER, label: "Roster", icon: CalendarClock },
-          ];
-        }
         if (roleId === 5) {
           return [
             { view: ViewState.DASHBOARD, label: "Analytics", icon: LayoutDashboard },
-            // { view: ViewState.QUALITY, label: "Quality", icon: Award },
-            // { view: ViewState.SCHEDULER, label: "Scheduler", icon: CalendarClock },
             { view: "TRACKER_REPORT", label: "Tracker Report", icon: FileText },
             { view: "AGENT_LIST", label: "Agent File Report", icon: Users },
           ];
         }
-        if (roleId === 3 || (role && role.includes('PROJECT_MANAGER'))) {
+        if (roleId === 3) {
           return [
             { view: ViewState.DASHBOARD, label: "Analytics", icon: LayoutDashboard },
+            { view: "TRACKER_REPORT", label: "Tracker Report", icon: FileText },
+            { view: "AGENT_LIST", label: "Agent File Report", icon: Users },
             { view: ViewState.ADMIN_PANEL, label: "Manage", icon: Settings },
             { view: ViewState.ENTRY, label: "User Permission", icon: PenTool },
           ];
@@ -180,76 +203,54 @@ const Header = ({
         if (roleId === 4) {
           return [
             { view: ViewState.DASHBOARD, label: "Analytics", icon: LayoutDashboard },
-            // { view: ViewState.SCHEDULER, label: "Scheduler", icon: CalendarClock },
             { view: "TRACKER_REPORT", label: "Tracker Report", icon: FileText },
             { view: "AGENT_LIST", label: "Agent File Report", icon: Users },
             { view: ViewState.ADMIN_PANEL, label: "Manage", icon: Settings },
             { view: ViewState.ENTRY, label: "User Permission", icon: PenTool },
           ];
         }
-        // All other role_ids (admin/superadmin, etc.) - REMOVE Analytics
+        // All other role_ids (not admin/superadmin)
         return [
           { view: ViewState.DASHBOARD, label: "Analytics", icon: LayoutDashboard },
-          // { view: ViewState.QUALITY, label: "Quality", icon: Award },
-          // { view: ViewState.SCHEDULER, label: "Scheduler", icon: CalendarClock },
           { view: ViewState.ADMIN_PANEL, label: "Manage", icon: Settings },
           { view: ViewState.ENTRY, label: "User Permission", icon: PenTool },
         ];
       }
       return [];
     }
-    
-    // QA tabs (by role string) - Hide Manage and User Permission
     if (role.includes('QA')) {
       return [
         { view: ViewState.DASHBOARD, label: "Analytics", icon: LayoutDashboard },
-        // { view: ViewState.QUALITY, label: "Quality", icon: Award }, // Temporarily removed
-        // { view: ViewState.SCHEDULER, label: "Scheduler", icon: CalendarClock }, // Temporarily removed
         { view: "TRACKER_REPORT", label: "Tracker Report", icon: FileText },
         { view: "AGENT_LIST", label: "Agent File Report", icon: Users },
       ];
     }
-    
-    // Assistant Manager tabs (by role string)
     if (role.includes('ASSISTANT') || role.includes('ASST')) {
       return [
         { view: ViewState.DASHBOARD, label: "Analytics", icon: LayoutDashboard },
-        // { view: ViewState.SCHEDULER, label: "Scheduler", icon: CalendarClock }, // Temporarily removed
         { view: "TRACKER_REPORT", label: "Tracker Report", icon: FileText },
         { view: "AGENT_LIST", label: "Agent File Report", icon: Users },
         { view: ViewState.ADMIN_PANEL, label: "Manage", icon: Settings },
         { view: ViewState.ENTRY, label: "User Permission", icon: PenTool },
       ];
     }
-    
-    // Admin and Project Manager tabs - SHOW Analytics
-    // Normalize project manager detection for Analytics tab
-    const isProjectManagerRole =
-      role.includes('PROJECT_MANAGER') ||
-      role.replace(/\s+/g, '').toLowerCase() === 'projectmanager' ||
-      (currentUser?.role_id && Number(currentUser.role_id) === 3);
-    if (role.includes('ADMIN') || isProjectManagerRole) {
+    // Project Manager fallback
+    if (role.includes('PROJECT_MANAGER') || role.replace(/\s+/g, '').toLowerCase() === 'projectmanager' || roleId === 3) {
       return [
         { view: ViewState.DASHBOARD, label: "Analytics", icon: LayoutDashboard },
+        { view: "TRACKER_REPORT", label: "Tracker Report", icon: FileText },
+        { view: "AGENT_LIST", label: "Agent File Report", icon: Users },
         { view: ViewState.ADMIN_PANEL, label: "Manage", icon: Settings },
         { view: ViewState.ENTRY, label: "User Permission", icon: PenTool },
       ];
     }
-    
-    // Agent tabs (by role string)
-    if (role.includes('AGENT')) {
-      return [
-        { view: ViewState.DASHBOARD, label: "Analytics", icon: LayoutDashboard },
-        { view: ViewState.ENTRY, label: "Tracker", icon: PenTool },
-        { view: ViewState.SCHEDULER, label: "Roster", icon: CalendarClock },
-      ];
-    }
-    
     // Default: show nothing or fallback
     return [];
   };
 
   const navItems = getNavItems();
+  // DEBUG: Log navItems and currentUser for troubleshooting tab visibility
+  console.log('Header navItems:', navItems, 'currentUser:', currentUser);
 
   // -----------------------------
   // NAV BUTTON UI (Desktop)
@@ -257,8 +258,10 @@ const Header = ({
   const renderNavButton = (item) => (
     <button
       key={item.view}
-      onClick={() => goTo(item.view)}
-      className="flex items-center justify-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors whitespace-nowrap text-slate-600 bg-slate-50 hover:bg-slate-200"
+      onClick={() => !item.disabled && goTo(item.view)}
+      className={`flex items-center justify-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors whitespace-nowrap text-slate-600 bg-slate-50 hover:bg-slate-200 ${item.disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+      disabled={item.disabled}
+      title={item.disabled ? 'Projects tab is temporarily disabled' : item.label}
     >
       <item.icon className="w-4 h-4" />
       <span className="hidden md:inline">{item.label}</span>

@@ -1,5 +1,4 @@
 import React from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
 import {
   LayoutGrid,
   Briefcase,
@@ -8,8 +7,7 @@ import {
   DollarSign
 } from 'lucide-react';
 
-
-const AgentTabsNavigation = ({ activeTab, setActiveTab }) => {
+const AssistantManagerTabsNavigation = ({ activeTab, setActiveTab }) => {
   const tabs = [
     { id: 'overview', label: 'Overview', icon: LayoutGrid },
     { id: 'billable_report', label: 'Billable Report', icon: Briefcase },
@@ -33,10 +31,10 @@ const AgentTabsNavigation = ({ activeTab, setActiveTab }) => {
               onClick={() => setActiveTab(tab.id)}
               disabled={tab.disabled}
               className={
-                `grow lg:grow-0 px-4 sm:px-4 py-3 sm:py-3 rounded-lg text-sm font-semibold flex items-center justify-center gap-1.5 sm:gap-2 transition-all whitespace-nowrap snap-start ` +
+                `flex-grow lg:flex-grow-0 px-4 sm:px-4 py-3 sm:py-3 rounded-lg text-sm font-semibold flex items-center justify-center gap-1.5 sm:gap-2 transition-all whitespace-nowrap snap-start ` +
                 (isActive
-                  ? 'bg-white border border-blue-600 text-blue-600 shadow-md'
-                  : 'bg-white border border-slate-200 text-slate-600 hover:text-blue-600 hover:border-slate-300')
+                  ? 'bg-white shadow border border-slate-200 text-blue-600 border-blue-600 shadow-md'
+                  : 'bg-white shadow border border-slate-200 text-slate-600 hover:text-blue-600 hover:border-slate-300')
               }
               title={tab.label}
             >
@@ -51,4 +49,4 @@ const AgentTabsNavigation = ({ activeTab, setActiveTab }) => {
   );
 };
 
-export default AgentTabsNavigation;
+export default AssistantManagerTabsNavigation;

@@ -11,24 +11,129 @@ const UserTrackingView = () => {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [roleFilter, setRoleFilter] = useState('all');
+  const [roleOptions, setRoleOptions] = useState([]);
   const [updatingPermission, setUpdatingPermission] = useState(null);
 
-  // Fetch users on mount
+  // Fetch users and roles on mount
   useEffect(() => {
     fetchUsers();
+    fetchRoleDropdown();
   }, []);
+
+  // Fetch users by role when roleFilter changes (except 'all')
+  useEffect(() => {
+    if (roleFilter === 'all') {
+      fetchUsers();
+    } else {
+      fetchUsersByRole(roleFilter);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [roleFilter]);
+
+  // Fetch users by role
+  const fetchUsersByRole = async (roleId) => {
+    try {
+      setLoading(true);
+      const selectedRole = roleOptions.find(opt => String(opt.role_id) === String(roleId));
+      const roleLabel = selectedRole ? selectedRole.label : '';
+      if (!user?.user_id || !roleLabel) {
+        setUsers([]);
+        setLoading(false);
+        return;
+      }
+      const response = await api.post('/permission/user_list', {
+        logged_in_user_id: user.user_id,
+        role: roleLabel
+      });
+      let userArray = [];
+      if (response.data?.status === 200) {
+        const innerData = response.data.data;
+        if (Array.isArray(innerData)) {
+          userArray = innerData;
+        } else if (innerData && Array.isArray(innerData.users)) {
+          userArray = innerData.users;
+        } else if (innerData && Array.isArray(innerData.user_list)) {
+          userArray = innerData.user_list;
+        } else {
+          for (const key in innerData) {
+            if (Array.isArray(innerData[key])) {
+              userArray = innerData[key];
+              break;
+            }
+          }
+        }
+        setUsers(userArray);
+      } else {
+        setUsers([]);
+      }
+    } catch (error) {
+      setUsers([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Fetch role dropdown data from API
+  const fetchRoleDropdown = async () => {
+    try {
+      const response = await api.post('/dropdown/get', { dropdown_type: 'user roles' });
+      if (response.data?.status === 200 && Array.isArray(response.data.data)) {
+        setRoleOptions(response.data.data);
+      } else {
+        setRoleOptions([]);
+      }
+    } catch (error) {
+      setRoleOptions([]);
+    }
+  };
 
   const fetchUsers = async () => {
     try {
       setLoading(true);
+      // Log user_id and token for debugging
+      const token = localStorage.getItem('tfs_auth_token');
+      console.log('Sending user_id:', user?.user_id, 'Token:', token);
+
+      if (!user?.user_id) {
+        toast.error('User ID missing. Please login again.');
+        setUsers([]);
+        setLoading(false);
+        return;
+      }
+
       const response = await api.post('/permission/user_list', {
-        user_id: user?.user_id
+        logged_in_user_id: user.user_id
       });
 
+      console.log('API /permission/user_list response:', response.data);
+      console.log('API /permission/user_list inner data:', response.data?.data);
+      let userArray = [];
       if (response.data?.status === 200) {
-        setUsers(response.data.data || []);
+        const innerData = response.data.data;
+        if (Array.isArray(innerData)) {
+          userArray = innerData;
+        } else if (innerData && Array.isArray(innerData.users)) {
+          userArray = innerData.users;
+        } else if (innerData && Array.isArray(innerData.user_list)) {
+          userArray = innerData.user_list;
+        } else {
+          // Try to find any array property
+          for (const key in innerData) {
+            if (Array.isArray(innerData[key])) {
+              userArray = innerData[key];
+              break;
+            }
+          }
+        }
+        if (userArray.length > 0) {
+          setUsers(userArray);
+        } else {
+          toast.error('API returned success but no user array found.');
+          setUsers([]);
+        }
       } else {
         toast.error('Failed to load users');
+        setUsers([]);
       }
     } catch (error) {
       console.error('Error fetching users:', error);
@@ -39,24 +144,24 @@ const UserTrackingView = () => {
     }
   };
 
-  // Get unique roles for filter
-  const uniqueRoles = useMemo(() => {
-    return [...new Set(users.map(u => u.role))].sort();
-  }, [users]);
+  // Map user role to label for filter matching
+  const getRoleLabel = (roleIdOrName) => {
+    if (!roleIdOrName) return '';
+    // Try to match by role_id
+    const found = roleOptions.find(opt => String(opt.role_id) === String(roleIdOrName) || opt.label === roleIdOrName);
+    return found ? found.label : roleIdOrName;
+  };
 
-  // Filter users
+  // Filter users: search only by name and email (role filter now handled by API)
   const filteredUsers = useMemo(() => {
-    return users.filter(userData => {
-      const matchesSearch = 
+    const safeUsers = Array.isArray(users) ? users : [];
+    return safeUsers.filter(userData => {
+      return (
         userData.user_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        userData.user_email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        userData.role?.toLowerCase().includes(searchQuery.toLowerCase());
-
-      const matchesRole = roleFilter === 'all' || userData.role === roleFilter;
-
-      return matchesSearch && matchesRole;
+        userData.user_email?.toLowerCase().includes(searchQuery.toLowerCase())
+      );
     });
-  }, [users, searchQuery, roleFilter]);
+  }, [users, searchQuery]);
 
   // Handle permission toggle
   const handlePermissionToggle = async (targetUserId, permissionType, currentValue) => {
@@ -122,7 +227,7 @@ const UserTrackingView = () => {
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
               <input
                 type="text"
-                placeholder="Search by name, email, or role..."
+                placeholder="Search by name or email..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -137,8 +242,8 @@ const UserTrackingView = () => {
             className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >
             <option value="all">All Roles</option>
-            {uniqueRoles.map(role => (
-              <option key={role} value={role}>{role}</option>
+            {roleOptions.map(opt => (
+              <option key={opt.role_id} value={opt.role_id}>{opt.label}</option>
             ))}
           </select>
         </div>

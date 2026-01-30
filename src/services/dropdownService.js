@@ -10,13 +10,11 @@ import api from "./api";
  * Fetches data for a specific dropdown category from the backend.
  * @param {string} dropdownType - The type of data to retrieve.
  */
-export const fetchDropdown = async (dropdownType) => {
+export const fetchDropdown = async (dropdownType, projectId = null) => {
      try {
-          const response = await api.post("/dropdown/get", {
-               dropdown_type: dropdownType,
-          });
-
-
+          const payload = { dropdown_type: dropdownType };
+          if (projectId) payload.project_id = projectId;
+          const response = await api.post("/dropdown/get", payload);
           // Returns the data array or an empty array as a fallback
           return response.data?.data || [];
      } catch (error) {

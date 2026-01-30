@@ -1,6 +1,7 @@
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { useCurrentUserRole } from "../../hooks/useCurrentUserRole";
+import { useAuth } from "../../context/AuthContext";
 import * as XLSX from "xlsx";
 import { toast } from "react-hot-toast";
 
@@ -18,14 +19,11 @@ function formatDateTime(dt) {
   hours = hours ? hours : 12;
   return `${day}/${month}/${year} ${hours}:${minutes} ${ampm}`;
 }
-
-export default function UserCard({ user, dailyData, defaultCollapsed, formatDateTime }) {
+export default function UserCard({ user, dailyData = [], defaultCollapsed = false }) {
   const role = useCurrentUserRole();
+  const { user: currentUser } = useAuth();
   // Always call hooks at the top level
   const [expanded, setExpanded] = useState(!defaultCollapsed);
-  useEffect(() => {
-    setExpanded(!defaultCollapsed);
-  }, [defaultCollapsed]);
   const [start, setStart] = useState('');
   const [end, setEnd] = useState('');
 
@@ -180,7 +178,9 @@ export default function UserCard({ user, dailyData, defaultCollapsed, formatDate
               {filteredRows.map((row, idx) => (
                 <tr key={row.date_time || row.date || idx} className="hover:bg-blue-50 transition group">
                   <td className="px-4 py-3 text-black font-medium whitespace-nowrap">{formatDateTime(row.date_time || row.date)}</td>
-                  <td className="px-4 py-3 text-center text-black">-</td>
+                  <td className="px-4 py-3 text-center text-black">
+                    {row.assign_hours !== undefined ? Number(row.assign_hours).toFixed(2) : row.assignHours ?? row.assigned_hour ?? "-"}
+                  </td>
                   <td className="px-4 py-3 text-center text-black">{row.billable_hours ? Number(row.billable_hours).toFixed(2) : '-'}</td>
                   <td className="px-4 py-3 text-center text-black">{'qc_score' in row ? (row.qc_score !== null ? Number(row.qc_score).toFixed(2) : '-') : '-'}</td>
                   <td className="px-4 py-3 text-center text-black">{row.tenure_target ? Number(row.tenure_target).toFixed(2) : '-'}</td>

@@ -61,7 +61,7 @@ const EditTaskModal = ({
       setAgentsLoading(true);
       setAgentsError('');
       try {
-        const data = await fetchDropdown('agent');
+        const data = await fetchDropdown('agent', projectId);
         const normalized = (data || []).map((item) => {
           const candidate = Array.isArray(item) ? item[0] : item;
           const id = candidate?.user_id || candidate?.team_id || candidate?.id;
@@ -76,7 +76,7 @@ const EditTaskModal = ({
       }
     };
     loadAgents();
-  }, []);
+  }, [projectId]);
   // Multi-select handlers for assistant managers and QA managers
   // Removed Assistant/QA selection handlers
 

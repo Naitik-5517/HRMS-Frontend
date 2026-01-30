@@ -1,4 +1,5 @@
 import React, { useEffect, useState, lazy, Suspense } from 'react';
+import AgentFilterBar from './AgentFilterBar';
 import dayjs from 'dayjs';
 import StatCard from './StatCard';
 import HourlyChart from './HourlyChart';
@@ -18,7 +19,12 @@ const OverviewTab = ({ analytics, hourlyChartData, isAgent, isQA, dateRange: ext
   const { device_id, device_type } = useDeviceInfo();
   const [dashboardData, setDashboardData] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState('overview'); // New state for active tab
+  const [activeTab, setActiveTab] = useState('overview');
+  // Local filter state for agent date range
+  const [agentFilter, setAgentFilter] = useState({
+    start: externalDateRange?.start || '',
+    end: externalDateRange?.end || '',
+  });
 
   // QA dashboard filter states
   const getTodayDate = () => {
@@ -39,24 +45,19 @@ const OverviewTab = ({ analytics, hourlyChartData, isAgent, isQA, dateRange: ext
   const lastDayOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
   const firstDayStr = firstDayOfMonth.toISOString().slice(0, 10);
   const lastDayStr = lastDayOfMonth.toISOString().slice(0, 10);
+  // Use agentFilter for agent dashboard date range
   const dateRange = React.useMemo(() => {
-    // If no externalDateRange or both start/end are empty strings or undefined, use current month
-    if (!externalDateRange ||
-      (externalDateRange.start === '' && externalDateRange.end === '') ||
-      (typeof externalDateRange.start === 'undefined' && typeof externalDateRange.end === 'undefined')) {
+    if (!agentFilter || (agentFilter.start === '' && agentFilter.end === '')) {
       return { start: firstDayStr, end: lastDayStr };
     }
-    // If both start and end are set and equal, treat as single day
-    if (externalDateRange.start && externalDateRange.end && externalDateRange.start === externalDateRange.end) {
-      return { start: externalDateRange.start, end: externalDateRange.end };
+    if (agentFilter.start && agentFilter.end && agentFilter.start === agentFilter.end) {
+      return { start: agentFilter.start, end: agentFilter.end };
     }
-    // If only one of start/end is set, fallback to current month
-    if ((externalDateRange.start && !externalDateRange.end) || (!externalDateRange.start && externalDateRange.end)) {
+    if ((agentFilter.start && !agentFilter.end) || (!agentFilter.start && agentFilter.end)) {
       return { start: firstDayStr, end: lastDayStr };
     }
-    // Otherwise, use provided range
-    return externalDateRange;
-  }, [externalDateRange, firstDayStr, lastDayStr]);
+    return agentFilter;
+  }, [agentFilter, firstDayStr, lastDayStr]);
 
 
   // Fetch dashboard data for agents
@@ -184,12 +185,15 @@ const OverviewTab = ({ analytics, hourlyChartData, isAgent, isQA, dateRange: ext
       <div className="space-y-4 md:space-y-6 animate-fade-in">
         {/* Agent tab navigation above counting cards */}
         {isAgent && (
-          <AgentTabsNavigation activeTab={activeTab} setActiveTab={setActiveTab} />
+          <div className="max-w-6xl mx-auto w-full">
+            <AgentFilterBar dateRange={agentFilter} setDateRange={setAgentFilter} />
+            <AgentTabsNavigation activeTab={activeTab} setActiveTab={setActiveTab} />
+          </div>
         )}
 
         {/* QA DASHBOARD FILTERS & ANALYTICS */}
         {isQA && (
-          <div className="mb-6">
+          <div className="mb-6 max-w-6xl mx-auto w-full">
             <div className="flex flex-col md:flex-row md:items-end gap-4 mb-4">
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">Start Date</label>
@@ -244,11 +248,13 @@ const OverviewTab = ({ analytics, hourlyChartData, isAgent, isQA, dateRange: ext
 
         {/* Show Billable Report tab content for agents */}
         {isAgent && activeTab === 'billable_report' ? (
-          <AgentBillableReport />
+          <div className="max-w-6xl mx-auto w-full">
+            <AgentBillableReport />
+          </div>
         ) : isAgent && activeTab === 'overview' ? (
-          <>
+          <div className="max-w-6xl mx-auto w-full">
             {/* Counting cards for agent */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 h-full min-h-[120px]">
               <StatCard
                 title="Total Billable Hours"
                 value={agentStats.totalBillableHours.toFixed(2)}
@@ -256,7 +262,7 @@ const OverviewTab = ({ analytics, hourlyChartData, isAgent, isQA, dateRange: ext
                 icon={Clock}
                 trend="neutral"
                 tooltip="Total billable hours tracked."
-                className="min-w-0"
+                className="min-w-0 h-32 flex flex-col justify-center"
               />
               <StatCard
                 title="QC Score"
@@ -265,7 +271,7 @@ const OverviewTab = ({ analytics, hourlyChartData, isAgent, isQA, dateRange: ext
                 icon={CheckCircle}
                 trend="neutral"
                 tooltip="Quality control score."
-                className="min-w-0"
+                className="min-w-0 h-32 flex flex-col justify-center"
               />
               <StatCard
                 title="Performance"
@@ -274,7 +280,7 @@ const OverviewTab = ({ analytics, hourlyChartData, isAgent, isQA, dateRange: ext
                 icon={TrendingUp}
                 trend="neutral"
                 tooltip="Total tasks assigned to you."
-                className="min-w-0"
+                className="min-w-0 h-32 flex flex-col justify-center"
               />
               <StatCard
                 title="Projects"
@@ -283,7 +289,7 @@ const OverviewTab = ({ analytics, hourlyChartData, isAgent, isQA, dateRange: ext
                 icon={Award}
                 trend="neutral"
                 tooltip="Number of projects you're working on."
-                className="min-w-0"
+                className="min-w-0 h-32 flex flex-col justify-center"
               />
             </div>
 
@@ -322,7 +328,7 @@ const OverviewTab = ({ analytics, hourlyChartData, isAgent, isQA, dateRange: ext
                 </div>
               </div>
             </div>
-          </>
+          </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
             {/* Admin cards */}

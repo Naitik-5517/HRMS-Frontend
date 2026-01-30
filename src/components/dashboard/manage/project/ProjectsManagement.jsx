@@ -148,20 +148,29 @@ const ProjectsManagement = ({
     setExpandedCards(prev => ({ ...prev, [projectId]: value }));
   };
 
+  // Project Name filter state
+  const [projectNameSearch, setProjectNameSearch] = React.useState("");
+
+  // Filtered projects by project name
+  const filteredProjects = React.useMemo(() => {
+    if (!projectNameSearch.trim()) return projects;
+    return projects.filter(p => (p.name || p.project_name || "").toLowerCase().includes(projectNameSearch.trim().toLowerCase()));
+  }, [projects, projectNameSearch]);
+
   return (
     <div className="space-y-8 animate-fade-in p-4 md:p-0 w-full overflow-x-hidden">
+      {/* Project Name search filter is now inside AddProjectForm */}
+
       {!readOnly && !isEditMode && (
         <AddProjectForm
           newProject={newProject}
           onFieldChange={updateNewProjectField}
           onSubmit={handleAddProject}
-
           // ⬇️ normalized dropdown data
           projectManagers={normalizedProjectManagers}
           assistantManagers={normalizedAssistantManagers}
           qaManagers={normalizedQaManagers}
           teams={normalizedTeams}
-
           loadDropdowns={loadDropdowns}
           dropdownLoading={dropdownLoading}
           isSubmitting={isSubmitting}
@@ -171,6 +180,8 @@ const ProjectsManagement = ({
           handleProjectFilesChange={handleProjectFilesChange}
           handleRemoveProjectFile={handleRemoveProjectFile}
           handleModalClose={handleModalClose}
+          projectNameSearch={projectNameSearch}
+          setProjectNameSearch={setProjectNameSearch}
         />
       )}
 
@@ -194,14 +205,14 @@ const ProjectsManagement = ({
         <div className="flex justify-center items-center py-12">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
         </div>
-      ) : projects.length === 0 ? (
+      ) : filteredProjects.length === 0 ? (
         <div className="text-center py-12 text-gray-500">
           <p className="text-lg font-semibold">No projects found</p>
           <p className="text-sm">Create your first project using the form above</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-6">
-          {projects.map(proj => (
+          {filteredProjects.map(proj => (
             <ProjectCard
               key={proj.id}
               project={proj}
@@ -239,5 +250,4 @@ const ProjectsManagement = ({
     </div>
   );
 };
-
 export default ProjectsManagement;

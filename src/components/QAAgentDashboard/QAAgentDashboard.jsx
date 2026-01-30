@@ -52,11 +52,11 @@ const QAAgentDashboard = ({ embedded = false }) => {
   const [pendingFiles, setPendingFiles] = useState([]);
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
-  // By default, show today's data
+  // By default, show empty date range in filter, but show today's data if no filter is applied
   const todayStr = new Date().toISOString().slice(0, 10);
   const [dateRange, setDateRange] = useState({
-    start: todayStr,
-    end: todayStr
+    start: '',
+    end: ''
   });
 
   // Fetch dashboard data on mount
@@ -64,6 +64,7 @@ const QAAgentDashboard = ({ embedded = false }) => {
 
   // Fetch dashboard data with filter
   const fetchDashboardData = async (customRange) => {
+      // ...existing code...
     try {
       setLoading(true);
       log('[QAAgentDashboard] Fetching dashboard data');
@@ -72,13 +73,17 @@ const QAAgentDashboard = ({ embedded = false }) => {
         device_id,
         device_type
       };
+      // If a valid filter is set, use it; otherwise always use today's date
       if (customRange && customRange.start && customRange.end) {
         payload = { ...payload, from_date: customRange.start, to_date: customRange.end };
       } else {
+        // Always show today's data by default if no filter is set
         const today = new Date().toISOString().slice(0, 10);
-        payload = { ...payload, date: today };
+        payload = { ...payload, from_date: today, to_date: today };
       }
+      console.log('[QAAgentDashboard] API payload:', payload);
       const res = await api.post('/dashboard/filter', payload);
+      console.log('[QAAgentDashboard] API response:', res.data);
       if (res.status === 200 && res.data?.data) {
         const responseData = res.data.data;
         const trackers = responseData.tracker || [];
@@ -94,7 +99,7 @@ const QAAgentDashboard = ({ embedded = false }) => {
           };
         });
         // Filter trackers with files and enrich with task names
-        const trackersWithFiles = trackers
+        let trackersWithFiles = trackers
           .filter(tracker => tracker.tracker_file)
           .map(tracker => {
             const taskInfo = taskMap[tracker.task_id] || {};
@@ -102,8 +107,27 @@ const QAAgentDashboard = ({ embedded = false }) => {
               ...tracker,
               task_name: taskInfo.task_name || 'N/A'
             };
-          })
-          .slice(0, 5); // Get latest 5
+          });
+
+        // Filter by date range if set, otherwise by today
+        let fromDate, toDate;
+        if (customRange && customRange.start && customRange.end) {
+          fromDate = new Date(customRange.start);
+          toDate = new Date(customRange.end);
+        } else {
+          const today = new Date().toISOString().slice(0, 10);
+          fromDate = new Date(today);
+          toDate = new Date(today);
+        }
+        trackersWithFiles = trackersWithFiles.filter(tracker => {
+          if (!tracker.date_time) return false;
+          const trackerDate = new Date(tracker.date_time.slice(0, 10));
+          return trackerDate >= fromDate && trackerDate <= toDate;
+        });
+
+        // Sort by date_time descending (latest first)
+        trackersWithFiles.sort((a, b) => new Date(b.date_time) - new Date(a.date_time));
+
         // Set stats
         setStats({
           totalAgents: users.length || 0,
@@ -135,15 +159,18 @@ const QAAgentDashboard = ({ embedded = false }) => {
   useEffect(() => {
     if (user?.user_id) {
       fetchDashboardData({ start: todayStr, end: todayStr });
-      setDateRange({ start: todayStr, end: todayStr });
     }
     // eslint-disable-next-line
   }, [user, device_id, device_type]);
 
   // Auto-apply filter on date change
   useEffect(() => {
+    // Only fetch if both start and end are set (user applied filter)
     if (dateRange.start && dateRange.end) {
       fetchDashboardData(dateRange);
+    } else if (!dateRange.start && !dateRange.end) {
+      // If both are cleared, show today's data
+      fetchDashboardData({ start: todayStr, end: todayStr });
     }
     // eslint-disable-next-line
   }, [dateRange.start, dateRange.end]);
@@ -153,7 +180,7 @@ const QAAgentDashboard = ({ embedded = false }) => {
   };
 
   const handleClear = () => {
-    setDateRange({ start: todayStr, end: todayStr });
+    setDateRange({ start: '', end: '' });
   };
 
   const content = (
@@ -240,7 +267,7 @@ const QAAgentDashboard = ({ embedded = false }) => {
             </div>
           ) : (
             <div className="divide-y divide-slate-100">
-              {pendingFiles.map((file, index) => (
+              {pendingFiles.slice(0, 5).map((file, index) => (
                 <div
                   key={file.tracker_id || index}
                   className="px-6 py-4 hover:bg-blue-50 transition-colors"

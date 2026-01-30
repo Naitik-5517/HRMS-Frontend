@@ -28,10 +28,18 @@ const TabsNavigation = ({
     ...(isAgent
       ? [{ id: 'billable_report', label: 'Billable Report', icon: Briefcase, visible: true }]
       : [{ id: 'bookings', label: 'Billable Report', icon: Briefcase, visible: (isQA || isAssistantManager || isProjectManager || isAdmin || isSuperAdmin) }]),
-    { id: 'agents', label: 'Agent Performance', icon: Users, visible: !isQA,disabled:true },
-    { id: 'adherence', label: 'Reporting Adherence', icon: FileWarning,disabled:true, visible: canViewAdherence && !isQA },
-    { id: 'incentives', label: 'Agent Incentives', icon: DollarSign,disabled:true, visible: canViewIncentivesTab && !isQA },
-    { id: 'mgmt_incentives', label: 'Management Incentives', icon: Gem, visible: !isAgent && !isQA }
+    // Show all required tabs for project manager
+    ...(isProjectManager ? [
+      { id: 'agents', label: 'Agent Performance', icon: Users, visible: true, disabled: false },
+      { id: 'adherence', label: 'Reporting Adherence', icon: FileWarning, visible: true, disabled: false },
+      { id: 'incentives', label: 'Agent Incentives', icon: DollarSign, visible: true, disabled: false },
+      { id: 'mgmt_incentives', label: 'Management Incentives', icon: Gem, visible: true, disabled: false },
+    ] : [
+      { id: 'agents', label: 'Agent Performance', icon: Users, visible: !isQA, disabled: true },
+      { id: 'adherence', label: 'Reporting Adherence', icon: FileWarning, visible: canViewAdherence && !isQA, disabled: true },
+      { id: 'incentives', label: 'Agent Incentives', icon: DollarSign, visible: canViewIncentivesTab && !isQA, disabled: true },
+      { id: 'mgmt_incentives', label: 'Management Incentives', icon: Gem, visible: !isAgent && !isQA, disabled: true },
+    ]),
   ];
 
   // Ensure 'overview' tab is always visible, regardless of any other logic

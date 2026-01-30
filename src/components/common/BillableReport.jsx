@@ -5,9 +5,13 @@ import { fetchDropdown } from "../../services/dropdownService";
 import { useAuth } from "../../context/AuthContext";
 import MonthCard from "./MonthCard";
 import UserCard from "./UserCard";
-import { fetchDailyBillableReport, fetchMonthlyBillableReport } from "../../services/billableReportService";
+import { fetchMonthlyBillableReport } from "../../services/billableReportService";
+import api from "../../services/api";
+import { useDeviceInfo } from "../../hooks/useDeviceInfo";
 
 const BillableReport = ({ userId }) => {
+  // Device info (declare once at top)
+  const { device_id, device_type } = useDeviceInfo();
 
   // Helper to format date/time for display and export
   function formatDateTime(dateInput) {
@@ -30,6 +34,7 @@ const BillableReport = ({ userId }) => {
   const [teamFilter, setTeamFilter] = useState('');
   const [teamOptions, setTeamOptions] = useState([]);
   const { user } = useAuth();
+
 
   // Fetch team dropdown options on mount
   useEffect(() => {
@@ -68,6 +73,7 @@ const BillableReport = ({ userId }) => {
         'User Name': row.user_name || '-',
         'Team': row.team_name || '-',
         'Date-Time': formatDateTime(row.date_time ?? row.date),
+        'Assigned Hour': row.assign_hours !== undefined ? Number(row.assign_hours).toFixed(2) : (row.assignHours ?? row.assigned_hour ?? '-'),
         'Worked Hours': row.billable_hours !== undefined ? Number(row.billable_hours).toFixed(2) : (row.workedHours ?? row.worked_hours ?? '-'),
         'QC Score': 'qc_score' in row ? (row.qc_score !== null && row.qc_score !== undefined ? Number(row.qc_score).toFixed(2) : '-') : (row.qcScore ?? row.qc_score ?? '-'),
         'Daily Required Hours': row.tenure_target !== undefined ? Number(row.tenure_target).toFixed(2) : (row.dailyRequiredHours ?? row.daily_required_hours ?? '-')
@@ -75,6 +81,7 @@ const BillableReport = ({ userId }) => {
 
       // Add total row for countable columns
       if (exportData.length > 0) {
+        const totalAssigned = exportData.reduce((sum, r) => sum + (parseFloat(r['Assigned Hour']) || 0), 0);
         const totalWorked = exportData.reduce((sum, r) => sum + (parseFloat(r['Worked Hours']) || 0), 0);
         const totalQC = exportData.reduce((sum, r) => sum + (parseFloat(r['QC Score']) || 0), 0);
         const totalRequired = exportData.reduce((sum, r) => sum + (parseFloat(r['Daily Required Hours']) || 0), 0);
@@ -82,6 +89,7 @@ const BillableReport = ({ userId }) => {
           'User Name': 'Total',
           'Team': '',
           'Date-Time': '',
+          'Assigned Hour': totalAssigned.toFixed(2),
           'Worked Hours': totalWorked.toFixed(2),
           'QC Score': totalQC.toFixed(2),
           'Daily Required Hours': totalRequired.toFixed(2)
@@ -93,6 +101,7 @@ const BillableReport = ({ userId }) => {
         { wch: 18 }, // User Name
         { wch: 16 }, // Team
         { wch: 24 }, // Date-Time
+        { wch: 16 }, // Assigned Hour
         { wch: 16 }, // Worked Hours
         { wch: 12 }, // QC Score
         { wch: 20 }, // Daily Required Hours
@@ -174,8 +183,12 @@ const BillableReport = ({ userId }) => {
   // (Date range filter removed)
   // State for month filter (monthly)
   const [monthlyMonth, setMonthlyMonth] = useState('');
-  // State for month filter (daily report)
-  const [dailyMonth, setDailyMonth] = useState('');
+  // State for month filter (daily report) - default to current month
+  const getCurrentMonth = () => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  };
+  const [dailyMonth, setDailyMonth] = useState(getCurrentMonth());
 
   // State for API data, loading, and error
   const [dailyData, setDailyData] = useState([]);
@@ -185,30 +198,61 @@ const BillableReport = ({ userId }) => {
   // Helper to get YYYY-MM-DD string
   const getDateString = (date) => date.toISOString().slice(0, 10);
 
-  // Default daily: current month only, unless filter set
+  // Fetch daily report data using /tracker/view API
   useEffect(() => {
     const fetchData = async () => {
       setLoadingDaily(true);
       setErrorDaily(null);
       try {
-        const payload = {};
-        // If a month is selected, use that month for filtering
+        if (!user?.user_id || !device_id || !device_type) {
+          setDailyData([]);
+          setLoadingDaily(false);
+          return;
+        }
+        let payload = {
+          logged_in_user_id: user.user_id,
+          device_id,
+          device_type
+        };
+        // Team filter
+        if (teamFilter) {
+          const selectedTeam = teamOptions.find(t => t.label === teamFilter);
+          if (selectedTeam && selectedTeam.team_id) {
+            payload.team_id = selectedTeam.team_id;
+          }
+        }
+        // Month filter
         if (dailyMonth) {
           const [year, month] = dailyMonth.split('-');
           const monthNames = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
           const monthLabel = monthNames[Number(month) - 1];
           payload.month_year = `${monthLabel}${year}`;
-        } else {
-          // Default: current month using date_from/date_to
-          const now = new Date();
-          const firstDay = new Date(Date.UTC(now.getFullYear(), now.getMonth(), 1));
-          const lastDay = new Date(Date.UTC(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999));
+          // Set date_from and date_to for the selected month (inclusive)
+          const firstDay = new Date(Date.UTC(Number(year), Number(month) - 1, 1));
+          // To ensure inclusivity, set lastDay to the end of the day
+          const lastDay = new Date(Date.UTC(Number(year), Number(month), 0, 23, 59, 59, 999));
           payload.date_from = firstDay.toISOString().slice(0, 10);
           payload.date_to = lastDay.toISOString().slice(0, 10);
         }
+        // User filter (if userId is passed as prop)
         if (userId) payload.user_id = userId;
-        const res = await fetchDailyBillableReport(payload);
-        setDailyData(Array.isArray(res.data?.trackers) ? res.data.trackers : []);
+        // Call the new API
+        const res = await api.post('/tracker/view', payload);
+        // Ensure all dates on or before date_to are included
+        let trackers = Array.isArray(res.data?.data?.trackers) ? res.data.data.trackers : [];
+        if (payload.date_from && payload.date_to) {
+          // Normalize all dates to YYYY-MM-DD for comparison (ignore time)
+          const fromStr = payload.date_from;
+          const toStr = payload.date_to;
+          trackers = trackers.filter(row => {
+            const rowDate = row.date_time || row.date;
+            if (!rowDate) return false;
+            // Always compare only the date part (YYYY-MM-DD)
+            const dStr = new Date(rowDate).toISOString().slice(0, 10);
+            return dStr >= fromStr && dStr <= toStr;
+          });
+        }
+        setDailyData(trackers);
       } catch {
         setErrorDaily("Failed to fetch daily report data");
       } finally {
@@ -216,7 +260,8 @@ const BillableReport = ({ userId }) => {
       }
     };
     fetchData();
-  }, [userId, dailyMonth]);
+    // eslint-disable-next-line
+  }, [userId, dailyMonth, teamFilter, device_id, device_type, teamOptions]);
 
   // Fetch monthly report data from API when monthly tab is active
   const [monthlySummaryData, setMonthlySummaryData] = useState([]);
@@ -256,47 +301,66 @@ const BillableReport = ({ userId }) => {
     fetchData();
   }, [activeToggle, userId, monthlyMonth]);
 
-  // Filter daily data by selected month if set
-  const filteredDailyData = dailyData.filter(row => {
-    if (!dailyMonth) return true;
-    // dailyMonth is in 'YYYY-MM' format
-    const rowDate = row.date_time || row.date;
-    if (!rowDate) return false;
-    const d = new Date(rowDate);
-    if (isNaN(d)) return false;
-    const monthStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-    return monthStr === dailyMonth;
-  });
+  // No longer need to filter dailyData by month, as API returns filtered data
+  const filteredDailyData = dailyData;
 
   // Export all daily data for a given user and month (from monthly report)
+
   const handleExportMonthDailyData = async (user, monthObj) => {
     try {
       const month_year = user.month_year || monthObj?.label + monthObj?.year;
-      let payload = { month_year };
-      if (user.user_id) {
-        payload.user_id = user.user_id;
+      let payload = {
+        month_year,
+        user_id: user.user_id,
+        logged_in_user_id: user.user_id, // fallback, but API may override
+        device_id,
+        device_type
+      };
+      // Set date_from and date_to for the month (inclusive)
+      if (monthObj?.label && monthObj?.year) {
+        const monthNames = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
+        const monthIdx = monthNames.indexOf(monthObj.label.toUpperCase());
+        if (monthIdx !== -1) {
+          const firstDay = new Date(Date.UTC(Number(monthObj.year), monthIdx, 1));
+          const lastDay = new Date(Date.UTC(Number(monthObj.year), monthIdx + 1, 0, 23, 59, 59, 999));
+          payload.date_from = firstDay.toISOString().slice(0, 10);
+          payload.date_to = lastDay.toISOString().slice(0, 10);
+        }
       }
-      const res = await fetchDailyBillableReport(payload);
-      const dailyRows = Array.isArray(res.data?.trackers) ? res.data.trackers : [];
+      // Use the same API as daily report for consistency
+      const res = await api.post('/tracker/view', payload);
+      let dailyRows = Array.isArray(res.data?.data?.trackers) ? res.data.data.trackers : [];
+      // Filter by date range (inclusive, by date only)
+      if (payload.date_from && payload.date_to) {
+        const fromStr = payload.date_from;
+        const toStr = payload.date_to;
+        dailyRows = dailyRows.filter(row => {
+          const rowDate = row.date_time || row.date;
+          if (!rowDate) return false;
+          const dStr = new Date(rowDate).toISOString().slice(0, 10);
+          return dStr >= fromStr && dStr <= toStr;
+        });
+      }
       if (!dailyRows.length) {
         toast.error('No daily data found for this user/month');
         return;
       }
       let exportData = dailyRows.map(row => ({
         'Date-Time': formatDateTime(row.date_time ?? row.date),
-        'Assign Hours': '-',
+        'Assigned Hour': row.assign_hours !== undefined ? Number(row.assign_hours).toFixed(2) : (row.assignHours ?? row.assigned_hour ?? '-'),
         'Worked Hours': row.billable_hours !== undefined ? Number(row.billable_hours).toFixed(2) : (row.workedHours ?? row.worked_hours ?? '-'),
         'QC Score': 'qc_score' in row ? (row.qc_score !== null && row.qc_score !== undefined ? Number(row.qc_score).toFixed(2) : '-') : (row.qcScore ?? row.qc_score ?? '-'),
         'Daily Required Hours': row.tenure_target !== undefined ? Number(row.tenure_target).toFixed(2) : (row.dailyRequiredHours ?? row.daily_required_hours ?? '-')
       }));
       // Add total row for countable columns
       if (exportData.length > 0) {
+        const totalAssigned = exportData.reduce((sum, r) => sum + (parseFloat(r['Assigned Hour']) || 0), 0);
         const totalWorked = exportData.reduce((sum, r) => sum + (parseFloat(r['Worked Hours']) || 0), 0);
         const totalQC = exportData.reduce((sum, r) => sum + (parseFloat(r['QC Score']) || 0), 0);
         const totalRequired = exportData.reduce((sum, r) => sum + (parseFloat(r['Daily Required Hours']) || 0), 0);
         exportData.push({
           'Date-Time': 'Total',
-          'Assign Hours': '',
+          'Assigned Hour': totalAssigned.toFixed(2),
           'Worked Hours': totalWorked.toFixed(2),
           'QC Score': totalQC.toFixed(2),
           'Daily Required Hours': totalRequired.toFixed(2)
@@ -305,7 +369,7 @@ const BillableReport = ({ userId }) => {
       const worksheet = XLSX.utils.json_to_sheet(exportData);
       worksheet['!cols'] = [
         { wch: 24 }, // Date-Time
-        { wch: 16 }, // Assign Hours
+        { wch: 16 }, // Assigned Hour
         { wch: 16 }, // Worked Hours
         { wch: 12 }, // QC Score
         { wch: 20 }, // Daily Required Hours

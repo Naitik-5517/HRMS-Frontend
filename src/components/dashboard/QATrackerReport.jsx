@@ -28,8 +28,8 @@ const QATrackerReport = () => {
 
   // Filter states
   const [selectedAgent, setSelectedAgent] = useState("");
-  const [startDate, setStartDate] = useState(getTodayDate());
-  const [endDate, setEndDate] = useState(getTodayDate());
+  const [startDate, setStartDate] = useState(""); // empty by default
+  const [endDate, setEndDate] = useState(""); // empty by default
   const [summary, setSummary] = useState([]);
 
   // Store per-hour targets from dropdown API
@@ -41,12 +41,18 @@ const QATrackerReport = () => {
       try {
         setLoading(true);
         setLoadingAgents(true);
-        const payload = {
+        let payload = {
           logged_in_user_id: user?.user_id,
-          date_from: startDate,
-          date_to: endDate,
         };
         if (selectedAgent) payload.user_id = selectedAgent;
+        if (startDate) payload.date_from = startDate;
+        if (endDate) payload.date_to = endDate;
+        // If no date filter, use today's date for both from/to
+        if (!startDate && !endDate) {
+          const today = getTodayDate();
+          payload.date_from = today;
+          payload.date_to = today;
+        }
         const res = await api.post("/tracker/view", payload);
         const data = res.data?.data || {};
         setTrackers(Array.isArray(data.trackers) ? data.trackers : []);
@@ -77,8 +83,8 @@ const QATrackerReport = () => {
   // Clear filters
   const handleClearFilters = () => {
     setSelectedAgent("");
-    setStartDate(getTodayDate());
-    setEndDate(getTodayDate());
+    setStartDate("");
+    setEndDate("");
   };
 
   // Calculate totals from filtered trackers
@@ -149,7 +155,7 @@ const QATrackerReport = () => {
     <div className="space-y-10 max-w-6xl mx-auto py-8">
       <div className="mb-8 flex items-center gap-3">
         <UsersIcon className="w-9 h-9 text-blue-700" />
-        <h2 className="text-3xl font-extrabold text-blue-800 tracking-tight drop-shadow-sm">QA Tracker Report</h2>
+        <h2 className="text-3xl font-extrabold text-blue-800 tracking-tight drop-shadow-sm">Tracker Report</h2>
       </div>
 
       {/* Filter Section */}
@@ -188,6 +194,7 @@ const QATrackerReport = () => {
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
               className="w-full px-3 py-2 text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white shadow-sm"
+              placeholder="Start Date"
             />
           </div>
 
@@ -201,6 +208,7 @@ const QATrackerReport = () => {
               value={endDate}
               onChange={(e) => setEndDate(e.target.value)}
               className="w-full px-3 py-2 text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white shadow-sm"
+              placeholder="End Date"
             />
           </div>
 

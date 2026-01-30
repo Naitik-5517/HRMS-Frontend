@@ -46,16 +46,14 @@ const TasksModal = ({
     const loadAgents = async () => {
       setAgentsLoading(true);
       setAgentsError('');
-
       try {
-        const data = await fetchDropdown('agent');
+        const data = await fetchDropdown('agent', project?.id);
         const normalized = (data || []).map((item) => {
           const candidate = Array.isArray(item) ? item[0] : item;
           const id = candidate?.user_id || candidate?.team_id || candidate?.id;
           const label = candidate?.label || candidate?.name || candidate?.user_name || candidate?.team_name || '';
           return id ? { id: String(id), label } : null;
         }).filter(Boolean);
-
         setAgents(normalized);
       } catch (error) {
         console.error('Failed to fetch agents:', error);
@@ -64,9 +62,8 @@ const TasksModal = ({
         setAgentsLoading(false);
       }
     };
-
     loadAgents();
-  }, []);
+  }, [project?.id]);
 
   useEffect(() => {
     const handleClickOutside = (event) => {

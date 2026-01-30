@@ -59,7 +59,7 @@ const TaskTable = ({ project, readOnly, onDeleteTask, onEditTask, onTaskUpdated,
               <th className="text-left py-2 px-3">Task Name</th>
               <th className="text-left py-2 px-3">Target / Hr</th>
               <th className="text-left py-2 px-3">Task Description</th>
-              <th className="text-center py-2 px-3">Action</th>
+              <th className="text-center py-2 px-3"><span className="block text-center w-full">Action</span></th>
             </tr>
           </thead>
           <tbody ref={tableBodyRef}>
@@ -76,7 +76,7 @@ const TaskTable = ({ project, readOnly, onDeleteTask, onEditTask, onTaskUpdated,
                   <td className="py-2 px-3 text-left text-slate-600 align-middle wrap-break-word max-w-xs">{taskDescription}</td>
                   <td className="py-2 px-3 text-center align-middle">
                     {!readOnly && (
-                      <div className="flex items-center justify-end gap-2">
+                      <div className="flex items-center justify-center gap-2">
                         <button
                           onClick={() => onEditTask && onEditTask(project.id, taskId, t)}
                           className="p-0 bg-transparent hover:bg-transparent focus:outline-none"

@@ -29,8 +29,8 @@ const TrackerTable = ({ userId, projects, onClose }) => {
   // Filter states
   const [selectedProject, setSelectedProject] = useState("");
   const [selectedTask, setSelectedTask] = useState("");
-  const [startDate, setStartDate] = useState(getTodayDate());
-  const [endDate, setEndDate] = useState(getTodayDate());
+  const [startDate, setStartDate] = useState(""); // empty by default
+  const [endDate, setEndDate] = useState(""); // empty by default
 
 
   // Get tasks for selected project
@@ -64,44 +64,46 @@ const TrackerTable = ({ userId, projects, onClose }) => {
     );
   };
   // Fetch tracker data with filters
+  // Fetch today's data on mount, and filtered data when filters are set
   useEffect(() => {
-    if (!userId) {
-      return;
-    }
+    if (!userId || !user) return;
 
     const fetchTrackers = async () => {
       try {
         setLoading(true);
         setError("");
-      
-        
-        // Build payload: send the correct agent's userId
-        const payload = { logged_in_user_id: userId };
+
+        // If no filters, fetch today's data only
+        let payload = {
+          logged_in_user_id: userId,
+          device_id: user.device_id || '',
+          device_type: user.device_type || '',
+        };
+
+        // If any filter is set, add to payload
+        if (selectedProject) payload.project_id = selectedProject;
+        if (selectedTask) payload.task_id = selectedTask;
+        if (startDate) payload.date_from = startDate;
+        if (endDate) payload.date_to = endDate;
+
+        // If no date filter, use today's date for both from/to
+        if (!startDate && !endDate) {
+          const today = getTodayDate();
+          payload.date_from = today;
+          payload.date_to = today;
+        }
+
         log('[TrackerTable] Fetching trackers with filters:', payload);
         const res = await api.post("/tracker/view", payload);
         if (res.status === 200 && res.data?.data) {
           const responseData = res.data.data;
-          // tracker/view returns { count, trackers: [...] }
           const fetchedTrackers = responseData.trackers || [];
-          // For agent side, just filter by date and project/task if selected
-          const enrichedTrackers = fetchedTrackers
-            .filter(tracker => {
-              if (!tracker.date_time) return true;
-              const trackerDate = new Date(tracker.date_time).toISOString().split('T')[0];
-              if (startDate && trackerDate < startDate) return false;
-              if (endDate && trackerDate > endDate) return false;
-              if (selectedProject && String(tracker.project_id) !== String(selectedProject)) return false;
-              if (selectedTask && String(tracker.task_id) !== String(selectedTask)) return false;
-              return true;
-            })
-            .map(tracker => {
-              // Enrich with project/task names for display
-              return {
-                ...tracker,
-                project_name: tracker.project_name || getProjectName(tracker.project_id),
-                task_name: tracker.task_name || getTaskName(tracker.task_id, tracker.project_id),
-              };
-            });
+          // Enrich with project/task names for display
+          const enrichedTrackers = fetchedTrackers.map(tracker => ({
+            ...tracker,
+            project_name: tracker.project_name || getProjectName(tracker.project_id),
+            task_name: tracker.task_name || getTaskName(tracker.task_id, tracker.project_id),
+          }));
           log('[TrackerTable] Fetched trackers:', enrichedTrackers.length);
           if (enrichedTrackers.length > 0) {
             log('[TrackerTable] Latest tracker data:', enrichedTrackers[0]);
@@ -113,7 +115,6 @@ const TrackerTable = ({ userId, projects, onClose }) => {
       } catch (err) {
         const msg = err?.response?.data?.message || err?.message || "Unknown error";
         const errorMsg = "Failed to fetch tracker data: " + msg;
-        
         logError('[TrackerTable] Error fetching trackers:', errorMsg);
         setError(errorMsg);
         setTrackers([]);
@@ -177,8 +178,8 @@ const TrackerTable = ({ userId, projects, onClose }) => {
   const handleClearFilters = () => {
     setSelectedProject("");
     setSelectedTask("");
-    setStartDate(getTodayDate());
-    setEndDate(getTodayDate());
+    setStartDate("");
+    setEndDate("");
   };
 
   // Calculate totals from filtered trackers
@@ -297,6 +298,7 @@ const TrackerTable = ({ userId, projects, onClose }) => {
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
               className="w-full px-3 py-2 text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white shadow-sm"
+              placeholder="Start Date"
             />
           </div>
 
@@ -310,6 +312,7 @@ const TrackerTable = ({ userId, projects, onClose }) => {
               value={endDate}
               onChange={(e) => setEndDate(e.target.value)}
               className="w-full px-3 py-2 text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white shadow-sm"
+              placeholder="End Date"
             />
           </div>
 

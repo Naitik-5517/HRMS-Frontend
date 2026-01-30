@@ -7,7 +7,7 @@ import UsersTable from "./UsersTable";
 import TaskAssignmentModal from "./TaskAssignmentModal";
 import { addUser, updateUser } from "../../../../services/authService";
 import { toast } from "react-hot-toast";
-import { useUserDropdowns } from "../../../../hooks/useUserDropdowns";
+import { fetchDropdownOptions } from "../../../../services/dropdownApi";
 import { useDeviceInfo } from "../../../../hooks/useDeviceInfo";
 import DeleteUserModal from "./DeleteUserModal";
 import { deleteUser } from "../../../../services/authService";
@@ -53,11 +53,42 @@ const UsersManagement = ({
      const [isDeleting, setIsDeleting] = useState(false);
      const [isSubmitting, setIsSubmitting] = useState(false);
 
-     const {
-          dropdowns,
-          loading: dropdownLoading,
-          loadDropdowns
-     } = useUserDropdowns();
+
+     // Dropdown state for roles, designations, managers, QAs, teams
+     const [roleOptions, setRoleOptions] = useState([]);
+     const [asstManagerOptions, setAsstManagerOptions] = useState([]);
+     const [designationOptions, setDesignationOptions] = useState([]);
+     const [projectManagerOptions, setProjectManagerOptions] = useState([]);
+     const [qaOptions, setQaOptions] = useState([]);
+     const [teamOptions, setTeamOptions] = useState([]);
+     const [dropdownLoading, setDropdownLoading] = useState(false);
+
+     useEffect(() => {
+          const fetchDropdowns = async () => {
+               setDropdownLoading(true);
+               try {
+                    const [rolesRes, asstMgrRes, projectMgrRes, qaRes, teamRes, designationRes] = await Promise.all([
+                         fetchDropdownOptions("user roles"),
+                         fetchDropdownOptions("assistant manager"),
+                         fetchDropdownOptions("project manager"),
+                         fetchDropdownOptions("qa"),
+                         fetchDropdownOptions("teams"),
+                         fetchDropdownOptions("designations")
+                    ]);
+                    setRoleOptions(rolesRes?.data || []);
+                    setAsstManagerOptions(asstMgrRes?.data || []);
+                    setProjectManagerOptions(projectMgrRes?.data || []);
+                    setQaOptions(qaRes?.data || []);
+                    setTeamOptions(teamRes?.data || []);
+                    setDesignationOptions(designationRes?.data || []);
+               } catch (err) {
+                    toast.error("Failed to load dropdowns");
+               } finally {
+                    setDropdownLoading(false);
+               }
+          };
+          fetchDropdowns();
+     }, []);
 
      const deviceInfo = useDeviceInfo();
 
@@ -140,13 +171,18 @@ const UsersManagement = ({
                     ? u.email?.toLowerCase().includes(filterUser.email.toLowerCase())
                     : true;
 
-               const managerValue = (u.project_manager_name || u.reportingManager || "").toLowerCase();
+               // Filter by selected Assistant Manager (exact match by value or name)
+               const asstManagerValue = u.assistantManager || u.assistant_manager || u.project_manager_name || u.reportingManager || "";
                const matchesManager = filterUser.reportingManager
-                    ? managerValue.includes(filterUser.reportingManager.toLowerCase())
+                    ? (asstManagerValue === filterUser.reportingManager || asstManagerValue === filterUser.reportingManager?.name)
                     : true;
 
-               const matchesRole = filterUser.role
-                    ? (u.role || "").toUpperCase() === filterUser.role.toUpperCase()
+
+               // Filter by selected Role (case-insensitive, match value or label)
+               const userRole = (u.role || u.user_role || "").toString().toLowerCase();
+               const selectedRole = (filterUser.role || "").toString().toLowerCase();
+               const matchesRole = selectedRole
+                    ? (userRole === selectedRole)
                     : true;
 
                return matchesName && matchesEmail && matchesManager && matchesRole;
@@ -350,7 +386,7 @@ const UsersManagement = ({
           setProfilePreview(null);
           setFormErrors({});
           setShowUserFormModal(true);
-          loadDropdowns();
+          // fetchDropdowns is already called on mount, so no need to call again
      };
 
      // Removed openEditUserModal (update user logic)
@@ -564,7 +600,7 @@ const UsersManagement = ({
                          </div>
                          <div className="col-span-1">
                               <label className="block text-xs font-semibold text-slate-500 mb-1">
-                                   Manager Name
+                                   Asst_Manger Name
                               </label>
                               <select
                                    className="w-full p-2 border rounded text-sm outline-none focus:border-blue-500"
@@ -573,10 +609,10 @@ const UsersManagement = ({
                                         setFilterUser({ ...filterUser, reportingManager: e.target.value })
                                    }
                               >
-                                   <option value="">Select Manager</option>
-                                   {potentialManagers.map((u) => (
-                                        <option key={u.id} value={u.name}>
-                                             {u.name}
+                                   <option value="">Select Asst_Manger</option>
+                                   {asstManagerOptions.map((mgr, idx) => (
+                                        <option key={mgr.id || mgr.value || mgr.name || idx} value={mgr.value || mgr.name || mgr.id}>
+                                             {mgr.label || mgr.name || mgr.value}
                                         </option>
                                    ))}
                               </select>
@@ -590,16 +626,12 @@ const UsersManagement = ({
                                    value={filterUser.role}
                                    onChange={(e) => setFilterUser({ ...filterUser, role: e.target.value })}
                               >
-                                    <option value="">All Roles</option>
-                                   <option value="AGENT">Agent</option>
-                                   {isSuperAdmin && (
-                                        <>
-                                             <option value="PROJECT_MANAGER">PM</option>
-                                             <option value="ASS_MANAGER">Assistant Manager</option>
-                                             <option value="FINANCE_HR">Fin/HR</option>
-                                             <option value="ADMIN">Admin</option>
-                                        </>
-                                   )}
+                                   <option value="">All Roles</option>
+                                   {roleOptions.map((role, idx) => (
+                                        <option key={role.id || role.value || role.name || idx} value={role.value || role.name || role.id}>
+                                             {role.label || role.name || role.value}
+                                        </option>
+                                   ))}
                               </select>
                          </div>
                          <div className="flex gap-2 col-span-1">
@@ -646,12 +678,12 @@ const UsersManagement = ({
                          newUser={newUser}
                          setNewUser={setNewUser}
                          handleAddUser={handleAddUser}
-                         roles={dropdowns.roles}
-                         designations={dropdowns.designations}
-                         projectManagers={dropdowns.projectManagers}
-                         assistantManagers={dropdowns.assistantManagers}
-                         qas={dropdowns.qas}
-                         teams={dropdowns.teams}
+                         roles={roleOptions}
+                         projectManagers={projectManagerOptions}
+                         assistantManagers={asstManagerOptions}
+                         qas={qaOptions}
+                         teams={teamOptions}
+                         designations={designationOptions}
                          isDropdownLoading={dropdownLoading}
                          isSuperAdmin={isSuperAdmin}
                          isSubmitting={isSubmitting}
