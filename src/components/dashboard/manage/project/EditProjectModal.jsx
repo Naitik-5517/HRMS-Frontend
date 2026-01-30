@@ -34,8 +34,11 @@ const EditProjectModal = ({
 			Array.isArray(qaManagers) && qaManagers.length > 0 &&
 			Array.isArray(teams) && teams.length > 0
 		) {
-			log('[EditProjectModal] Initializing project:', project);
-			
+			console.log('[EditProjectModal][DEBUG] Incoming project prop:', project);
+			console.log('[EditProjectModal][DEBUG] assistantManagers:', assistantManagers);
+			console.log('[EditProjectModal][DEBUG] qaManagers:', qaManagers);
+			console.log('[EditProjectModal][DEBUG] teams:', teams);
+
 			// Helper to extract string IDs from any array of IDs or objects
 			const extractIds = (arr, key = 'user_id') => {
 				if (!arr) return [];
@@ -65,38 +68,79 @@ const EditProjectModal = ({
 					}))
 				: [];
 
+			console.log('[EditProjectModal][DEBUG] normalizedAssistantManagers:', normalizedAssistantManagers);
+			console.log('[EditProjectModal][DEBUG] normalizedQaManagers:', normalizedQaManagers);
+			console.log('[EditProjectModal][DEBUG] normalizedTeams:', normalizedTeams);
+
+
+			// --- DEBUG: Log all possible project fields for mapping ---
+			console.log('[EditProjectModal][DEBUG] Raw project fields:', {
+				assistantManagerIds: project.assistantManagerIds,
+				asst_project_managers: project.asst_project_managers,
+				asst_project_manager_id: project.asst_project_manager_id,
+				qaManagerIds: project.qaManagerIds,
+				qa_users: project.qa_users,
+				project_qa_id: project.project_qa_id,
+				teamIds: project.teamIds,
+				project_team: project.project_team,
+				project_team_id: project.project_team_id
+			});
+
 			// Assistant Project Managers
 			let assistantManagerIds = [];
 			if (Array.isArray(project.assistantManagerIds) && project.assistantManagerIds.length > 0) {
-				assistantManagerIds = extractIds(project.assistantManagerIds);
+				assistantManagerIds = extractIds(project.assistantManagerIds, 'user_id');
 			} else if (Array.isArray(project.asst_project_managers) && project.asst_project_managers.length > 0) {
-				assistantManagerIds = extractIds(project.asst_project_managers, 'user_id');
+				// Accept both array of objects and array of ids
+				if (typeof project.asst_project_managers[0] === 'object') {
+					assistantManagerIds = extractIds(project.asst_project_managers, 'user_id');
+				} else {
+					assistantManagerIds = project.asst_project_managers.map(String);
+				}
 			} else if (Array.isArray(project.asst_project_manager_id) && project.asst_project_manager_id.length > 0) {
-				assistantManagerIds = extractIds(project.asst_project_manager_id);
+				assistantManagerIds = project.asst_project_manager_id.map(String);
 			}
-			log('[EditProjectModal] Assistant Manager IDs:', assistantManagerIds);
+			console.log('[EditProjectModal][DEBUG] Assistant Manager IDs:', assistantManagerIds);
 
 			// QA Managers
 			let qaManagerIds = [];
 			if (Array.isArray(project.qaManagerIds) && project.qaManagerIds.length > 0) {
-				qaManagerIds = extractIds(project.qaManagerIds);
+				qaManagerIds = extractIds(project.qaManagerIds, 'user_id');
 			} else if (Array.isArray(project.qa_users) && project.qa_users.length > 0) {
-				qaManagerIds = extractIds(project.qa_users, 'user_id');
+				if (typeof project.qa_users[0] === 'object') {
+					qaManagerIds = extractIds(project.qa_users, 'user_id');
+				} else {
+					qaManagerIds = project.qa_users.map(String);
+				}
 			} else if (Array.isArray(project.project_qa_id) && project.project_qa_id.length > 0) {
-				qaManagerIds = extractIds(project.project_qa_id);
+				if (typeof project.project_qa_id[0] === 'object') {
+					qaManagerIds = extractIds(project.project_qa_id, 'user_id');
+				} else {
+					qaManagerIds = project.project_qa_id.map(String);
+				}
+			} else if (Array.isArray(project.project_qa_ids) && project.project_qa_ids.length > 0) {
+				if (typeof project.project_qa_ids[0] === 'object') {
+					qaManagerIds = extractIds(project.project_qa_ids, 'user_id');
+				} else {
+					qaManagerIds = project.project_qa_ids.map(String);
+				}
 			}
-			log('[EditProjectModal] QA Manager IDs:', qaManagerIds);
+			console.log('[EditProjectModal][DEBUG] QA Manager IDs:', qaManagerIds);
 
 			// Agents/Teams
 			let teamIds = [];
 			if (Array.isArray(project.teamIds) && project.teamIds.length > 0) {
-				teamIds = extractIds(project.teamIds);
+				teamIds = extractIds(project.teamIds, 'user_id');
 			} else if (Array.isArray(project.project_team) && project.project_team.length > 0) {
-				teamIds = extractIds(project.project_team, 'user_id');
+				if (typeof project.project_team[0] === 'object') {
+					teamIds = extractIds(project.project_team, 'user_id');
+				} else {
+					teamIds = project.project_team.map(String);
+				}
 			} else if (Array.isArray(project.project_team_id) && project.project_team_id.length > 0) {
-				teamIds = extractIds(project.project_team_id);
+				teamIds = project.project_team_id.map(String);
 			}
-			log('[EditProjectModal] Team IDs:', teamIds);
+			console.log('[EditProjectModal][DEBUG] Team IDs:', teamIds);
 
 			const newProject = {
 				...project,
@@ -107,7 +151,9 @@ const EditProjectModal = ({
 				name: project.name || project.project_name || "",
 				description: project.description || project.project_description || "",
 			};
-			
+
+			console.log('[EditProjectModal][DEBUG] newProject state to set:', newProject);
+
 			setTimeout(() => {
 				setEditProject(newProject);
 				if (project.project_file) setProjectFiles({ name: project.project_file });

@@ -121,8 +121,18 @@ const ProjectsManagement = ({
       // fallback to passed project if fetch fails
     }
     // Map API response arrays to expected fields for EditProjectModal
+    // Use qa_user_ids for QA Manager(s) as per API response
+    let qaManagerIds = [];
+    if (Array.isArray(fullProject.qa_user_ids) && fullProject.qa_user_ids.length > 0) {
+      qaManagerIds = fullProject.qa_user_ids;
+    }
+
     fullProject = {
       ...fullProject,
+      // Map all possible selected fields for EditProjectModal
+      assistantManagerIds: fullProject.assistantManagerIds || fullProject.asst_project_manager_ids || fullProject.asst_project_managers || [],
+      qaManagerIds,
+      teamIds: fullProject.teamIds || fullProject.project_team_ids || fullProject.project_team || [],
       asst_project_managers: fullProject.asst_project_managers || [],
       qa_users: fullProject.qa_users || [],
       project_team: fullProject.project_team || [],
