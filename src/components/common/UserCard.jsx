@@ -288,6 +288,7 @@ export default function UserCard({
               <th className="px-6 py-4 text-center font-semibold">Assign Hours</th>
               <th className="px-6 py-4 text-center font-semibold">Worked Hours</th>
               <th className="px-6 py-4 text-center font-semibold">QC Score</th>
+              <th className="px-6 py-4 text-center font-semibold">Tracker Count</th>
               <th className="px-6 py-4 text-center font-semibold">Daily Required Hours</th>
               {canSeeActions && (
                 <th className="px-6 py-4 text-center font-semibold">Actions</th>
@@ -301,6 +302,7 @@ export default function UserCard({
                 <td className="px-6 py-4 text-center text-slate-700 font-semibold">{row.assigned_hours !== null && row.assigned_hours !== undefined ? Number(row.assigned_hours).toFixed(2) : '-'}</td>
                 <td className="px-6 py-4 text-center text-slate-700 font-semibold">{row.billable_hours || row.total_billable_hours_day ? Number(row.billable_hours || row.total_billable_hours_day).toFixed(2) : '-'}</td>
                 <td className="px-6 py-4 text-center text-slate-700 font-semibold">{row.qc_score !== null && row.qc_score !== undefined ? Number(row.qc_score).toFixed(2) : '-'}</td>
+                <td className="px-6 py-4 text-center text-slate-700">{row.trackers_count_day !== null && row.trackers_count_day !== undefined ? row.trackers_count_day : '-'}</td>
                 <td className="px-6 py-4 text-center text-slate-700">{row.tenure_target || row.daily_required_hours ? Number(row.tenure_target || row.daily_required_hours).toFixed(2) : '-'}</td>
                 {canSeeActions && (
                   <td className="px-6 py-4 text-center">
@@ -459,6 +461,7 @@ export default function UserCard({
                       'Assign Hours': formatNumber(row.assigned_hours ?? row.assign_hours ?? row.assignHours),
                       'Worked Hours': formatNumber(row.billable_hours ?? row.workedHours ?? row.worked_hours),
                       'QC Score': formatNumber(row.qc_score ?? row.qcScore),
+                      'Tracker Count': row.trackers_count_day !== null && row.trackers_count_day !== undefined ? row.trackers_count_day : '-',
                       'Daily Required Hours': formatNumber(row.tenure_target ?? row.dailyRequiredHours ?? row.daily_required_hours)
                     }));
                     if (exportData.length > 0) {
@@ -468,11 +471,17 @@ export default function UserCard({
                       const qcScores = exportData.map(r => parseFloat(r['QC Score'])).filter(v => !isNaN(v));
                       const avgQC = qcScores.length > 0 ? (qcScores.reduce((a, b) => a + b, 0) / qcScores.length).toFixed(2) : '-';
                       
+                      const totalTrackers = exportData.reduce((sum, r) => {
+                        const count = r['Tracker Count'];
+                        return sum + (count !== '-' ? parseInt(count) : 0);
+                      }, 0);
+                      
                       exportData.push({
                         'Date': 'TOTAL',
                         'Assign Hours': totalAssigned.toFixed(2),
                         'Worked Hours': totalWorked.toFixed(2),
                         'QC Score': avgQC,
+                        'Tracker Count': totalTrackers,
                         'Daily Required Hours': totalRequired.toFixed(2)
                       });
                     }
@@ -482,6 +491,7 @@ export default function UserCard({
                       { wch: 16 }, // Assign Hours
                       { wch: 16 }, // Worked Hours
                       { wch: 12 }, // QC Score
+                      { wch: 15 }, // Tracker Count
                       { wch: 22 }  // Daily Required Hours
                     ];
                     const workbook = XLSX.utils.book_new();
@@ -517,6 +527,7 @@ export default function UserCard({
                   <th className="px-6 py-4 text-center font-semibold">Assign Hours</th>
                   <th className="px-6 py-4 text-center font-semibold">Worked Hours</th>
                   <th className="px-6 py-4 text-center font-semibold">QC Score</th>
+                  <th className="px-6 py-4 text-center font-semibold">Tracker Count</th>
                   <th className="px-6 py-4 text-center font-semibold">Daily Required Hours</th>
                   {canSeeActions && (
                     <th className="px-6 py-4 text-center font-semibold">Actions</th>
@@ -536,6 +547,9 @@ export default function UserCard({
                       </td>
                       <td className="px-6 py-4 text-center text-emerald-700 font-semibold">
                         {row.qc_score === '-' || row.qcScore === '-' ? '-' : ('qc_score' in row ? (row.qc_score !== null && row.qc_score !== undefined && !isNaN(Number(row.qc_score)) ? Number(row.qc_score).toFixed(2) : '-') : (row.qcScore ?? '-'))}
+                      </td>
+                      <td className="px-6 py-4 text-center text-slate-700">
+                        {row.trackers_count_day !== null && row.trackers_count_day !== undefined ? row.trackers_count_day : '-'}
                       </td>
                       <td className="px-6 py-4 text-center text-slate-700">
                         {row.daily_required_hours === '-' || row.dailyRequiredHours === '-' ? '-' : (row.tenure_target !== undefined && row.tenure_target !== null && !isNaN(Number(row.tenure_target)) ? Number(row.tenure_target).toFixed(2) : (row.daily_required_hours ?? row.dailyRequiredHours ?? '-'))}
@@ -564,7 +578,7 @@ export default function UserCard({
                   ))
                 ) : (
                   <tr>
-                    <td colSpan="5" className="px-6 py-12 text-center text-slate-500">
+                    <td colSpan="6" className="px-6 py-12 text-center text-slate-500">
                       <div className="flex flex-col items-center gap-3">
                         <div className="w-16 h-16 rounded-full bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center">
                           <Calendar className="w-8 h-8 text-slate-400" />

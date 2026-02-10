@@ -141,6 +141,7 @@ const BillableReport = () => {
           'Assign Hours': '-',
           'Worked Hours': row.billable_hours ? Number(row.billable_hours).toFixed(2) : '-',
           'QC score': 'qc_score' in row ? (row.qc_score !== null ? Number(row.qc_score).toFixed(2) : '-') : '-',
+          'Tracker Count': row.trackers_count_day !== null && row.trackers_count_day !== undefined ? row.trackers_count_day : '-',
           'Daily Required Hours': row.tenure_target ? Number(row.tenure_target).toFixed(2) : '-',
         };
       });
@@ -149,11 +150,16 @@ const BillableReport = () => {
       const totalRequired = exportData.reduce((sum, r) => sum + (parseFloat(r['Daily Required Hours']) || 0), 0);
       const qcScores = exportData.map(r => parseFloat(r['QC score'])).filter(v => !isNaN(v));
       const avgQC = qcScores.length > 0 ? (qcScores.reduce((a, b) => a + b, 0) / qcScores.length).toFixed(2) : '-';
+      const totalTrackers = exportData.reduce((sum, r) => {
+        const count = r['Tracker Count'];
+        return sum + (count !== '-' ? parseInt(count) : 0);
+      }, 0);
       exportData.push({
         'Date-Time': 'TOTAL',
         'Assign Hours': '-',
         'Worked Hours': totalWorked.toFixed(2),
         'QC score': avgQC,
+        'Tracker Count': totalTrackers,
         'Daily Required Hours': totalRequired.toFixed(2),
       });
       const worksheet = XLSX.utils.json_to_sheet(exportData);
@@ -162,6 +168,7 @@ const BillableReport = () => {
         { wch: 14 },
         { wch: 14 },
         { wch: 10 },
+        { wch: 15 },
         { wch: 20 },
       ];
       const workbook = XLSX.utils.book_new();
@@ -376,6 +383,7 @@ const BillableReport = () => {
           'Assign Hours': row.assigned_hours != null ? Number(row.assigned_hours).toFixed(2) : '-',
           'Worked Hours': row.total_billable_hours_day != null ? Number(row.total_billable_hours_day).toFixed(2) : '-',
           'QC Score': row.qc_score != null ? Number(row.qc_score).toFixed(2) : '-',
+          'Tracker Count': row.trackers_count_day !== null && row.trackers_count_day !== undefined ? row.trackers_count_day : '-',
           'Daily Required Hours': row.daily_required_hours != null ? Number(row.daily_required_hours).toFixed(2) : '-',
         };
       });
@@ -386,6 +394,10 @@ const BillableReport = () => {
       const totalRequired = exportData.reduce((sum, r) => sum + (parseFloat(r['Daily Required Hours']) || 0), 0);
       const qcScores = exportData.map(r => parseFloat(r['QC Score'])).filter(v => !isNaN(v));
       const avgQC = qcScores.length > 0 ? (qcScores.reduce((a, b) => a + b, 0) / qcScores.length).toFixed(2) : '-';
+      const totalTrackers = exportData.reduce((sum, r) => {
+        const count = r['Tracker Count'];
+        return sum + (count !== '-' ? parseInt(count) : 0);
+      }, 0);
 
       // Add totals row
       exportData.push({
@@ -393,6 +405,7 @@ const BillableReport = () => {
         'Assign Hours': totalAssigned.toFixed(2),
         'Worked Hours': totalWorked.toFixed(2),
         'QC Score': avgQC,
+        'Tracker Count': totalTrackers,
         'Daily Required Hours': totalRequired.toFixed(2),
       });
 
@@ -402,6 +415,7 @@ const BillableReport = () => {
         { wch: 16 },  // Assign Hours
         { wch: 16 },  // Worked Hours
         { wch: 12 },  // QC Score
+        { wch: 15 },  // Tracker Count
         { wch: 22 },  // Daily Required Hours
       ];
       const workbook = XLSX.utils.book_new();
@@ -815,6 +829,7 @@ const BillableReport = () => {
                       <th className="px-6 py-4 text-center text-xs font-bold text-blue-700 uppercase tracking-wider">Assign Hours</th>
                       <th className="px-6 py-4 text-center text-xs font-bold text-blue-700 uppercase tracking-wider">Worked Hours</th>
                       <th className="px-6 py-4 text-center text-xs font-bold text-blue-700 uppercase tracking-wider">QC Score</th>
+                      <th className="px-6 py-4 text-center text-xs font-bold text-blue-700 uppercase tracking-wider">Tracker Count</th>
                       <th className="px-6 py-4 text-center text-xs font-bold text-blue-700 uppercase tracking-wider">Daily Required Hours</th>
                     </tr>
                   </thead>
@@ -854,6 +869,11 @@ const BillableReport = () => {
                               : '-'
                           }</td>
                           <td className="px-6 py-4 text-center text-gray-900 font-medium">{
+                            row.trackers_count_day !== null && row.trackers_count_day !== undefined
+                              ? row.trackers_count_day
+                              : '-'
+                          }</td>
+                          <td className="px-6 py-4 text-center text-gray-900 font-medium">{
                             row.daily_required_hours != null
                               ? Number(row.daily_required_hours).toFixed(2)
                               : '-'
@@ -862,7 +882,7 @@ const BillableReport = () => {
                       ))
                     ) : (
                       <tr>
-                        <td colSpan={5} className="px-6 py-12 text-center text-gray-400 text-sm">
+                        <td colSpan={6} className="px-6 py-12 text-center text-gray-400 text-sm">
                           <FileSpreadsheet className="w-12 h-12 mx-auto mb-3 text-gray-300" />
                           <p className="font-medium">No data available</p>
                           <p className="text-xs mt-1">Try adjusting your filters</p>
