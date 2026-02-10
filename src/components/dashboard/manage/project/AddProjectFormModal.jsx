@@ -267,6 +267,36 @@ const AddProjectFormModal = ({
                                    )}
                               </div>
 
+                              {/* Project Category */}
+                              <div>
+                                   <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                        Project Category <span className="text-red-600">*</span>
+                                   </label>
+                                   <CustomSelect
+                                        value={newProject.category || ""}
+                                        onChange={(val) => {
+                                             onFieldChange("category", val);
+                                             clearFieldError?.("category");
+                                        }}
+                                        options={[
+                                             { value: "", label: "Select Category" },
+                                             { value: "web_development", label: "Web Development" },
+                                             { value: "mobile_development", label: "Mobile Development" },
+                                             { value: "data_entry", label: "Data Entry" },
+                                             { value: "quality_assurance", label: "Quality Assurance" },
+                                             { value: "design", label: "Design" },
+                                             { value: "research", label: "Research" },
+                                             { value: "maintenance", label: "Maintenance" },
+                                             { value: "other", label: "Other" }
+                                        ]}
+                                        icon={Briefcase}
+                                        placeholder="Select Project Category"
+                                   />
+                                   {formErrors.category && (
+                                        <p className="mt-1 text-xs text-red-600">{formErrors.category}</p>
+                                   )}
+                              </div>
+
                               {/* Description */}
                               <div>
                                    <label className="block text-sm font-semibold text-gray-700 mb-2">

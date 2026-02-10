@@ -40,7 +40,7 @@
 
                          {/* Tabs */}
                          {(showUsersTab || showProjectsTab) && (
-                              <div className="flex border-b border-slate-200 mb-6">
+                              <div className="flex border-b border-slate-200 mb-6 overflow-x-auto">
                                    {showUsersTab && (
                                         <button
                                              onClick={() => setActiveTab("users")}
@@ -62,6 +62,32 @@
                                              }
                                         >
                                              Projects & Targets
+                                        </button>
+                                   )}
+
+                                   {showProjectsTab && (
+                                        <button
+                                             onClick={() => setActiveTab("afd")}
+                                             className={
+                                                  activeTab === "afd"
+                                                       ? activeTabClass
+                                                       : inactiveTabClass
+                                             }
+                                        >
+                                             AFD Management
+                                        </button>
+                                   )}
+
+                                   {showProjectsTab && (
+                                        <button
+                                             onClick={() => setActiveTab("category")}
+                                             className={
+                                                  activeTab === "category"
+                                                       ? activeTabClass
+                                                       : inactiveTabClass
+                                             }
+                                        >
+                                             Project Category
                                         </button>
                                    )}
                               </div>

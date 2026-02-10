@@ -32,7 +32,7 @@ const QAFilterBar = ({ dateRange, handleDateRangeChange, handleClear }) => {
     return { year, month, daysInMonth, startingDayOfWeek };
   };
 
-  const CustomDatePicker = ({ name, value, onSelect, show }) => {
+  const CustomDatePicker = ({ name, value, onSelect, show, onClose }) => {
     const [viewDate, setViewDate] = useState(value || new Date().toISOString().split('T')[0]);
     const { year, month, daysInMonth, startingDayOfWeek } = generateCalendar(viewDate);
     const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
@@ -53,11 +53,11 @@ const QAFilterBar = ({ dateRange, handleDateRangeChange, handleClear }) => {
     return (
       <div className="absolute z-50 mt-1 bg-white rounded-lg shadow-xl border-2 border-blue-200 p-3 w-64">
         <div className="flex items-center justify-between mb-3">
-          <button onClick={handlePrevMonth} className="p-1 hover:bg-slate-100 rounded">
+          <button type="button" onClick={handlePrevMonth} className="p-1 hover:bg-slate-100 rounded">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
           </button>
           <span className="font-bold text-sm text-slate-800">{monthNames[month]} {year}</span>
-          <button onClick={handleNextMonth} className="p-1 hover:bg-slate-100 rounded">
+          <button type="button" onClick={handleNextMonth} className="p-1 hover:bg-slate-100 rounded">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
           </button>
         </div>
@@ -77,6 +77,7 @@ const QAFilterBar = ({ dateRange, handleDateRangeChange, handleClear }) => {
             return (
               <button
                 key={day}
+                type="button"
                 onClick={() => onSelect(name, dateStr)}
                 className={`text-xs p-1.5 rounded hover:bg-blue-100 transition-colors ${
                   isSelected ? 'bg-blue-600 text-white font-bold' : 'text-slate-700'
@@ -87,6 +88,18 @@ const QAFilterBar = ({ dateRange, handleDateRangeChange, handleClear }) => {
             );
           })}
         </div>
+
+        {/* Close Button */}
+        <button 
+          type="button"
+          onClick={onClose}
+          className="w-full mt-3 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 hover:text-slate-900 rounded-lg font-semibold text-xs flex items-center justify-center gap-2 transition-colors"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+          </svg>
+          Return
+        </button>
       </div>
     );
   };
@@ -129,6 +142,7 @@ const QAFilterBar = ({ dateRange, handleDateRangeChange, handleClear }) => {
               value={dateRange.start}
               onSelect={handleDateSelect}
               show={showStartPicker}
+              onClose={() => setShowStartPicker(false)}
             />
           </div>
         </div>
@@ -157,6 +171,7 @@ const QAFilterBar = ({ dateRange, handleDateRangeChange, handleClear }) => {
               value={dateRange.end}
               onSelect={handleDateSelect}
               show={showEndPicker}
+              onClose={() => setShowEndPicker(false)}
             />
           </div>
         </div>

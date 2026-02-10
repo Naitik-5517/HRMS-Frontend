@@ -1,4 +1,5 @@
 import React, { useRef } from 'react';
+import UserMonthlyReport from './UserMonthlyReport';
 import {
   LayoutGrid,
   Briefcase,
@@ -29,13 +30,12 @@ const TabsNavigation = ({
       ? [{ id: 'billable_report', label: 'Billable Report', icon: Briefcase, visible: true }]
       : [{ id: 'bookings', label: 'Billable Report', icon: Briefcase, visible: (isQA || isAssistantManager || isProjectManager || isAdmin || isSuperAdmin) }]),
     // Show all required tabs for project manager
-    ...(isProjectManager ? [
-      { id: 'agents', label: 'Agent Performance', icon: Users, visible: true, disabled: false },
+    ...(isProjectManager || isAssistantManager || isAdmin || isSuperAdmin ? [
+      { id: 'user_monthly_report', label: 'User Monthly Report', icon: Users, visible: true, disabled: false },
       { id: 'adherence', label: 'Reporting Adherence', icon: FileWarning, visible: true, disabled: false },
       { id: 'incentives', label: 'Agent Incentives', icon: DollarSign, visible: true, disabled: false },
       { id: 'mgmt_incentives', label: 'Management Incentives', icon: Gem, visible: true, disabled: false },
     ] : [
-      { id: 'agents', label: 'Agent Performance', icon: Users, visible: !isQA, disabled: true },
       { id: 'adherence', label: 'Reporting Adherence', icon: FileWarning, visible: canViewAdherence && !isQA, disabled: true },
       { id: 'incentives', label: 'Agent Incentives', icon: DollarSign, visible: canViewIncentivesTab && !isQA, disabled: true },
       { id: 'mgmt_incentives', label: 'Management Incentives', icon: Gem, visible: !isAgent && !isQA, disabled: true },
@@ -60,7 +60,6 @@ const TabsNavigation = ({
         {visibleTabs.map(tab => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
-
           return (
             <button
               key={tab.id}
@@ -86,6 +85,13 @@ const TabsNavigation = ({
           );
         })}
       </div>
+
+      {/* Render UserMonthlyReport below the tab bar when active */}
+      {activeTab === 'user_monthly_report' && (
+        <div className="mt-4">
+          <UserMonthlyReport />
+        </div>
+	  )}
 
       {/* Mobile Dropdown */}
       <div className="sm:hidden mt-2">

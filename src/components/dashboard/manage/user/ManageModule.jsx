@@ -2,6 +2,8 @@ import React, { useEffect, useState, useCallback } from "react";
 // import AdminLayout from "./AdminLayout";
 import UsersManagement from "./UsersManagement";
 import ProjectsManagement from ".././project/ProjectsManagement";
+import ProjectCategory from "../category/ProjectCategory";
+import AFDManagement from "../afd/AFDManagement";
 import { fetchUsersList } from "../../../../services/authService";
 import { fetchProjectsList } from "../../../../services/projectService";
 import { useAuth } from "../../../../context/AuthContext";
@@ -166,6 +168,14 @@ const ManageModule = ({ activeTab }) => {
                          loading={loadingProjects}
                          loadProjects={loadProjects}
                     />
+               )}
+
+               {activeTab === "category" && canManageProjects && (
+                    <ProjectCategory />
+               )}
+
+               {activeTab === "afd" && canManageProjects && (
+                    <AFDManagement />
                )}
           </>
      );

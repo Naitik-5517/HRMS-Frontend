@@ -213,7 +213,7 @@ const OverviewTab = ({ analytics, hourlyChartData, isAgent, isQA, dateRange: ext
             </div>
             {/* QA Analytics Summary */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-4">
-              <StatCard title="Total Agents" value={qaSummary ? qaSummary.length : 0} subtext="In range" icon={Users} trend="neutral" tooltip="Total agents in summary." className="min-w-0" />
+              <StatCard title="Total Active Agents" value={qaSummary ? qaSummary.length : 0} subtext="In range" icon={Users} trend="neutral" tooltip="Total agents in summary." className="min-w-0" />
               <StatCard title="Total Billable Hours" value={qaSummary ? qaSummary.reduce((sum, s) => sum + (parseFloat(s.total_billable_hours_month) || 0), 0).toFixed(2) : '0.00'} subtext="All agents" icon={Clock} trend="neutral" tooltip="Sum of billable hours for all agents." className="min-w-0" />
               <StatCard title="Month" value={qaSummary && qaSummary[0] ? qaSummary[0].month_year : '-'} subtext="Current" icon={Calendar} trend="neutral" tooltip="Month-Year of summary." className="min-w-0" />
               <StatCard title="Pending Days" value={qaSummary && qaSummary[0] ? (qaSummary[0].pending_days ?? '-') : '-'} subtext="Current" icon={Award} trend="neutral" tooltip="Pending days for first agent." className="min-w-0" />

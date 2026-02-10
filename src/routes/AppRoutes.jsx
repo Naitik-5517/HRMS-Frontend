@@ -28,6 +28,7 @@ import ResetPasswordPage from "../pages/ResetPasswordPage";
 import DashboardPage from "../pages/DashboardPage";
 import AdminPage from "../pages/AdminPage";
 import AgentDashboard from "../components/AgentDashboard/AgentDashboard.jsx";
+import AIEvaluation from "../components/AgentDashboard/AIEvaluation.jsx";
 import UserTrackingView from "../components/common/UserTrackingView";
 import AppLayout from "../layouts/AppLayout";
 import ProtectedRoute from "./ProtectedRoutes";
@@ -58,6 +59,18 @@ const AppRoutes = () => {
           element={
             <ProtectedRoute allowedRoles={[6]}>
               <AgentDashboard />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* AI Evaluation (Agent Only) */}
+        <Route
+          path="/ai-evaluation"
+          element={
+            <ProtectedRoute allowedRoles={[6]}>
+              <AppLayout>
+                <AIEvaluation />
+              </AppLayout>
             </ProtectedRoute>
           }
         />

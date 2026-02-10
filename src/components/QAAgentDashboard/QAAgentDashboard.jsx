@@ -320,7 +320,7 @@ const QAAgentDashboard = ({ embedded = false }) => {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 h-full min-h-[120px]">
               <StatCard
                 icon={Users}
-                title="Total Agents"
+                title="Total ActiveS Agents"
                 value={stats.totalAgents}
                 subtext="Assigned agents"
                 trend="neutral"

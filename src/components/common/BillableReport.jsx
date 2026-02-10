@@ -1,3 +1,4 @@
+import { useRef } from "react";
 import * as XLSX from 'xlsx';
 import { toast } from "react-hot-toast";
 import React, { useState, useEffect } from "react";
@@ -25,6 +26,24 @@ const BillableReport = ({ userId }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [showMonthPicker, setShowMonthPicker] = useState(false);
   const [showMonthlyMonthPicker, setShowMonthlyMonthPicker] = useState(false);
+
+  // Refs for pickers
+  const monthPickerRef = useRef(null);
+  const monthlyMonthPickerRef = useRef(null);
+
+  // Close pickers on outside click
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (showMonthPicker && monthPickerRef.current && !monthPickerRef.current.contains(event.target)) {
+        setShowMonthPicker(false);
+      }
+      if (showMonthlyMonthPicker && monthlyMonthPickerRef.current && !monthlyMonthPickerRef.current.contains(event.target)) {
+        setShowMonthlyMonthPicker(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showMonthPicker, showMonthlyMonthPicker]);
   const { user } = useAuth();
 
   // Check if user is Assistant Manager
@@ -529,6 +548,8 @@ const BillableReport = ({ userId }) => {
 
   // Custom Month Picker Component
   const CustomMonthPicker = ({ value, onChange, show, onClose }) => {
+    // Use correct ref for daily/monthly picker
+    const ref = onChange === setDailyMonth ? monthPickerRef : monthlyMonthPickerRef;
     const [viewYear, setViewYear] = useState(() => {
       if (value) {
         const [year] = value.split('-');
@@ -555,7 +576,7 @@ const BillableReport = ({ userId }) => {
     const [selectedYear, selectedMonth] = value ? value.split('-').map(Number) : [null, null];
 
     return (
-      <div className="absolute z-50 mt-1 bg-white rounded-lg shadow-xl border-2 border-blue-200 p-4 w-72">
+      <div ref={ref} className="absolute z-50 mt-1 bg-white rounded-lg shadow-xl border-2 border-blue-200 p-4 w-72">
         {/* Year Header */}
         <div className="flex items-center justify-between mb-4">
           <button onClick={handlePrevYear} className="p-1.5 hover:bg-slate-100 rounded transition">
@@ -592,10 +613,14 @@ const BillableReport = ({ userId }) => {
 
         {/* Close Button */}
         <button 
+          type="button"
           onClick={onClose}
-          className="w-full text-sm text-slate-600 hover:text-slate-800 font-semibold py-2 hover:bg-slate-50 rounded transition"
+          className="w-full px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 hover:text-slate-900 rounded-lg font-semibold text-sm flex items-center justify-center gap-2 transition-colors"
         >
-          Close
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+          </svg>
+          Return
         </button>
       </div>
     );

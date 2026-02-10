@@ -149,6 +149,7 @@ const EditProjectModal = ({
 				name: project.name || project.project_name || "",
 				code: project.code || project.project_code || "",
 				description: project.description || project.project_description || "",
+				category: project.category || project.project_category || "",
 			};
 
 			console.log('[EditProjectModal][DEBUG] newProject state to set:', newProject);
@@ -303,6 +304,40 @@ const EditProjectModal = ({
 								required
 							/>
 							{formErrors.code && <p className="mt-1 text-xs text-red-600">{formErrors.code}</p>}
+						</div>
+						{/* Project Category */}
+						<div>
+							<label className="block text-sm font-semibold text-gray-700 mb-2">
+								Project Category <span className="text-red-600">*</span>
+							</label>
+							<CustomSelect
+								value={editProject.category || ""}
+								onChange={(val) => {
+									setEditProject(prev => ({ ...prev, category: val }));
+									if (clearFieldError) {
+										clearFieldError('category');
+									}
+									if (onFieldChange) {
+										onFieldChange('category', val);
+									}
+								}}
+								options={[
+									{ value: "", label: "Select Category" },
+									{ value: "web_development", label: "Web Development" },
+									{ value: "mobile_development", label: "Mobile Development" },
+									{ value: "data_entry", label: "Data Entry" },
+									{ value: "quality_assurance", label: "Quality Assurance" },
+									{ value: "design", label: "Design" },
+									{ value: "research", label: "Research" },
+									{ value: "maintenance", label: "Maintenance" },
+									{ value: "other", label: "Other" }
+								]}
+								icon={Briefcase}
+								placeholder="Select Project Category"
+							/>
+							{formErrors.category && (
+								<p className="mt-1 text-xs text-red-600">{formErrors.category}</p>
+							)}
 						</div>
 						{/* Description */}
 						<div>

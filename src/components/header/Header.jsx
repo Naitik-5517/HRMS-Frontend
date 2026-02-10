@@ -22,7 +22,8 @@ import {
   X,
   FileText,
   Users,
-  Briefcase
+  Briefcase,
+  Brain
 } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 
@@ -129,6 +130,11 @@ const Header = ({
       } else if (view === 'billable_report') {
         // Set the billable_report tab for agent
         navigate('/dashboard?tab=billable_report');
+      } else if (view === 'AI_EVALUATION') {
+        console.log('🚀 [Header goTo] Navigating agent to AI Evaluation');
+        navigate("/ai-evaluation");
+        setIsMobileMenuOpen(false);
+        return;
       } else if (view === 'AGENT_PROJECTS') {
         navigate("/agent-projects");
         setIsMobileMenuOpen(false);
@@ -177,6 +183,7 @@ const Header = ({
         { view: ViewState.DASHBOARD, label: "Analytics", icon: LayoutDashboard },
         // Billable Report tab removed for agents in header
         { view: ViewState.ENTRY, label: "Tracker", icon: PenTool },
+        { view: "AI_EVALUATION", label: "AI Evaluation", icon: Brain },
         { view: "AGENT_PROJECTS", label: "Projects", icon: Database, disabled: true },
         // Roster tab temporarily removed for agents
       ];

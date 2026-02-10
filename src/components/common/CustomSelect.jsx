@@ -32,19 +32,17 @@ const CustomSelect = ({
         onClick={() => !disabled && setIsOpen(!isOpen)}
         disabled={disabled}
         className={`
-          relative flex items-center bg-white rounded-lg border transition-all w-full px-3 py-2.5 outline-none
+          relative flex items-center bg-white rounded-lg border transition-all w-full px-4 py-3 outline-none
           ${disabled 
             ? 'border-slate-200 bg-slate-50 cursor-not-allowed opacity-60' 
-            : 'border-slate-200 hover:bg-slate-50 hover:border-blue-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
+            : 'border-slate-300 hover:bg-slate-50 hover:border-blue-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
           }
         `}
       >
         {Icon && <Icon className="w-4 h-4 text-slate-500 mr-2.5 shrink-0" />}
-        {selectedOption?.label && (
-          <span className="text-sm font-medium text-slate-700 flex-1 text-left truncate">
-            {selectedOption.label}
-          </span>
-        )}
+        <span className="text-sm font-medium text-slate-700 flex-1 text-left truncate">
+          {selectedOption?.label || placeholder}
+        </span>
         <ChevronDown 
           className={`w-4 h-4 text-slate-400 ml-2 transition-transform duration-200 ${
             isOpen ? 'rotate-180' : ''

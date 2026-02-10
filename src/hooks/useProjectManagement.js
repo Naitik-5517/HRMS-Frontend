@@ -186,6 +186,7 @@ export const useProjectManagement = (initialProjects, onUpdateProjects, loadProj
           name: '',
           code: '',
           description: '',
+          category: '',
           projectManagerId: '',
           assistantManagerIds: [],
           qaManagerIds: [],
@@ -241,6 +242,7 @@ export const useProjectManagement = (initialProjects, onUpdateProjects, loadProj
                formData.append('project_name', newProject.name.trim());
                formData.append('project_code', newProject.code.trim());
                formData.append('project_description', newProject.description?.trim() || '');
+               formData.append('project_category', newProject.category || '');
                formData.append('project_manager_id', Number(newProject.projectManagerId));
                
                // Append array fields as JSON strings (backend expects this format)
@@ -305,6 +307,7 @@ export const useProjectManagement = (initialProjects, onUpdateProjects, loadProj
                name: project.name || project.project_name || '',
                code: project.code || project.project_code || '',
                description: project.description || project.project_description || '',
+               category: project.category || project.project_category || '',
                projectManagerId: String(project.projectManagerId || project.project_manager_id || ''),
                assistantManagerIds: (project.assistantManagerIds
                     ? project.assistantManagerIds.map(String)
@@ -382,6 +385,7 @@ export const useProjectManagement = (initialProjects, onUpdateProjects, loadProj
                formData.append('project_name', projectData.name.trim());
                formData.append('project_code', projectData.code.trim());
                formData.append('project_description', projectData.description?.trim() || '');
+               formData.append('project_category', projectData.category || '');
                formData.append('project_manager_id', Number(projectData.projectManagerId));
                
                // Append array fields as JSON strings (backend expects this format)
@@ -662,6 +666,7 @@ export const useProjectManagement = (initialProjects, onUpdateProjects, loadProj
                name: '',
                code: '',
                description: '',
+               category: '',
                projectManagerId: '',
                assistantManagerIds: [],
                qaManagerIds: [],

@@ -1,3 +1,5 @@
+// ...existing imports...
+import { useRef } from "react";
 import * as XLSX from 'xlsx';
 import { toast } from "react-hot-toast";
 import React, { useState, useEffect } from "react";
@@ -214,6 +216,36 @@ const BillableReport = () => {
   const [showEndPicker, setShowEndPicker] = useState(false);
   const [showMonthPicker, setShowMonthPicker] = useState(false);
 
+  // Refs for pickers
+  const startPickerRef = useRef(null);
+  const endPickerRef = useRef(null);
+  const monthPickerRef = useRef(null);
+
+  // Close pickers on outside click
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (showStartPicker && startPickerRef.current && !startPickerRef.current.contains(event.target)) {
+        setShowStartPicker(false);
+      }
+      if (showEndPicker && endPickerRef.current && !endPickerRef.current.contains(event.target)) {
+        setShowEndPicker(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showStartPicker, showEndPicker]);
+
+  // Close daily month picker on outside click
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (showMonthPicker && monthPickerRef.current && !monthPickerRef.current.contains(event.target)) {
+        setShowMonthPicker(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showMonthPicker]);
+
   // State for API data, loading, and error
   const [dailyData, setDailyData] = useState([]);
   const [loadingDaily, setLoadingDaily] = useState(false);
@@ -272,6 +304,18 @@ const BillableReport = () => {
   const [errorMonthly, setErrorMonthly] = useState(null);
   const [monthlyMonth, setMonthlyMonth] = useState(() => getCurrentMonthRange().month);
   const [showMonthlyMonthPicker, setShowMonthlyMonthPicker] = useState(false);
+  const monthlyMonthPickerRef = useRef(null);
+
+  // Close monthly month picker on outside click
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (showMonthlyMonthPicker && monthlyMonthPickerRef.current && !monthlyMonthPickerRef.current.contains(event.target)) {
+        setShowMonthlyMonthPicker(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showMonthlyMonthPicker]);
 
   // Fetch monthly report data from API when monthly tab is active or month filter changes
   useEffect(() => {
@@ -407,33 +451,56 @@ const BillableReport = () => {
   };
 
   const CustomDatePicker = ({ name, value, onSelect, show, onClose }) => {
+    const ref = name === 'start' ? startPickerRef : endPickerRef;
     const [viewDate, setViewDate] = useState(value || new Date().toISOString().split('T')[0]);
+
+    // Sync viewDate with value only when picker opens
+    useEffect(() => {
+      if (show && value) setViewDate(value);
+      // eslint-disable-next-line
+    }, [show]); // Only depend on show to allow navigation while open
+
     const { year, month, daysInMonth, startingDayOfWeek } = generateCalendar(viewDate);
-    
     const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
     const dayNames = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
 
-    const handlePrevMonth = () => {
-      const newDate = new Date(year, month - 1, 1);
+    const handlePrevMonth = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      let prevMonth = month - 1;
+      let prevYear = year;
+      if (prevMonth < 0) {
+        prevMonth = 11;
+        prevYear = year - 1;
+      }
+      const newDate = new Date(prevYear, prevMonth, 1);
       setViewDate(newDate.toISOString().split('T')[0]);
     };
 
-    const handleNextMonth = () => {
-      const newDate = new Date(year, month + 1, 1);
+    const handleNextMonth = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      let nextMonth = month + 1;
+      let nextYear = year;
+      if (nextMonth > 11) {
+        nextMonth = 0;
+        nextYear = year + 1;
+      }
+      const newDate = new Date(nextYear, nextMonth, 1);
       setViewDate(newDate.toISOString().split('T')[0]);
     };
 
     if (!show) return null;
 
     return (
-      <div className="absolute z-50 mt-1 bg-white rounded-lg shadow-xl border-2 border-blue-200 p-3 w-64">
+      <div ref={ref} className="absolute z-50 mt-1 bg-white rounded-lg shadow-xl border-2 border-blue-200 p-3 w-64">
         {/* Month/Year Header */}
         <div className="flex items-center justify-between mb-3">
-          <button onClick={handlePrevMonth} className="p-1 hover:bg-slate-100 rounded">
+          <button type="button" onClick={handlePrevMonth} className="p-1 hover:bg-slate-100 rounded">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
           </button>
           <span className="font-bold text-sm text-slate-800">{monthNames[month]} {year}</span>
-          <button onClick={handleNextMonth} className="p-1 hover:bg-slate-100 rounded">
+          <button type="button" onClick={handleNextMonth} className="p-1 hover:bg-slate-100 rounded">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
           </button>
         </div>
@@ -457,7 +524,10 @@ const BillableReport = () => {
             return (
               <button
                 key={day}
-                onClick={() => onSelect(name, dateStr)}
+                onClick={() => {
+                  onSelect(name, dateStr);
+                  if (onClose) onClose();
+                }}
                 className={`text-xs p-1.5 rounded hover:bg-blue-100 transition-colors ${
                   isSelected ? 'bg-blue-600 text-white font-bold' : 'text-slate-700'
                 }`}
@@ -470,16 +540,22 @@ const BillableReport = () => {
 
         {/* Close Button */}
         <button 
+          type="button"
           onClick={onClose}
-          className="w-full mt-3 text-xs text-slate-600 hover:text-slate-800 font-semibold"
+          className="w-full mt-3 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 hover:text-slate-900 rounded-lg font-semibold text-xs flex items-center justify-center gap-2 transition-colors"
         >
-          Close
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+          </svg>
+          Return
         </button>
       </div>
     );
   };
 
   const CustomMonthPicker = ({ value, onSelect, show, onClose }) => {
+    // Use correct ref for daily/monthly picker
+    const ref = onSelect === setMonthFilter ? monthPickerRef : monthlyMonthPickerRef;
     const [viewYear, setViewYear] = useState(() => {
       if (value) {
         const [year] = value.split('-');
@@ -487,16 +563,37 @@ const BillableReport = () => {
       }
       return new Date().getFullYear();
     });
-    
+
+    // Fix: allow forward navigation after going backward
+    useEffect(() => {
+      if (value) {
+        const [year] = value.split('-');
+        if (parseInt(year) !== viewYear) {
+          setViewYear(parseInt(year));
+        }
+      }
+      // eslint-disable-next-line
+    }, [value]);
+
     const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
-    const handlePrevYear = () => setViewYear(viewYear - 1);
-    const handleNextYear = () => setViewYear(viewYear + 1);
+    const handlePrevYear = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setViewYear(y => y - 1);
+    };
+    
+    const handleNextYear = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setViewYear(y => y + 1);
+    };
 
     const handleMonthSelect = (monthIndex) => {
       const monthStr = String(monthIndex + 1).padStart(2, '0');
       const dateStr = `${viewYear}-${monthStr}`;
       onSelect(dateStr);
+      if (onClose) onClose();
     };
 
     if (!show) return null;
@@ -505,14 +602,14 @@ const BillableReport = () => {
     const selectedYear = value ? parseInt(value.split('-')[0]) : -1;
 
     return (
-      <div className="absolute z-50 mt-1 bg-white rounded-lg shadow-xl border-2 border-blue-200 p-3 w-64">
+      <div ref={ref} className="absolute z-50 mt-1 bg-white rounded-lg shadow-xl border-2 border-blue-200 p-3 w-64">
         {/* Year Header */}
         <div className="flex items-center justify-between mb-3">
-          <button onClick={handlePrevYear} className="p-1 hover:bg-slate-100 rounded">
+          <button type="button" onClick={handlePrevYear} className="p-1 hover:bg-slate-100 rounded">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
           </button>
           <span className="font-bold text-sm text-slate-800">{viewYear}</span>
-          <button onClick={handleNextYear} className="p-1 hover:bg-slate-100 rounded">
+          <button type="button" onClick={handleNextYear} className="p-1 hover:bg-slate-100 rounded">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
           </button>
         </div>
@@ -537,10 +634,14 @@ const BillableReport = () => {
 
         {/* Close Button */}
         <button 
+          type="button"
           onClick={onClose}
-          className="w-full mt-3 text-xs text-slate-600 hover:text-slate-800 font-semibold"
+          className="w-full mt-3 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 hover:text-slate-900 rounded-lg font-semibold text-xs flex items-center justify-center gap-2 transition-colors"
         >
-          Close
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+          </svg>
+          Return
         </button>
       </div>
     );
@@ -640,7 +741,7 @@ const BillableReport = () => {
                     <Calendar className="w-3.5 h-3.5 text-blue-600" />
                     Month
                   </label>
-                  <div className="relative">
+                  <div ref={monthPickerRef} className="relative">
                     <input
                       type="text"
                       readOnly
@@ -654,16 +755,16 @@ const BillableReport = () => {
                       placeholder="Select Month"
                     />
                     <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                    <CustomMonthPicker
+                      value={monthFilter}
+                      onSelect={(dateStr) => {
+                        setMonthFilter(dateStr);
+                        setShowMonthPicker(false);
+                      }}
+                      show={showMonthPicker}
+                      onClose={() => setShowMonthPicker(false)}
+                    />
                   </div>
-                  <CustomMonthPicker
-                    value={monthFilter}
-                    onSelect={(dateStr) => {
-                      setMonthFilter(dateStr);
-                      setShowMonthPicker(false);
-                    }}
-                    show={showMonthPicker}
-                    onClose={() => setShowMonthPicker(false)}
-                  />
                 </div>
                 
                 {/* Action Buttons */}
