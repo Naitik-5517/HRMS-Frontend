@@ -6,7 +6,7 @@ import LoginPage from "../pages/LoginPage";
 import ResetPasswordPage from "../pages/ResetPasswordPage";
 import DashboardPage from "../pages/DashboardPage";
 import AdminPage from "../pages/AdminPage";
-import AgentDashboard from "../components/AgentDashboard/AgentDashboard.jsx";
+import Tracker from "../components/AgentDashboard/Tracker.jsx";
 import UserTrackingView from "../components/common/UserTrackingView";
 import AppLayout from "../layouts/AppLayout";
 import ProtectedRoute from "./ProtectedRoutes";
@@ -14,6 +14,7 @@ import { useAuth } from "../context/AuthContext";
 
 import AgentProjectList from "../components/AgentDashboard/AgentProjectList";
 import QCFormPage from "../pages/QCFormPage";
+import AIEvaluation from "../components/AgentDashboard/AIEvaluation.jsx";
 
 const AppRoutes = () => {
   const { user } = useAuth();
@@ -48,7 +49,9 @@ const AppRoutes = () => {
           path="/ai-evaluation"
           element={
             <ProtectedRoute allowedRoles={[6]}>
-              <AgentDashboard initialTab="ai-evaluation" />
+              <AppLayout>
+                <AIEvaluation />
+              </AppLayout>
             </ProtectedRoute>
           }
         />
