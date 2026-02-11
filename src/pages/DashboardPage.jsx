@@ -1,6 +1,6 @@
 // import AgentBillableReport from '../components/AgentDashboard/AgentBillableReport';
 // import BillableReport from '../components/AgentDashboard/BillableReport';
-import AgentDashboard from '../components/AgentDashboard/AgentDashboard';
+import Tracker from '../components/AgentDashboard/Tracker';
 import React, { useMemo, useState, useCallback, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Settings, Lock } from 'lucide-react';

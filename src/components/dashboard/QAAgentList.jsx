@@ -5,6 +5,7 @@
  */
 import React, { useEffect, useState, useMemo } from "react";
 import { format } from "date-fns";
+import { useNavigate } from "react-router-dom";
 import { ChevronDown, ChevronUp, Download, FileText, FileCheck, Users as UsersIcon, Search, X, RefreshCw, Calendar, RotateCcw } from "lucide-react";
 import { toast } from "react-hot-toast";
 import api from "../../services/api";
@@ -19,6 +20,7 @@ const getTodayDate = () => {
 
 const QAAgentList = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [agents, setAgents] = useState([]);
   const [loading, setLoading] = useState(false);
   const [expandedAgents, setExpandedAgents] = useState({});
@@ -364,8 +366,7 @@ const QAAgentList = () => {
   // Handle QC Form action
   const handleQCForm = (tracker) => {
     log('[QAAgentList] Opening QC Form for tracker:', tracker.tracker_id);
-    // TODO: Implement QC Form modal or navigation
-    toast.success("QC Form functionality coming soon!");
+    navigate('/qc-form', { state: { tracker } });
   };
 
   return (

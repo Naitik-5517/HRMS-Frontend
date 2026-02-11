@@ -7,6 +7,7 @@ import React, { useEffect, useState } from "react";
 // Set your backend base URL here or use an environment variable (Vite uses import.meta.env)
 const BACKEND_BASE_URL = import.meta.env.VITE_BACKEND_URL || "";
 import { format } from "date-fns";
+import { useNavigate } from "react-router-dom";
 import { Users, FileCheck, Download, FileText, TrendingUp, Activity, Clock, CheckCircle2, ExternalLink } from "lucide-react";
 import { toast } from "react-hot-toast";
 import api from "../../services/api";
@@ -67,12 +68,14 @@ const QAAgentDashboard = ({ embedded = false }) => {
     </div>
   );
   
+  const navigate = useNavigate();
+  
   // Handle QC Form action
   const handleQCForm = (tracker) => {
     log('[QAAgentDashboard] Opening QC Form for tracker:', tracker.tracker_id);
-    // TODO: Implement QC Form modal or navigation
-      toast.success("QC Form functionality coming soon!");
-    };
+    navigate('/qc-form', { state: { tracker } });
+  };
+  
   const { user } = useAuth();
   const { device_id, device_type } = useDeviceInfo();
   

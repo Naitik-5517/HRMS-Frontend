@@ -36,6 +36,8 @@ const AIEvaluation = () => {
   const [suggestions, setSuggestions] = useState([]);
   const [aiTextualSuggestion, setAiTextualSuggestion] = useState('');
   const fileInputRef = useRef(null);
+  const evaluationCompletedRef = useRef(false);
+  const duplicateCheckCompletedRef = useRef(false);
 
   // File validation constants
   const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB in bytes
@@ -173,6 +175,7 @@ const AIEvaluation = () => {
     setEvaluationResult(null);
     setShowSuggestions(false);
     setAiTextualSuggestion('');
+    evaluationCompletedRef.current = false;
 
     // Simulate AI evaluation with progress
     // NOTE: This is MOCK DATA for demonstration only
@@ -186,23 +189,26 @@ const AIEvaluation = () => {
           
           // MOCK DATA: Showing evaluation results (no pass/fail concept)
           // REPLACE THIS ENTIRE BLOCK with actual API response parsing
-          setTimeout(() => {
-            const mockEvaluationSummary = "AI Analysis Complete: Your file contains 150 total records. The system has analyzed data quality, format consistency, and business rule compliance. 148 records meet all criteria, while 2 records have minor formatting inconsistencies that may need review. Overall data quality score: 95%.";
-            
-            setAiTextualSuggestion(mockEvaluationSummary);
-            setEvaluationResult({
-              status: 'info',
-              message: 'AI Evaluation Complete',
-              qualityScore: 95,
-              details: {
-                totalRecords: 150,
-                validRecords: 148,
-                issuesFound: 2
-              }
-            });
-            setIsEvaluating(false);
-            toast('AI evaluation completed!');
-          }, 0);
+          if (!evaluationCompletedRef.current) {
+            evaluationCompletedRef.current = true;
+            setTimeout(() => {
+              const mockEvaluationSummary = "AI Analysis Complete: Your file contains 150 total records. The system has analyzed data quality, format consistency, and business rule compliance. 148 records meet all criteria, while 2 records have minor formatting inconsistencies that may need review. Overall data quality score: 95%.";
+              
+              setAiTextualSuggestion(mockEvaluationSummary);
+              setEvaluationResult({
+                status: 'info',
+                message: 'AI Evaluation Complete',
+                qualityScore: 95,
+                details: {
+                  totalRecords: 150,
+                  validRecords: 148,
+                  issuesFound: 2
+                }
+              });
+              setIsEvaluating(false);
+              toast('AI evaluation completed!');
+            }, 0);
+          }
           
           return 100;
         }
@@ -249,6 +255,7 @@ const AIEvaluation = () => {
     setIsDuplicateChecking(true);
     setDuplicateCheckProgress(0);
     setDuplicateCheckResult(null);
+    duplicateCheckCompletedRef.current = false;
 
     // Simulate duplicate checking with progress
     // NOTE: This is MOCK DATA for demonstration only
@@ -262,24 +269,27 @@ const AIEvaluation = () => {
           
           // MOCK DATA: Showing DUPLICATES FOUND case for UI demonstration
           // REPLACE THIS ENTIRE BLOCK with actual API response parsing
-          setTimeout(() => {
-            const duplicateCount = 15; // Fixed count for demo
-            setDuplicateCheckResult({
-              status: 'warning',
-              hasDuplicates: true,
-              count: duplicateCount,
-              message: `Duplicate Check Complete - ${duplicateCount} Duplicate ${duplicateCount === 1 ? 'Record' : 'Records'} Found`,
-              duplicates: [
-                { row: 12, column: 'Email', value: 'john.doe@example.com' },
-                { row: 45, column: 'Phone', value: '+1-555-0123' },
-                { row: 78, column: 'ID', value: 'EMP001' },
-                { row: 89, column: 'Email', value: 'jane.smith@company.com' },
-                { row: 134, column: 'Phone', value: '+1-555-0456' }
-              ]
-            });
-            setIsDuplicateChecking(false);
-            toast.error(`Found ${duplicateCount} duplicate ${duplicateCount === 1 ? 'record' : 'records'}!`);
-          }, 0);
+          if (!duplicateCheckCompletedRef.current) {
+            duplicateCheckCompletedRef.current = true;
+            setTimeout(() => {
+              const duplicateCount = 15; // Fixed count for demo
+              setDuplicateCheckResult({
+                status: 'warning',
+                hasDuplicates: true,
+                count: duplicateCount,
+                message: `Duplicate Check Complete - ${duplicateCount} Duplicate ${duplicateCount === 1 ? 'Record' : 'Records'} Found`,
+                duplicates: [
+                  { row: 12, column: 'Email', value: 'john.doe@example.com' },
+                  { row: 45, column: 'Phone', value: '+1-555-0123' },
+                  { row: 78, column: 'ID', value: 'EMP001' },
+                  { row: 89, column: 'Email', value: 'jane.smith@company.com' },
+                  { row: 134, column: 'Phone', value: '+1-555-0456' }
+                ]
+              });
+              setIsDuplicateChecking(false);
+              toast.error(`Found ${duplicateCount} duplicate ${duplicateCount === 1 ? 'record' : 'records'}!`);
+            }, 0);
+          }
           
           return 100;
         }

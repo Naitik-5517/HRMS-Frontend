@@ -27,13 +27,14 @@ import LoginPage from "../pages/LoginPage";
 import ResetPasswordPage from "../pages/ResetPasswordPage";
 import DashboardPage from "../pages/DashboardPage";
 import AdminPage from "../pages/AdminPage";
-import AgentDashboard from "../components/AgentDashboard/AgentDashboard.jsx";
+import Tracker from "../components/AgentDashboard/Tracker.jsx";
 import AIEvaluation from "../components/AgentDashboard/AIEvaluation.jsx";
 import UserTrackingView from "../components/common/UserTrackingView";
 import AppLayout from "../layouts/AppLayout";
 import ProtectedRoute from "./ProtectedRoutes";
 import { useAuth } from "../context/AuthContext";
 import AgentProjectList from "../components/AgentDashboard/AgentProjectList";
+import QCFormPage from "../pages/QCFormPage";
 
 const AppRoutes = () => {
   const { user } = useAuth();
@@ -58,7 +59,7 @@ const AppRoutes = () => {
           path="/agent"
           element={
             <ProtectedRoute allowedRoles={[6]}>
-              <AgentDashboard />
+              <Tracker />
             </ProtectedRoute>
           }
         />
@@ -71,6 +72,16 @@ const AppRoutes = () => {
               <AppLayout>
                 <AIEvaluation />
               </AppLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        {/* QC Form (QA Agents and Admins) */}
+        <Route
+          path="/qc-form"
+          element={
+            <ProtectedRoute allowedRoles={[1, 2, 3, 4, 5]}>
+              <QCFormPage />
             </ProtectedRoute>
           }
         />
