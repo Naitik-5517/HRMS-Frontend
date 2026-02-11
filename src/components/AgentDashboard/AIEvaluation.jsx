@@ -20,8 +20,10 @@ import {
   CheckCircle,
   Info
 } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
 
 const AIEvaluation = () => {
+  const { user } = useAuth();
   const [file, setFile] = useState(null);
   const [fileError, setFileError] = useState('');
   const [isUploading, setIsUploading] = useState(false);
@@ -161,7 +163,7 @@ const AIEvaluation = () => {
     }
   };
 
-  // Simulate evaluation process
+  // Handle AI evaluation
   const handleEvaluate = async () => {
     if (!file) {
       toast.error('Please upload a file first');
@@ -174,72 +176,94 @@ const AIEvaluation = () => {
     setShowSuggestions(false);
     setAiTextualSuggestion('');
 
-    // Simulate AI evaluation with progress
-    // NOTE: This is MOCK DATA for demonstration only
-    // In production, replace this with actual API call to your backend
-    const interval = setInterval(() => {
-      setEvaluationProgress(prev => {
-        const newProgress = prev + 5;
-        
-        if (newProgress >= 100) {
-          clearInterval(interval);
-          
-          // MOCK DATA: Showing evaluation results (no pass/fail concept)
-          // REPLACE THIS ENTIRE BLOCK with actual API response parsing
-          setTimeout(() => {
-            const mockEvaluationSummary = "AI Analysis Complete: Your file contains 150 total records. The system has analyzed data quality, format consistency, and business rule compliance. 148 records meet all criteria, while 2 records have minor formatting inconsistencies that may need review. Overall data quality score: 95%.";
-            
-            setAiTextualSuggestion(mockEvaluationSummary);
-            setEvaluationResult({
-              status: 'info',
-              message: 'AI Evaluation Complete',
-              qualityScore: 95,
-              details: {
-                totalRecords: 150,
-                validRecords: 148,
-                issuesFound: 2
-              }
-            });
-            setIsEvaluating(false);
-            toast('AI evaluation completed!');
-          }, 0);
-          
-          return 100;
-        }
-        return newProgress;
-      });
-    }, 150);
+    try {
+      // Create FormData for API call
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('user_id', user?.user_id || 1);
+      formData.append('project_id', 1); // TODO: Get from project selection
+      formData.append('task_id', 1); // TODO: Get from task selection
 
-    // TODO: Replace with actual API call
-    // Example API integration:
-    // try {
-    //   const formData = new FormData();
-    //   formData.append('file', file);
-    //   const response = await api.post('/ai/evaluate', formData);
-    //   
-    //   // Parse API response
-    //   const { status, message, score, details, suggestions, textualSuggestion } = response.data;
-    //   
-    //   setEvaluationResult({
-    //     status: status, // 'success' or 'failed'
-    //     message: message,
-    //     score: score,
-    //     details: details // { totalRecords, validRecords, invalidRecords }
-    //   });
-    //   
-    //   setAiTextualSuggestion(textualSuggestion); // AI's text summary
-    //   
-    //   if (suggestions && suggestions.length > 0) {
-    //     setSuggestions(suggestions); // Array of detailed suggestions
-    //     setShowSuggestions(true);
-    //   }
-    // } catch (error) {
-    //   toast.error('Evaluation failed');
-    //   setIsEvaluating(false);
-    // }
+      // Simulate progress
+      const progressInterval = setInterval(() => {
+        setEvaluationProgress(prev => {
+          if (prev >= 90) {
+            clearInterval(progressInterval);
+            return 90;
+          }
+          return prev + 10;
+        });
+      }, 200);
+
+      // Make API call
+      const response = await fetch('http://localhost:8000/api/v1/ai/evaluate', {
+        method: 'POST',
+        body: formData
+      });
+
+      clearInterval(progressInterval);
+      setEvaluationProgress(100);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        let errorData;
+        try {
+          errorData = JSON.parse(errorText);
+        } catch {
+          errorData = { message: errorText || 'Evaluation failed' };
+        }
+        throw new Error(errorData.message || 'Evaluation failed');
+      }
+
+      const result = await response.json();
+
+      if (result.success) {
+        // Format result for frontend
+        const evaluationData = result.data;
+        setEvaluationResult({
+          status: 'success',
+          message: evaluationData.message,
+          qualityScore: evaluationData.qualityScore,
+          details: evaluationData.details
+        });
+        
+        // Handle the summary - it could be a string or object
+        if (typeof evaluationData.summary === 'string') {
+          setAiTextualSuggestion(evaluationData.summary);
+        } else if (evaluationData.summary && evaluationData.summary.summary) {
+          setAiTextualSuggestion(evaluationData.summary.summary);
+        } else {
+          setAiTextualSuggestion('AI evaluation completed successfully');
+        }
+        
+        // Handle suggestions - check multiple possible locations
+        const suggestions = evaluationData.suggestions || 
+                           (evaluationData.summary && evaluationData.summary.suggestions) || 
+                           [];
+        
+        if (suggestions.length > 0) {
+          setSuggestions(suggestions);
+          setShowSuggestions(true);
+        }
+        
+        toast.success('AI evaluation completed successfully!');
+      } else {
+        throw new Error(result.message || 'Evaluation failed');
+      }
+    } catch (error) {
+      console.error('Evaluation error:', error);
+      toast.error(error.message || 'AI evaluation failed');
+      setEvaluationResult({
+        status: 'error',
+        message: 'Evaluation Failed',
+        details: { totalRecords: 0, validRecords: 0, issuesFound: 0 }
+      });
+    } finally {
+      setIsEvaluating(false);
+    }
   };
 
-  // Simulate duplicate check process
+  // Handle duplicate check
   const handleDuplicateCheck = async () => {
     if (!file) {
       toast.error('Please upload a file first');
@@ -250,64 +274,84 @@ const AIEvaluation = () => {
     setDuplicateCheckProgress(0);
     setDuplicateCheckResult(null);
 
-    // Simulate duplicate checking with progress
-    // NOTE: This is MOCK DATA for demonstration only
-    // In production, replace this with actual API call to your backend
-    const interval = setInterval(() => {
-      setDuplicateCheckProgress(prev => {
-        const newProgress = prev + 8;
-        
-        if (newProgress >= 100) {
-          clearInterval(interval);
-          
-          // MOCK DATA: Showing DUPLICATES FOUND case for UI demonstration
-          // REPLACE THIS ENTIRE BLOCK with actual API response parsing
-          setTimeout(() => {
-            const duplicateCount = 15; // Fixed count for demo
-            setDuplicateCheckResult({
-              status: 'warning',
-              hasDuplicates: true,
-              count: duplicateCount,
-              message: `Duplicate Check Complete - ${duplicateCount} Duplicate ${duplicateCount === 1 ? 'Record' : 'Records'} Found`,
-              duplicates: [
-                { row: 12, column: 'Email', value: 'john.doe@example.com' },
-                { row: 45, column: 'Phone', value: '+1-555-0123' },
-                { row: 78, column: 'ID', value: 'EMP001' },
-                { row: 89, column: 'Email', value: 'jane.smith@company.com' },
-                { row: 134, column: 'Phone', value: '+1-555-0456' }
-              ]
-            });
-            setIsDuplicateChecking(false);
-            toast.error(`Found ${duplicateCount} duplicate ${duplicateCount === 1 ? 'record' : 'records'}!`);
-          }, 0);
-          
-          return 100;
-        }
-        return newProgress;
-      });
-    }, 120);
+    try {
+      // Create FormData for API call
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('user_id', user?.user_id || 1);
+      formData.append('project_id', 1); // TODO: Get from project selection
+      formData.append('task_id', 1); // TODO: Get from task selection
 
-    // TODO: Replace with actual API call
-    // Example API integration:
-    // try {
-    //   const formData = new FormData();
-    //   formData.append('file', file);
-    //   const response = await api.post('/ai/duplicate-check', formData);
-    //   
-    //   // Parse API response
-    //   const { status, hasDuplicates, count, message, duplicates } = response.data;
-    //   
-    //   setDuplicateCheckResult({
-    //     status: status, // 'success' or 'warning'
-    //     hasDuplicates: hasDuplicates,
-    //     count: count,
-    //     message: message,
-    //     duplicates: duplicates // Array of { row, column, value }
-    //   });
-    // } catch (error) {
-    //   toast.error('Duplicate check failed');
-    //   setIsDuplicateChecking(false);
-    // }
+      // Simulate progress
+      const progressInterval = setInterval(() => {
+        setDuplicateCheckProgress(prev => {
+          if (prev >= 90) {
+            clearInterval(progressInterval);
+            return 90;
+          }
+          return prev + 10;
+        });
+      }, 200);
+
+      // Make API call
+      const response = await fetch('http://localhost:8000/api/v1/ai/duplicate-check', {
+        method: 'POST',
+        body: formData
+      });
+
+      clearInterval(progressInterval);
+      setDuplicateCheckProgress(100);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        let errorData;
+        try {
+          errorData = JSON.parse(errorText);
+        } catch {
+          errorData = { message: errorText || 'Duplicate check failed' };
+        }
+        throw new Error(errorData.message || 'Duplicate check failed');
+      }
+
+      const result = await response.json();
+
+      if (result.success) {
+        // Format result for frontend
+        setDuplicateCheckResult({
+          status: result.data.hasDuplicates ? 'warning' : 'success',
+          hasDuplicates: result.data.hasDuplicates,
+          count: result.data.duplicateCount,
+          message: result.data.hasDuplicates 
+            ? `Duplicate Check Complete - ${result.data.duplicateCount} Duplicate ${result.data.duplicateCount === 1 ? 'Record' : 'Records'} Found`
+            : 'No Duplicates Found',
+          duplicates: result.data.duplicates.map(dup => ({
+            row: dup.row,
+            column: 'Multiple Fields',
+            value: 'Duplicate Record'
+          }))
+        });
+        
+        if (result.data.hasDuplicates) {
+          toast.error(`Found ${result.data.duplicateCount} duplicate ${result.data.duplicateCount === 1 ? 'record' : 'records'}!`);
+        } else {
+          toast.success('No duplicates found!');
+        }
+      } else {
+        throw new Error(result.message || 'Duplicate check failed');
+      }
+    } catch (error) {
+      console.error('Duplicate check error:', error);
+      toast.error(error.message || 'Duplicate check failed');
+      setDuplicateCheckResult({
+        status: 'error',
+        hasDuplicates: false,
+        count: 0,
+        message: 'Duplicate Check Failed',
+        duplicates: []
+      });
+    } finally {
+      setIsDuplicateChecking(false);
+    }
   };
 
   // Format file size

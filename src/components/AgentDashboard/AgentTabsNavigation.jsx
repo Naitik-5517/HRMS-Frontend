@@ -4,13 +4,15 @@ import {
   Briefcase,
   Users,
   FileWarning,
-  DollarSign
+  DollarSign,
+  Brain
 } from 'lucide-react';
 
 
 const AgentTabsNavigation = ({ activeTab, setActiveTab }) => {
   const tabs = [
     { id: 'overview', label: 'Overview', icon: LayoutGrid },
+    { id: 'ai_evaluation', label: 'AI Evaluation', icon: Brain },
     { id: 'billable_report', label: 'Billable Report', icon: Briefcase },
     { id: 'adherence', label: 'Reporting Adherence', icon: FileWarning, disabled: true },
     { id: 'incentives', label: 'Agent Incentives', icon: DollarSign, disabled: true }

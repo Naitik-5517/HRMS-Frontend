@@ -4,6 +4,8 @@ import { toast } from "react-hot-toast";
 import AppLayout from "../../layouts/AppLayout";
 import api from "../../services/api";
 import TrackerTable from "./TrackerTable";
+import AIEvaluation from "./AIEvaluation";
+import AgentTabsNavigation from "./AgentTabsNavigation";
 import { useDeviceInfo } from '../../hooks/useDeviceInfo';
 import { fileToBase64 } from "../../utils/fileToBase64";
 import { useAuth } from "../../context/AuthContext";
@@ -20,6 +22,9 @@ const AgentDashboard = ({ embedded = false }) => {
   const { user } = useAuth();
   // Determine if user is admin/superadmin
   const isAdmin = user?.role_name === 'admin' || user?.role_name === 'superadmin' || user?.isSuperAdmin;
+
+  // Tab state
+  const [activeTab, setActiveTab] = useState('overview');
 
   // Device info
   const { device_id, device_type } = useDeviceInfo();
@@ -304,7 +309,13 @@ const AgentDashboard = ({ embedded = false }) => {
 
   const content = (
     <>
-      {viewAll ? (
+      {/* Tab Navigation */}
+      <AgentTabsNavigation activeTab={activeTab} setActiveTab={setActiveTab} />
+      
+      {/* Tab Content */}
+      {activeTab === 'ai_evaluation' ? (
+        <AIEvaluation />
+      ) : viewAll ? (
         <TrackerTable
           userId={isAdmin ? null : user?.user_id}
           isAdmin={isAdmin}
