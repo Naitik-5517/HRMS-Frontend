@@ -6,23 +6,25 @@ import {
   CheckCircle2,
   XCircle,
   Loader2,
-  AlertCircle,
-  Sparkles,
-  Copy,
-  X,
-  FileSearch,
-  Brain,
-  AlertTriangle,
-  ChevronDown,
-  ChevronUp,
-  Lightbulb,
   FileText,
   CheckCircle,
-  Info
+  AlertCircle,
+  Play,
+  Save,
+  Search,
+  X,
+  ChevronDown,
+  Brain,
+  Sparkles,
+  FileSearch,
+  Lightbulb,
+  AlertTriangle,
+  Copy
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import nodeApi from '../../services/nodeApi';
 
-const AIEvaluation = () => {
+const AIEvaluation = ({ selectedProject, selectedTask }) => {
   const { user } = useAuth();
   const [file, setFile] = useState(null);
   const [fileError, setFileError] = useState('');
@@ -170,52 +172,61 @@ const AIEvaluation = () => {
       return;
     }
 
+    if (!selectedProject || !selectedTask) {
+      toast.error('Please select a project and task first');
+      return;
+    }
+
+    // Check for large file warnings (10MB is our max)
+    const fileSizeMB = file.size / (1024 * 1024);
+    if (fileSizeMB > 8) {
+      toast.info(`Large file detected (${fileSizeMB.toFixed(1)}MB). Comprehensive QC evaluation will analyze all records. This may take several minutes.`);
+    }
+
     setIsEvaluating(true);
     setEvaluationProgress(0);
     setEvaluationResult(null);
     setShowSuggestions(false);
     setAiTextualSuggestion('');
 
+    let progressInterval;
+    
     try {
       // Create FormData for API call
       const formData = new FormData();
       formData.append('file', file);
       formData.append('user_id', user?.user_id || 1);
-      formData.append('project_id', 1); // TODO: Get from project selection
-      formData.append('task_id', 1); // TODO: Get from task selection
+      formData.append('project_id', Number(selectedProject));
+      formData.append('task_id', Number(selectedTask));
 
-      // Simulate progress
-      const progressInterval = setInterval(() => {
+      // Adjust progress for comprehensive analysis
+      const progressSpeed = fileSizeMB > 8 ? 1000 : 300; // Slower for large files
+      const maxProgress = fileSizeMB > 8 ? 80 : 90; // More room for large files
+      
+      progressInterval = setInterval(() => {
         setEvaluationProgress(prev => {
-          if (prev >= 90) {
+          if (prev >= maxProgress) {
             clearInterval(progressInterval);
-            return 90;
+            return maxProgress;
           }
-          return prev + 10;
+          return prev + 5; // Smaller increments for large files
         });
-      }, 200);
+      }, progressSpeed);
 
-      // Make API call
-      const response = await fetch('http://localhost:8000/api/v1/ai/evaluate', {
-        method: 'POST',
-        body: formData
+      // Extended timeout for comprehensive QC analysis
+      const timeout = fileSizeMB > 8 ? 300000 : 180000; // 5 minutes for large files, 3 for normal
+
+      const res = await nodeApi.post('/ai/evaluate', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        },
+        timeout: timeout
       });
 
       clearInterval(progressInterval);
       setEvaluationProgress(100);
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        let errorData;
-        try {
-          errorData = JSON.parse(errorText);
-        } catch {
-          errorData = { message: errorText || 'Evaluation failed' };
-        }
-        throw new Error(errorData.message || 'Evaluation failed');
-      }
-
-      const result = await response.json();
+      const result = res.data;
 
       if (result.success) {
         // Format result for frontend
@@ -233,7 +244,7 @@ const AIEvaluation = () => {
         } else if (evaluationData.summary && evaluationData.summary.summary) {
           setAiTextualSuggestion(evaluationData.summary.summary);
         } else {
-          setAiTextualSuggestion('AI evaluation completed successfully');
+          setAiTextualSuggestion('Comprehensive QC evaluation completed successfully');
         }
         
         // Handle suggestions - check multiple possible locations
@@ -246,27 +257,52 @@ const AIEvaluation = () => {
           setShowSuggestions(true);
         }
         
-        toast.success('AI evaluation completed successfully!');
+        // Show appropriate success message
+        if (fileSizeMB > 8) {
+          toast.success('Comprehensive QC evaluation completed! All records analyzed for quality compliance.');
+        } else {
+          toast.success('QC evaluation completed successfully!');
+        }
+        
       } else {
-        throw new Error(result.message || 'Evaluation failed');
+        throw new Error(result.message || 'AI evaluation failed');
       }
     } catch (error) {
-      console.error('Evaluation error:', error);
-      toast.error(error.message || 'AI evaluation failed');
-      setEvaluationResult({
-        status: 'error',
-        message: 'Evaluation Failed',
-        details: { totalRecords: 0, validRecords: 0, issuesFound: 0 }
-      });
+      clearInterval(progressInterval);
+      setEvaluationProgress(0);
+      
+      let errorMessage = 'QC evaluation failed';
+      
+      if (error.code === 'ECONNABORTED') {
+        if (fileSizeMB > 8) {
+          errorMessage = 'QC evaluation timed out. Large files require comprehensive analysis. Consider splitting into smaller files or try again.';
+        } else {
+          errorMessage = 'QC evaluation timed out. Please try again.';
+        }
+      } else if (error.response) {
+        errorMessage = error.response.data?.message || 'Server error during evaluation';
+      } else if (error.request) {
+        errorMessage = 'Network error. Please check your connection and try again.';
+      } else {
+        errorMessage = error.message || 'QC evaluation failed';
+      }
+      
+      toast.error(errorMessage);
+      console.error('QC evaluation error:', error);
     } finally {
       setIsEvaluating(false);
     }
   };
 
-  // Handle duplicate check
+// Handle duplicate check
   const handleDuplicateCheck = async () => {
     if (!file) {
       toast.error('Please upload a file first');
+      return;
+    }
+
+    if (!selectedProject || !selectedTask) {
+      toast.error('Please select a project and task first');
       return;
     }
 
@@ -279,8 +315,8 @@ const AIEvaluation = () => {
       const formData = new FormData();
       formData.append('file', file);
       formData.append('user_id', user?.user_id || 1);
-      formData.append('project_id', 1); // TODO: Get from project selection
-      formData.append('task_id', 1); // TODO: Get from task selection
+      formData.append('project_id', Number(selectedProject));
+      formData.append('task_id', Number(selectedTask));
 
       // Simulate progress
       const progressInterval = setInterval(() => {
@@ -293,42 +329,27 @@ const AIEvaluation = () => {
         });
       }, 200);
 
-      // Make API call
-      const response = await fetch('http://localhost:8000/api/v1/ai/duplicate-check', {
-        method: 'POST',
-        body: formData
+      const res = await nodeApi.post('/ai/duplicate-check', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
       });
 
       clearInterval(progressInterval);
       setDuplicateCheckProgress(100);
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        let errorData;
-        try {
-          errorData = JSON.parse(errorText);
-        } catch {
-          errorData = { message: errorText || 'Duplicate check failed' };
-        }
-        throw new Error(errorData.message || 'Duplicate check failed');
-      }
-
-      const result = await response.json();
+      const result = res.data;
 
       if (result.success) {
         // Format result for frontend
         setDuplicateCheckResult({
           status: result.data.hasDuplicates ? 'warning' : 'success',
           hasDuplicates: result.data.hasDuplicates,
-          count: result.data.duplicateCount,
+          duplicateCount: result.data.duplicateCount,
           message: result.data.hasDuplicates 
             ? `Duplicate Check Complete - ${result.data.duplicateCount} Duplicate ${result.data.duplicateCount === 1 ? 'Record' : 'Records'} Found`
             : 'No Duplicates Found',
-          duplicates: result.data.duplicates.map(dup => ({
-            row: dup.row,
-            column: 'Multiple Fields',
-            value: 'Duplicate Record'
-          }))
+          duplicates: result.data.duplicates
         });
         
         if (result.data.hasDuplicates) {
@@ -552,26 +573,60 @@ const AIEvaluation = () => {
               <h4 className="text-lg font-bold mb-2 text-blue-800">
                 {evaluationResult.message}
               </h4>
-              <div className="grid grid-cols-3 gap-4 mt-4">
+              <div className="grid grid-cols-2 gap-4 mt-4">
                 <div className="bg-white rounded-lg p-3 border border-slate-200">
                   <p className="text-sm text-slate-600">Total Records</p>
                   <p className="text-2xl font-bold text-slate-800">
                     {evaluationResult.details.totalRecords}
                   </p>
-                </div>
-                <div className="bg-white rounded-lg p-3 border border-green-200">
-                  <p className="text-sm text-slate-600">Valid Records</p>
-                  <p className="text-2xl font-bold text-green-600">
-                    {evaluationResult.details.validRecords}
-                  </p>
+                  <p className="text-xs text-slate-500 mt-1">(excluding header)</p>
                 </div>
                 <div className="bg-white rounded-lg p-3 border border-orange-200">
                   <p className="text-sm text-slate-600">Issues Found</p>
                   <p className="text-2xl font-bold text-orange-600">
                     {evaluationResult.details.issuesFound}
                   </p>
+                  <p className="text-xs text-slate-500 mt-1">
+                    ({Math.round((evaluationResult.details.issuesFound / evaluationResult.details.totalRecords) * 100)}%)
+                  </p>
                 </div>
               </div>
+
+              {/* Show Critical Issues Details */}
+              {evaluationResult.criticalIssues && evaluationResult.criticalIssues.length > 0 && (
+                <div className="mt-4">
+                  <h5 className="text-sm font-semibold text-slate-700 mb-3">Critical Issues Found:</h5>
+                  <div className="space-y-3">
+                    {evaluationResult.criticalIssues.map((issue, idx) => (
+                      <div key={idx} className="bg-red-50 rounded-lg p-4 border border-red-200">
+                        <div className="flex items-start gap-3">
+                          <AlertTriangle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-2">
+                              <span className="font-medium text-red-800">Issue #{idx + 1}</span>
+                              <span className="text-xs bg-red-100 text-red-700 px-2 py-1 rounded-full">
+                                {issue.location || 'Unknown Location'}
+                              </span>
+                            </div>
+                            <p className="text-sm text-red-900 font-medium mb-2">{issue.issue}</p>
+                            {issue.impact && (
+                              <p className="text-xs text-red-700 mb-2">
+                                <span className="font-medium">Impact:</span> {issue.impact}
+                              </p>
+                            )}
+                            {issue.fix && (
+                              <div className="mt-2 p-2 bg-red-100 rounded border border-red-300">
+                                <p className="text-xs font-medium text-red-800 mb-1">Recommended Fix:</p>
+                                <p className="text-xs text-red-900">{issue.fix}</p>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
               {evaluationResult.qualityScore && (
                 <div className="mt-4 bg-white rounded-lg p-3 border border-slate-200">
                   <p className="text-sm text-slate-600 mb-2">Data Quality Score</p>
@@ -629,31 +684,65 @@ const AIEvaluation = () => {
                   <div className="inline-flex items-center gap-2 bg-white rounded-lg px-4 py-2 border border-orange-200">
                     <Copy className="w-5 h-5 text-orange-600" />
                     <span className="text-sm text-slate-600">Total Duplicates:</span>
-                    <span className="text-2xl font-bold text-orange-600">{duplicateCheckResult.count}</span>
+                    <span className="text-2xl font-bold text-orange-600">{duplicateCheckResult.duplicateCount}</span>
                   </div>
                 </div>
               )}
               
               {duplicateCheckResult.hasDuplicates && duplicateCheckResult.duplicates && (
-                <div className="mt-4 space-y-2">
-                  <p className="text-sm font-semibold text-slate-700">
-                    Sample Duplicates (showing first {Math.min(duplicateCheckResult.duplicates.length, 5)}):
-                  </p>
-                  {duplicateCheckResult.duplicates.map((dup, idx) => (
-                    <div
-                      key={idx}
-                      className="bg-white rounded-lg p-3 border border-orange-200 flex items-center gap-3"
-                    >
-                      <Copy className="w-4 h-4 text-orange-600 shrink-0" />
-                      <div className="text-sm">
-                        <span className="font-medium text-slate-800">Row {dup.row}</span>
-                        <span className="text-slate-500"> - </span>
-                        <span className="font-medium text-slate-800">{dup.column}</span>
-                        <span className="text-slate-500"> - </span>
-                        <span className="text-slate-600">{dup.value}</span>
+                <div className="mt-4">
+                  <div className="max-h-96 overflow-y-auto space-y-3 pr-2">
+                    {duplicateCheckResult.duplicates.map((dup, idx) => (
+                      <div
+                        key={idx}
+                        className="bg-white rounded-lg p-4 border border-orange-200"
+                      >
+                        <div className="flex items-start gap-3">
+                          <Copy className="w-4 h-4 text-orange-600 shrink-0 mt-0.5" />
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-3">
+                              <span className="font-medium text-slate-800">Row {dup.row}</span>
+                              <span className="text-xs bg-orange-100 text-orange-700 px-2 py-1 rounded-full">Duplicate</span>
+                            </div>
+                            
+                            {/* Show the specific columns that caused the duplicate */}
+                            {dup.duplicateColumns && dup.duplicateValues && (
+                              <div className="mb-3 p-3 bg-orange-50 rounded-lg border border-orange-200">
+                                <p className="text-xs font-semibold text-orange-800 mb-2">Duplicate Match Fields:</p>
+                                <div className="grid grid-cols-1 gap-1 text-sm">
+                                  {dup.duplicateColumns.map((col, colIdx) => (
+                                    <div key={colIdx} className="flex items-center gap-2">
+                                      <span className="font-medium text-orange-700">{col}:</span>
+                                      <span className="text-orange-900 font-mono text-xs">
+                                        {dup.duplicateValues[col] !== null && dup.duplicateValues[col] !== undefined 
+                                          ? String(dup.duplicateValues[col]) 
+                                          : '(empty)'}
+                                      </span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                            
+                            {/* Show full row data */}
+                            <div className="text-xs text-slate-600">
+                              <p className="font-medium text-slate-700 mb-1">Full Row Data:</p>
+                              <div className="space-y-1">
+                                {dup.data && Object.entries(dup.data).map(([key, value]) => (
+                                  <div key={key} className="flex items-center gap-2">
+                                    <span className="font-medium text-slate-600 min-w-0 shrink-0">{key}:</span>
+                                    <span className="text-slate-800 truncate">
+                                      {value !== null && value !== undefined ? String(value) : '(empty)'}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
               )}
             </div>

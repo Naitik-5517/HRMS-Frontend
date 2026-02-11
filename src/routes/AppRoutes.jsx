@@ -1,38 +1,17 @@
-import OverviewTab from '../components/dashboard/overview/OverviewTab';
-        {/* Agent Billable Report (separate route for agents, uses OverviewTab for tab logic) */}
-        <Route
-          path="/agent-billable-report"
-          element={
-            <ProtectedRoute allowedRoles={[6]}>
-              <AppLayout>
-                {/* Force remount on route change for agent tabs */}
-                <OverviewTab isAgent={true} key={window.location.pathname} />
-              </AppLayout>
-            </ProtectedRoute>
-          }
-        />
-{/* Billable Report Card Page */}
-        <Route
-          path="/user-monthly-target"
-          element={
-            <ProtectedRoute allowedRoles={[1,2,3,4,5,6]}>
-              <AppLayout>
-              </AppLayout>
-            </ProtectedRoute>
-          }
-        />
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
+
+import OverviewTab from '../components/dashboard/overview/OverviewTab';
 
 import LoginPage from "../pages/LoginPage";
 import ResetPasswordPage from "../pages/ResetPasswordPage";
 import DashboardPage from "../pages/DashboardPage";
 import AdminPage from "../pages/AdminPage";
 import AgentDashboard from "../components/AgentDashboard/AgentDashboard.jsx";
-import AIEvaluation from "../components/AgentDashboard/AIEvaluation.jsx";
 import UserTrackingView from "../components/common/UserTrackingView";
 import AppLayout from "../layouts/AppLayout";
 import ProtectedRoute from "./ProtectedRoutes";
 import { useAuth } from "../context/AuthContext";
+
 import AgentProjectList from "../components/AgentDashboard/AgentProjectList";
 
 const AppRoutes = () => {
@@ -68,9 +47,7 @@ const AppRoutes = () => {
           path="/ai-evaluation"
           element={
             <ProtectedRoute allowedRoles={[6]}>
-              <AppLayout>
-                <AIEvaluation />
-              </AppLayout>
+              <AgentDashboard initialTab="ai-evaluation" />
             </ProtectedRoute>
           }
         />

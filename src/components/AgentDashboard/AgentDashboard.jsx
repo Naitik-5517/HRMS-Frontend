@@ -1,37 +1,41 @@
-
 import React, { useEffect, useState } from "react";
 import { toast } from "react-hot-toast";
 import AppLayout from "../../layouts/AppLayout";
 import api from "../../services/api";
+import nodeApi from "../../services/nodeApi";
 import TrackerTable from "./TrackerTable";
 import AIEvaluation from "./AIEvaluation";
 import AgentTabsNavigation from "./AgentTabsNavigation";
-import { useDeviceInfo } from '../../hooks/useDeviceInfo';
-import { fileToBase64 } from "../../utils/fileToBase64";
 import { useAuth } from "../../context/AuthContext";
+import { fileToBase64 } from "../../utils/fileToBase64";
 import { log, logError } from "../../config/environment";
 import CustomSelect from "../common/CustomSelect";
 import { Briefcase, ListChecks } from "lucide-react";
+import AgentBillableReport from "./AgentBillableReport";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 
-
-
-
-const AgentDashboard = ({ embedded = false }) => {
-  console.log('🟢 AgentDashboard is rendering, embedded:', embedded);
+const AgentDashboard = ({ embedded = false, initialTab = 'overview' }) => {
   // Auth context for user info
   const { user } = useAuth();
   // Determine if user is admin/superadmin
   const isAdmin = user?.role_name === 'admin' || user?.role_name === 'superadmin' || user?.isSuperAdmin;
 
-  // Tab state
-  const [activeTab, setActiveTab] = useState('overview');
+  const navigate = useNavigate();
+  const location = useLocation();
 
-  // Device info
-  const { device_id, device_type } = useDeviceInfo();
+  // URL search params for tab synchronization
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // Tab state - initialize from URL or initialTab
+  const [activeTab, setActiveTab] = useState(() => {
+    const tabFromUrl = searchParams.get('tab');
+    return tabFromUrl || initialTab;
+  });
+
   const [projects, setProjects] = useState([]);
   const [tasks, setTasks] = useState([]);
-  const [allTasks, setAllTasks] = useState([]);
-  const [allUsers, setAllUsers] = useState([]);
+  const [allTasks, setAllTasks] = useState([]); // TODO: Populate these when needed for TrackerTable
+  const [allUsers, setAllUsers] = useState([]); // TODO: Populate these when needed for TrackerTable
   const [viewAll, setViewAll] = useState(false);
   const [selectedProject, setSelectedProject] = useState("");
   const [selectedTask, setSelectedTask] = useState("");
@@ -39,8 +43,6 @@ const AgentDashboard = ({ embedded = false }) => {
   const [baseTargetLoading, setBaseTargetLoading] = useState(false);
   const [productionTarget, setProductionTarget] = useState("");
   const [file, setFile] = useState(null);
-  const [filePreview, setFilePreview] = useState(null);
-  const [fileBase64, setFileBase64] = useState(null);
   const [fileError, setFileError] = useState("");
   const [loadingProjects, setLoadingProjects] = useState(false);
   const [loadingTasks, setLoadingTasks] = useState(false);
@@ -52,7 +54,7 @@ const AgentDashboard = ({ embedded = false }) => {
   const [, forceUpdate] = useState(0);
 
   // Date state for header (default to today)
-  const [entryDate, setEntryDate] = useState(() => {
+  const [entryDate] = useState(() => {
     const d = new Date();
     return d.toISOString().slice(0, 10);
   });
@@ -80,6 +82,38 @@ const AgentDashboard = ({ embedded = false }) => {
     fetchProjectsWithTasks();
   }, [user?.user_id]);
 
+  // Sync tab changes with URL parameters
+  useEffect(() => {
+    if (embedded) return;
+
+    if (location.pathname !== '/dashboard') {
+      navigate(`/dashboard?tab=${encodeURIComponent(activeTab)}`, { replace: true });
+      return;
+    }
+
+    const currentTab = searchParams.get('tab');
+    if (currentTab !== activeTab) {
+      setSearchParams({ tab: activeTab });
+    }
+  }, [activeTab, embedded, location.pathname, navigate, searchParams, setSearchParams]);
+
+  // Handle URL parameter changes
+  useEffect(() => {
+    if (embedded) return;
+    if (location.pathname !== '/dashboard') return;
+    const tabFromUrl = searchParams.get('tab');
+    if (tabFromUrl && tabFromUrl !== activeTab) {
+      setActiveTab(tabFromUrl);
+    }
+  }, [activeTab, embedded, location.pathname, searchParams]);
+
+  useEffect(() => {
+    if (activeTab !== 'ai-evaluation') return;
+    if (selectedProject) return;
+    if (!projects || projects.length === 0) return;
+    setSelectedProject(String(projects[0].project_id));
+  }, [activeTab, projects, selectedProject]);
+
   // Update tasks when project changes
   useEffect(() => {
     if (!selectedProject) {
@@ -97,28 +131,14 @@ const AgentDashboard = ({ embedded = false }) => {
       setBaseTarget("");
     }
     setLoadingTasks(false);
-  }, [selectedProject, projects]);
+  }, [selectedProject, projects, selectedTask]);
 
-
-
-  // Update tasks when project changes
   useEffect(() => {
-    if (!selectedProject) {
-      setTasks([]);
-      setSelectedTask("");
-      setBaseTarget("");
-      return;
-    }
-    setLoadingTasks(true);
-    const project = projects.find(p => String(p.project_id) === String(selectedProject));
-    setTasks(project?.tasks || []);
-    // Only clear selectedTask if it is not in the new task list
-    if (!project?.tasks?.find(t => String(t.task_id) === String(selectedTask))) {
-      setSelectedTask("");
-      setBaseTarget("");
-    }
-    setLoadingTasks(false);
-  }, [selectedProject, projects]);
+    if (activeTab !== 'ai-evaluation') return;
+    if (selectedTask) return;
+    if (!tasks || tasks.length === 0) return;
+    setSelectedTask(String(tasks[0].task_id));
+  }, [activeTab, tasks]);
 
 
 
@@ -149,8 +169,6 @@ const AgentDashboard = ({ embedded = false }) => {
     if (fileObj.size > maxSize) {
       setFileError("File size must not exceed 10MB");
       setFile(null);
-      setFilePreview(null);
-      setFileBase64(null);
       toast.error("File size exceeds 10MB limit", { duration: 4000 });
       // Reset the input
       e.target.value = null;
@@ -162,15 +180,12 @@ const AgentDashboard = ({ embedded = false }) => {
     
     log('[AgentDashboard] File selected:', fileObj.name);
     setFile(fileObj);
-    setFilePreview(URL.createObjectURL(fileObj));
     
     try {
       const base64 = await fileToBase64(fileObj);
-      setFileBase64(base64);
       log('[AgentDashboard] File converted to base64');
     } catch (error) {
       logError('[AgentDashboard] Error converting file:', error);
-      setFileBase64(null);
       setFileError("Failed to process file");
       toast.error("Failed to process file");
     }
@@ -200,14 +215,6 @@ const AgentDashboard = ({ embedded = false }) => {
     setErrors(validate());
   };
 
-  // Simulate backend validation (replace with real API call)
-  const fakeBackendValidate = async () => {
-    // Example: backend returns error if productionTarget > 10000
-    if (Number(productionTarget) > 10000) {
-      return { productionTarget: "Production Target cannot exceed 10000." };
-    }
-    return {};
-  };
 
   // Handle form submit
   const handleSubmit = async (e) => {
@@ -255,11 +262,46 @@ const AgentDashboard = ({ embedded = false }) => {
       
       // Append the actual file if it exists
       if (file) {
+        // Step 1: Validate file for duplicates BEFORE creating tracker
+        try {
+          log('[AgentDashboard] Validating file for duplicates before creating tracker');
+          
+          const validationFormData = new FormData();
+          validationFormData.append('file', file);
+          validationFormData.append('project_id', Number(selectedProject));
+          validationFormData.append('task_id', Number(selectedTask));
+          validationFormData.append('user_id', user?.user_id);
+          validationFormData.append('validate_only', 'true'); // Validation mode
+          
+          const validationRes = await nodeApi.post("/tracker/process-excel", validationFormData, {
+            headers: {
+              'Content-Type': 'multipart/form-data'
+            }
+          });
+          
+          console.log('[AgentDashboard] File Validation Response:', validationRes);
+          
+          if (!validationRes.data?.success) {
+            // File has duplicates - don't create tracker
+            toast.error(validationRes.data?.message || 'File validation failed. Please check for duplicates and try again.');
+            return;
+          }
+          
+          log('[AgentDashboard] File validation passed - proceeding with tracker creation');
+          
+        } catch (validationError) {
+          console.error('[AgentDashboard] File validation error:', validationError);
+          toast.error('Failed to validate file. Please try again.');
+          return;
+        }
+        
         formData.append('tracker_file', file);
       }
       
       try {
         log('[AgentDashboard] Submitting tracker with FormData');
+        
+        // First submit tracker data
         const res = await api.post("/tracker/add", formData, {
           headers: {
             'Content-Type': 'multipart/form-data'
@@ -271,6 +313,38 @@ const AgentDashboard = ({ embedded = false }) => {
         console.log('[AgentDashboard] Response Data:', res.data);
         console.log('[AgentDashboard] Response Status:', res.status);
         
+        // If file was uploaded and tracker was created, process the file to insert records
+        if (file && (res.data?.status === 201 || res.status === 201 || res.status === 200)) {
+          try {
+            log('[AgentDashboard] Processing validated Excel file to insert records');
+            
+            // Prepare FormData for process-excel API (normal mode - will insert records)
+            const processFormData = new FormData();
+            processFormData.append('file', file);
+            processFormData.append('project_id', Number(selectedProject));
+            processFormData.append('task_id', Number(selectedTask));
+            processFormData.append('user_id', user?.user_id);
+            // Note: NOT adding validate_only - this will insert records
+            
+            // Call process-excel API to insert hash records
+            const processRes = await nodeApi.post("/tracker/process-excel", processFormData, {
+              headers: {
+                'Content-Type': 'multipart/form-data'
+              }
+            });
+            
+            console.log('[AgentDashboard] Process Excel Response:', processRes);
+            
+            if (processRes.data?.success) {
+              log(`[AgentDashboard] Excel processed successfully. Inserted ${processRes.data.data?.recordsInserted || 0} records`);
+            } else {
+              logError('[AgentDashboard] Failed to process Excel file:', processRes.data?.message);
+            }
+          } catch (processError) {
+            logError('[AgentDashboard] Error processing Excel file:', processError);
+          }
+        }
+        
         if (res.data?.status === 201 || res.status === 201 || res.status === 200) {
           log('[AgentDashboard] Tracker added successfully');
           toast.success("Tracker added successfully!");
@@ -281,8 +355,6 @@ const AgentDashboard = ({ embedded = false }) => {
           setBaseTarget("");
           setProductionTarget("");
           setFile(null);
-          setFilePreview(null);
-          setFileBase64(null);
           setFileError("");
           setTouched({});
           
@@ -313,8 +385,24 @@ const AgentDashboard = ({ embedded = false }) => {
       <AgentTabsNavigation activeTab={activeTab} setActiveTab={setActiveTab} />
       
       {/* Tab Content */}
-      {activeTab === 'ai_evaluation' ? (
-        <AIEvaluation />
+      {activeTab === 'ai-evaluation' ? (
+        (!selectedProject || !selectedTask) ? (
+          <div className="flex items-center justify-center min-h-[400px]">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+              <p className="text-slate-600">Loading AI Evaluation...</p>
+            </div>
+          </div>
+        ) : (
+          <AIEvaluation selectedProject={selectedProject} selectedTask={selectedTask} />
+        )
+      ) : activeTab === 'billable_report' ? (
+        <AgentBillableReport />
+      ) : activeTab === 'overview' ? (
+        <div className="p-6">
+          <h2 className="text-2xl font-bold text-slate-800 mb-4">Overview</h2>
+          <p className="text-slate-600">Overview dashboard coming soon...</p>
+        </div>
       ) : viewAll ? (
         <TrackerTable
           userId={isAdmin ? null : user?.user_id}
@@ -329,7 +417,7 @@ const AgentDashboard = ({ embedded = false }) => {
           {/* Data Entry Form */}
           <div className="flex flex-col items-center justify-center min-h-[70vh] w-full">
             {/* Modern Header */}
-            <div className="w-full max-w-[920px] bg-gradient-to-r from-blue-600 to-blue-700 rounded-t-2xl px-8 py-5 shadow-xl">
+            <div className="w-full max-w-[920px] bg-linear-to-r from-blue-600 to-blue-700 rounded-t-2xl px-8 py-5 shadow-xl">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
                   <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm">
@@ -460,7 +548,7 @@ const AgentDashboard = ({ embedded = false }) => {
                     <span className="text-red-500">*</span>
                   </label>
                   <div className="relative">
-                    <div className="w-full bg-gradient-to-r from-slate-50 to-slate-100 border border-slate-300 rounded-lg px-4 py-3 text-sm font-bold text-slate-700 shadow-sm flex items-center gap-2">
+                    <div className="w-full bg-linear-gradient-to-r from-slate-50 to-slate-100 border border-slate-300 rounded-lg px-4 py-3 text-sm font-bold text-slate-700 shadow-sm flex items-center gap-2">
                       <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-slate-400">
                         <rect width="14" height="10" x="5" y="11" rx="2"></rect>
                         <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
@@ -575,7 +663,7 @@ const AgentDashboard = ({ embedded = false }) => {
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="px-8 py-3 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-bold text-sm rounded-lg shadow-md hover:shadow-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                  className="px-8 py-3 bg-linear-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-bold text-sm rounded-lg shadow-md hover:shadow-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                 >
                   {submitting ? (
                     <>
