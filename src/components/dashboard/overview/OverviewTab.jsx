@@ -1,6 +1,5 @@
 import React, { useEffect, useState, lazy, Suspense } from 'react';
 import AgentFilterBar from './AgentFilterBar';
-import dayjs from 'dayjs';
 import StatCard from './StatCard';
 import HourlyChart from './HourlyChart';
 import { Activity, Calendar, Target, Users, Clock, CheckCircle, TrendingUp, Award, Briefcase } from 'lucide-react';
@@ -14,13 +13,24 @@ import AgentTabsNavigation from '../../AgentDashboard/AgentTabsNavigation';
 import api from '../../../services/api';
 import { toast } from 'react-hot-toast';
 
-const OverviewTab = ({ analytics, hourlyChartData, isAgent, isQA, dateRange: externalDateRange }) => {
+const OverviewTab = ({ analytics, isAgent, isQA, dateRange: externalDateRange }) => {
   const { user } = useAuth();
   const { device_id, device_type } = useDeviceInfo();
   const [dashboardData, setDashboardData] = useState(null);
-  const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
-  
+
+  // Safety check for analytics prop
+  const safeAnalytics = analytics || {
+    prodCurrent: 0,
+    trendText: '',
+    trendDir: 'neutral',
+    prevRange: { label: '' },
+    prodPrevious: 0,
+    goalProgress: 0,
+    effectiveGoal: 0,
+    agentStats: []
+  };
+
   // Helper to get today's date in YYYY-MM-DD format
   const getTodayDateString = () => {
     const today = new Date();
@@ -70,7 +80,6 @@ const OverviewTab = ({ analytics, hourlyChartData, isAgent, isQA, dateRange: ext
   // Fetch dashboard data for agents
   const fetchDashboardData = React.useCallback(async () => {
     try {
-      setLoading(true);
       let payload = {
         logged_in_user_id: user.user_id,
         device_id: device_id || 'web123',
@@ -86,8 +95,6 @@ const OverviewTab = ({ analytics, hourlyChartData, isAgent, isQA, dateRange: ext
       }
     } catch (error) {
       toast.error('Failed to load dashboard data');
-    } finally {
-      setLoading(false);
     }
   }, [user.user_id, device_id, device_type, dateRange]);
 
@@ -109,7 +116,7 @@ const OverviewTab = ({ analytics, hourlyChartData, isAgent, isQA, dateRange: ext
         setQaSummary([]);
         setQaTrackers([]);
       }
-    } catch (error) {
+    } catch {
       toast.error('Failed to load QA dashboard data');
       setQaSummary([]);
       setQaTrackers([]);
@@ -380,16 +387,16 @@ const OverviewTab = ({ analytics, hourlyChartData, isAgent, isQA, dateRange: ext
             {/* Admin cards */}
             <StatCard
               title="Production (Selected)"
-              value={analytics.prodCurrent.toLocaleString()}
-              subtext={analytics.trendText}
+              value={safeAnalytics.prodCurrent.toLocaleString()}
+              subtext={safeAnalytics.trendText}
               icon={Activity}
-              trend={analytics.trendDir}
+              trend={safeAnalytics.trendDir}
               tooltip="Total production volume in range."
               className="min-w-0"
             />
             <StatCard
-              title={`Production (${analytics.prevRange.label})`}
-              value={analytics.prodPrevious.toLocaleString()}
+              title={`Production (${safeAnalytics.prevRange.label})`}
+              value={safeAnalytics.prodPrevious.toLocaleString()}
               subtext="Vs Previous"
               icon={Calendar}
               trend="neutral"
@@ -398,8 +405,8 @@ const OverviewTab = ({ analytics, hourlyChartData, isAgent, isQA, dateRange: ext
             />
             <StatCard
               title="MTD Progress"
-              value={`${analytics.goalProgress.toFixed(1)}%`}
-              subtext={`Target: ${analytics.effectiveGoal.toLocaleString()}`}
+              value={`${safeAnalytics.goalProgress.toFixed(1)}%`}
+              subtext={`Target: ${safeAnalytics.effectiveGoal.toLocaleString()}`}
               icon={Target}
               trend="neutral"
               tooltip="% of Monthly Target achieved."
@@ -407,7 +414,7 @@ const OverviewTab = ({ analytics, hourlyChartData, isAgent, isQA, dateRange: ext
             />
             <StatCard
               title="Active Agents"
-              value={analytics.agentStats.length}
+              value={safeAnalytics.agentStats.length}
               subtext="In range"
               icon={Users}
               trend="neutral"
@@ -416,8 +423,6 @@ const OverviewTab = ({ analytics, hourlyChartData, isAgent, isQA, dateRange: ext
             />
           </div>
         )}
-
-        {/* Project Billable Hours section removed for agents */}
 
         {/* Conditional content based on user role */}
       </div>

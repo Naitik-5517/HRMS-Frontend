@@ -2,7 +2,6 @@ import React from 'react';
 import {
   LayoutGrid,
   Briefcase,
-  Users,
   FileWarning,
   DollarSign
 } from 'lucide-react';
