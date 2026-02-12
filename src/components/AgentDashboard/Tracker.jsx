@@ -4,7 +4,7 @@ import { Download, Trash2, RotateCcw, RefreshCw } from "lucide-react";
 import * as XLSX from 'xlsx';
 import AppLayout from "../../layouts/AppLayout";
 import api from "../../services/api";
-import { useDeviceInfo } from '../../hooks/useDeviceInfo';
+import nodeApi from "../../services/nodeApi";
 import { fileToBase64 } from "../../utils/fileToBase64";
 import { useAuth } from "../../context/AuthContext";
 import { log, logError } from "../../config/environment";
@@ -22,10 +22,6 @@ const Tracker = ({ embedded = false }) => {
   
   // Auth context for user info
   const { user } = useAuth();
-  const isAdmin = user?.role_name === 'admin' || user?.role_name === 'superadmin' || user?.isSuperAdmin;
-
-  // Device info
-  const { device_id, device_type } = useDeviceInfo();
   
   // Form states
   const [projects, setProjects] = useState([]);
@@ -55,6 +51,10 @@ const Tracker = ({ embedded = false }) => {
   const [aiEvalComplete, setAiEvalComplete] = useState(false);
   const [aiEvalSuccess, setAiEvalSuccess] = useState(null); // true = passed, false = failed, null = not checked
   const [aiEvalError, setAiEvalError] = useState("");
+  const [evaluationResult, setEvaluationResult] = useState(null);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [suggestions, setSuggestions] = useState([]);
+  const [aiTextualSuggestion, setAiTextualSuggestion] = useState("");
 
   // Duplicate Check states
   const [isDuplicateChecking, setIsDuplicateChecking] = useState(false);
@@ -62,6 +62,7 @@ const Tracker = ({ embedded = false }) => {
   const [duplicateCheckComplete, setDuplicateCheckComplete] = useState(false);
   const [duplicateCheckSuccess, setDuplicateCheckSuccess] = useState(null); // true = passed, false = failed, null = not checked
   const [duplicateCheckError, setDuplicateCheckError] = useState("");
+  const [duplicateCheckResult, setDuplicateCheckResult] = useState(null);
 
   // Validation state
   const [errors, setErrors] = useState({});
@@ -176,6 +177,10 @@ const Tracker = ({ embedded = false }) => {
     setAiEvalComplete(false);
     setAiEvalSuccess(null);
     setAiEvalError("");
+    setEvaluationResult(null);
+    setShowSuggestions(false);
+    setSuggestions([]);
+    setAiTextualSuggestion("");
     
     // Reset duplicate check states
     setIsDuplicateChecking(false);
@@ -183,6 +188,7 @@ const Tracker = ({ embedded = false }) => {
     setDuplicateCheckComplete(false);
     setDuplicateCheckSuccess(null);
     setDuplicateCheckError("");
+    setDuplicateCheckResult(null);
     
     // Reset validation states
     setErrors({});
@@ -290,71 +296,192 @@ const Tracker = ({ embedded = false }) => {
   };
 
   // Handle AI Evaluation
-  const handleAIEvaluation = () => {
+  const handleAIEvaluation = async () => {
+    if (!file) {
+      toast.error('Please upload a file first');
+      return;
+    }
+
+    if (!selectedProject || !selectedTask) {
+      toast.error('Please select a project and task first');
+      return;
+    }
+
     setIsAIEvaluating(true);
     setAiEvalProgress(0);
     setAiEvalSuccess(null);
     setAiEvalError("");
+    setEvaluationResult(null);
+    setShowSuggestions(false);
+    setSuggestions([]);
+    setAiTextualSuggestion("");
 
-    const interval = setInterval(() => {
-      setAiEvalProgress((prev) => {
-        if (prev >= 100) {
-          clearInterval(interval);
-          setIsAIEvaluating(false);
-          setAiEvalComplete(true);
-          
-          // TODO: Replace this simulation with actual API call
-          // Simulating API response - for now always success
-          // In future: const response = await api.post('/ai-evaluation', { file });
-          const apiSuccess = true; // Simulate success - change to false to test error state
-          
-          if (apiSuccess) {
-            setAiEvalSuccess(true);
-            toast.success('AI Evaluation passed successfully!');
-          } else {
-            setAiEvalSuccess(false);
-            setAiEvalError('You are not able to proceed the tracker. Please fix your file and reapply.');
-            toast.error('AI Evaluation failed!');
+    let progressInterval;
+    
+    try {
+      // Create FormData for API call
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('user_id', user?.user_id || 1);
+      formData.append('project_id', Number(selectedProject));
+      formData.append('task_id', Number(selectedTask));
+
+      // Simulate progress
+      progressInterval = setInterval(() => {
+        setAiEvalProgress(prev => {
+          if (prev >= 90) {
+            clearInterval(progressInterval);
+            return 90;
           }
-          return 100;
-        }
-        return prev + 10;
+          return prev + 5;
+        });
+      }, 300);
+
+      const res = await nodeApi.post('/ai/evaluate', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        },
+        timeout: 180000 // 3 minutes
       });
-    }, 300);
+
+      clearInterval(progressInterval);
+      setAiEvalProgress(100);
+
+      if (res.data?.status === 'success' || res.status === 200) {
+        setAiEvalSuccess(true);
+        setEvaluationResult(res.data?.data || {});
+        
+        // Handle suggestions if present
+        if (res.data?.data?.suggestions && res.data.data.suggestions.length > 0) {
+          setSuggestions(res.data.data.suggestions);
+          setShowSuggestions(true);
+        }
+        
+        // Handle textual suggestion if present
+        if (res.data?.data?.ai_textual_suggestion) {
+          setAiTextualSuggestion(res.data.data.ai_textual_suggestion);
+        }
+        
+        setIsAIEvaluating(false);
+        setAiEvalComplete(true);
+        toast.success('AI Evaluation passed successfully!');
+      } else {
+        throw new Error(res.data?.message || 'AI Evaluation failed');
+      }
+    } catch (error) {
+      clearInterval(progressInterval);
+      setIsAIEvaluating(false);
+      setAiEvalComplete(true);
+      setAiEvalSuccess(false);
+      
+      const errorMessage = error?.response?.data?.message || error?.message || 'AI Evaluation failed';
+      setAiEvalError(errorMessage);
+      
+      // Show detailed error if available
+      if (error?.response?.data?.data) {
+        setEvaluationResult(error.response.data.data);
+        setShowSuggestions(true);
+      }
+      
+      toast.error(errorMessage);
+    }
   };
 
   // Handle Duplicate Check
-  const handleDuplicateCheck = () => {
+  const handleDuplicateCheck = async () => {
+    if (!file) {
+      toast.error('Please upload a file first');
+      return;
+    }
+
+    if (!selectedProject || !selectedTask) {
+      toast.error('Please select a project and task first');
+      return;
+    }
+
+    // Only allow duplicate check if AI evaluation passed
+    if (!aiEvalComplete || aiEvalSuccess !== true) {
+      toast.error('Please complete AI Evaluation first');
+      return;
+    }
+
     setIsDuplicateChecking(true);
     setDuplicateCheckProgress(0);
     setDuplicateCheckSuccess(null);
     setDuplicateCheckError("");
+    setDuplicateCheckResult(null);
 
-    const interval = setInterval(() => {
-      setDuplicateCheckProgress((prev) => {
-        if (prev >= 100) {
-          clearInterval(interval);
+    let progressInterval;
+    
+    try {
+      // Create FormData for API call
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('user_id', user?.user_id || 1);
+      formData.append('project_id', Number(selectedProject));
+      formData.append('task_id', Number(selectedTask));
+
+      // Simulate progress
+      progressInterval = setInterval(() => {
+        setDuplicateCheckProgress(prev => {
+          if (prev >= 90) {
+            clearInterval(progressInterval);
+            return 90;
+          }
+          return prev + 5;
+        });
+      }, 300);
+
+      const res = await nodeApi.post('/ai/duplicate-check', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        },
+        timeout: 180000 // 3 minutes
+      });
+
+      clearInterval(progressInterval);
+      setDuplicateCheckProgress(100);
+
+      if (res.data?.success === true || res.status === 200) {
+        // Check if duplicates were found
+        if (res.data?.data?.hasDuplicates === true) {
+          // Duplicates found - this is a failure
+          setDuplicateCheckSuccess(false);
+          setDuplicateCheckResult(res.data?.data || {});
           setIsDuplicateChecking(false);
           setDuplicateCheckComplete(true);
           
-          // TODO: Replace this simulation with actual API call
-          // Simulating API response - for now always success
-          // In future: const response = await api.post('/duplicate-check', { file });
-          const apiSuccess = true; // Simulate success - change to false to test error state
-          
-          if (apiSuccess) {
-            setDuplicateCheckSuccess(true);
-            toast.success('Duplicate check passed successfully!');
-          } else {
-            setDuplicateCheckSuccess(false);
-            setDuplicateCheckError('Duplicate entry detected. You are not able to proceed the tracker. Please fix your file and reapply.');
-            toast.error('Duplicate check failed!');
-          }
-          return 100;
+          const duplicateCount = res.data?.data?.duplicateCount || 0;
+          const errorMessage = `Found ${duplicateCount} duplicate entries. Please fix your file and reapply.`;
+          setDuplicateCheckError(errorMessage);
+          toast.error(`Duplicate check failed! ${duplicateCount} duplicates found.`);
+        } else {
+          // No duplicates - success
+          setDuplicateCheckSuccess(true);
+          setDuplicateCheckResult(res.data?.data || {});
+          setIsDuplicateChecking(false);
+          setDuplicateCheckComplete(true);
+          toast.success('Duplicate check passed successfully!');
         }
-        return prev + 10;
-      });
-    }, 300);
+      } else {
+        throw new Error(res.data?.message || 'Duplicate check failed');
+      }
+    } catch (error) {
+      clearInterval(progressInterval);
+      setIsDuplicateChecking(false);
+      setDuplicateCheckComplete(true);
+      setDuplicateCheckSuccess(false);
+      
+      const errorMessage = error?.response?.data?.message || error?.message || 'Duplicate check failed';
+      setDuplicateCheckError(errorMessage);
+      
+      // Show detailed error if available
+      if (error?.response?.data?.data) {
+        setDuplicateCheckResult(error.response.data.data);
+      }
+      
+      toast.error(errorMessage);
+    }
   };
 
   // Handle file upload with 10MB size validation
@@ -424,13 +551,13 @@ const Tracker = ({ embedded = false }) => {
     e.preventDefault();
     
     // Check submission window first
-    if (!isSubmissionWindowOpen) {
-      toast.error(`Tracker submissions are only allowed in the first 15 minutes of each hour. Next window opens at ${nextWindowTime}`, {
-        duration: 5000,
-        icon: '⏰'
-      });
-      return;
-    }
+    // if (!isSubmissionWindowOpen) {
+    //   toast.error(`Tracker submissions are only allowed in the first 15 minutes of each hour. Next window opens at ${nextWindowTime}`, {
+    //     duration: 5000,
+    //     icon: '⏰'
+    //   });
+    //   return;
+    // }
     
     setTouched({ 
       selectedProject: true, 
@@ -478,6 +605,8 @@ const Tracker = ({ embedded = false }) => {
       
       try {
         log('[Tracker] Submitting tracker with FormData');
+        
+        // First, submit the tracker
         const res = await api.post("/tracker/add", formData, {
           headers: {
             'Content-Type': 'multipart/form-data'
@@ -486,6 +615,37 @@ const Tracker = ({ embedded = false }) => {
         
         if (res.data?.status === 201 || res.status === 201 || res.status === 200) {
           log('[Tracker] Tracker added successfully');
+          
+          // If file is uploaded, run process-excel to create hashes
+          if (file) {
+            try {
+              log('[Tracker] Running process-excel for file processing');
+              const processFormData = new FormData();
+              processFormData.append('file', file);
+              processFormData.append('user_id', user?.user_id);
+              processFormData.append('project_id', Number(selectedProject));
+              processFormData.append('task_id', Number(selectedTask));
+              
+              const processRes = await nodeApi.post('/tracker/process-excel', processFormData, {
+                headers: {
+                  'Content-Type': 'multipart/form-data'
+                },
+                timeout: 300000 // 5 minutes for processing
+              });
+              
+              if (processRes.data?.success === true || processRes.data?.status === 'success') {
+                log('[Tracker] File processed successfully, hashes created');
+                toast.success("File processed and hashes created successfully!");
+              } else {
+                logError('[Tracker] File processing failed:', processRes.data);
+                toast.error("Tracker added but file processing failed. Contact support.");
+              }
+            } catch (processError) {
+              logError('[Tracker] Error in process-excel:', processError);
+              toast.error("Tracker added but file processing failed. Contact support.");
+            }
+          }
+          
           toast.success("Tracker added successfully!");
           
           // Reset form and close modal
@@ -621,7 +781,7 @@ const Tracker = ({ embedded = false }) => {
         date: `${day}/${month}/${year}`,
         time: `${hours}:${minutesStr} ${ampm}`
       };
-    } catch (error) {
+    } catch  {
       return { date: dateTimeStr, time: '' };
     }
   };
@@ -878,7 +1038,7 @@ const Tracker = ({ embedded = false }) => {
   };
 
   const content = (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-slate-100 py-6 px-4">
+    <div className="min-h-screen bg-linear-to-br from-slate-50 via-blue-50 to-slate-100 py-6 px-4">
       <div className="max-w-6xl mx-auto w-full space-y-6">
         {/* Tracker Table Section */}
         <div className="bg-white rounded-2xl shadow-xl border border-blue-100 overflow-hidden">
@@ -925,19 +1085,19 @@ const Tracker = ({ embedded = false }) => {
 
                 <button
                   onClick={() => {
-                    if (isSubmissionWindowOpen) {
+                    // if (isSubmissionWindowOpen) {
                       setShowModal(true);
-                    } else {
-                      toast.error(`Tracker submissions are only allowed in the first 15 minutes of each hour. Next window opens at ${nextWindowTime}`, {
-                        duration: 5000,
-                        icon: '⏰'
-                      });
-                    }
+                    // } else {
+                      // toast.error(`Tracker submissions are only allowed in the first 15 minutes of each hour. Next window opens at ${nextWindowTime}`, {
+                        // duration: 5000,
+                        // icon: '⏰'
+                      // });
+                    // }
                   }}
-                  disabled={!isSubmissionWindowOpen}
+                  // disabled={!isSubmissionWindowOpen}
                   className={`inline-flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-sm shadow-lg hover:shadow-xl transition-all duration-200 ${
                     isSubmissionWindowOpen
-                      ? 'bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white transform hover:scale-105 cursor-pointer'
+                      ? 'bg-linear-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white transform hover:scale-105 cursor-pointer'
                       : 'bg-gray-400 text-gray-200 cursor-not-allowed'
                   }`}
                   title={!isSubmissionWindowOpen ? `Submissions only allowed in first 15 minutes of each hour. Next window: ${nextWindowTime}` : 'Add new tracker'}
@@ -951,7 +1111,7 @@ const Tracker = ({ embedded = false }) => {
                 <button
                   onClick={handleExportToExcel}
                   disabled={loading || trackers.length === 0}
-                  className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 disabled:from-gray-400 disabled:to-gray-400 disabled:cursor-not-allowed text-white font-bold text-sm shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105"
+                  className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-linear-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 disabled:from-gray-400 disabled:to-gray-400 disabled:cursor-not-allowed text-white font-bold text-sm shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105"
                   title="Export filtered data to Excel"
                 >
                   <Download className="w-4 h-4" />
@@ -1162,7 +1322,7 @@ const Tracker = ({ embedded = false }) => {
                   <col style={{ width: '9%' }}/>
                   <col style={{ width: '9%' }}/>
                 </colgroup>
-                <thead className="bg-gradient-to-r from-blue-600 to-blue-700 sticky top-0 z-10">
+                <thead className="bg-linear-to-r from-blue-600 to-blue-700 sticky top-0 z-10">
                   <tr>
                     <th className="px-5 py-4 font-bold text-white text-xs uppercase tracking-wider text-left">Date/Time</th>
                     <th className="px-5 py-4 font-bold text-white text-xs uppercase tracking-wider text-left">Project</th>
@@ -1236,7 +1396,7 @@ const Tracker = ({ embedded = false }) => {
                               </svg>
                             </div>
                             <div className="invisible group-hover/tooltip:visible absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-slate-800 text-white text-xs rounded-lg shadow-lg z-50 w-48 max-w-xs">
-                              <div className="break-words whitespace-pre-wrap">{tracker.notes}</div>
+                              <div className="wrap-break whitespace-pre-wrap">{tracker.notes}</div>
                               <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-1 border-4 border-transparent border-t-slate-800"></div>
                             </div>
                           </div>
@@ -1287,21 +1447,21 @@ const Tracker = ({ embedded = false }) => {
         {!loading && trackers.length > 0 && (
           <div className="bg-white rounded-2xl shadow-lg p-8 border border-slate-200">
             <h3 className="text-xl font-bold text-slate-800 mb-6 flex items-center gap-3">
-              <div className="w-1.5 h-8 bg-gradient-to-b from-blue-600 to-blue-700 rounded-full"></div>
+              <div className="w-1.5 h-8 bg-linear-to-b from-blue-600 to-blue-700 rounded-full"></div>
               Summary Totals
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="bg-gradient-to-br from-blue-50 to-blue-100 border-2 border-blue-200 rounded-2xl p-6 shadow-md hover:shadow-xl hover:scale-105 transition-all duration-300">
+              <div className="bg-linear-to-br from-blue-50 to-blue-100 border-2 border-blue-200 rounded-2xl p-6 shadow-md hover:shadow-xl hover:scale-105 transition-all duration-300">
                 <p className="text-xs font-bold text-blue-700 uppercase tracking-wider mb-2">Per Hour Target</p>
                 <p className="text-4xl font-extrabold text-blue-900">{totals.tenureTarget.toFixed(2)}</p>
               </div>
 
-              <div className="bg-gradient-to-br from-green-50 to-green-100 border-2 border-green-200 rounded-2xl p-6 shadow-md hover:shadow-xl hover:scale-105 transition-all duration-300">
+              <div className="bg-linear-to-br from-green-50 to-green-100 border-2 border-green-200 rounded-2xl p-6 shadow-md hover:shadow-xl hover:scale-105 transition-all duration-300">
                 <p className="text-xs font-bold text-green-700 uppercase tracking-wider mb-2">Production</p>
                 <p className="text-4xl font-extrabold text-green-900">{totals.production.toFixed(2)}</p>
               </div>
 
-              <div className="bg-gradient-to-br from-purple-50 to-purple-100 border-2 border-purple-200 rounded-2xl p-6 shadow-md hover:shadow-xl hover:scale-105 transition-all duration-300">
+              <div className="bg-linear-to-br from-purple-50 to-purple-100 border-2 border-purple-200 rounded-2xl p-6 shadow-md hover:shadow-xl hover:scale-105 transition-all duration-300">
                 <p className="text-xs font-bold text-purple-700 uppercase tracking-wider mb-2">Billable Hours</p>
                 <p className="text-4xl font-extrabold text-purple-900">{totals.billableHours.toFixed(2)}</p>
               </div>
@@ -1314,7 +1474,7 @@ const Tracker = ({ embedded = false }) => {
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 overflow-y-auto">
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl transform transition-all my-8 animate-fade-in">
               {/* Modal Header */}
-              <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-2.5 rounded-t-2xl">
+              <div className="bg-linear-to-r from-blue-600 to-blue-700 px-6 py-2.5 rounded-t-2xl">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-4">
                     <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm">
@@ -1435,7 +1595,7 @@ const Tracker = ({ embedded = false }) => {
                       <span className="text-red-500">*</span>
                     </label>
                     <div className="relative">
-                      <div className="w-full bg-gradient-to-r from-slate-50 to-slate-100 border-2 border-slate-300 rounded-lg px-4 py-3 text-sm font-bold text-slate-700 shadow-sm flex items-center gap-2">
+                      <div className="w-full bg-linear-to-r from-slate-50 to-slate-100 border-2 border-slate-300 rounded-lg px-4 py-3 text-sm font-bold text-slate-700 shadow-sm flex items-center gap-2">
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-slate-400">
                           <rect width="14" height="10" x="5" y="11" rx="2"></rect>
                           <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
@@ -1535,7 +1695,7 @@ const Tracker = ({ embedded = false }) => {
                         </div>
                         <div className="w-full bg-slate-200 rounded-full h-2 overflow-hidden">
                           <div 
-                            className="bg-gradient-to-r from-blue-500 to-blue-600 h-full rounded-full transition-all duration-300"
+                            className="bg-linear-to-r from-blue-500 to-blue-600 h-full rounded-full transition-all duration-300"
                             style={{ width: `${uploadProgress}%` }}
                           ></div>
                         </div>
@@ -1575,7 +1735,8 @@ const Tracker = ({ embedded = false }) => {
                   </div>
 
                   {/* AI Evaluation and Duplicate Check Buttons */}
-                  {uploadComplete && (!aiEvalComplete || !duplicateCheckComplete) && (
+                  
+                  {uploadComplete && (!aiEvalComplete || !duplicateCheckComplete) && aiEvalSuccess !== false && (
                     <div className="mt-6 p-4 bg-blue-50 border-2 border-blue-200 rounded-xl">
                       <p className="text-sm font-semibold text-blue-900 mb-3 flex items-center gap-2">
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-blue-600">
@@ -1583,7 +1744,7 @@ const Tracker = ({ embedded = false }) => {
                           <line x1="12" y1="16" x2="12" y2="12"></line>
                           <line x1="12" y1="8" x2="12.01" y2="8"></line>
                         </svg>
-                        File uploaded! Please complete the validation checks:
+                        File uploaded! Complete checks in order: ① AI Evaluation → ② Duplicate Check
                       </p>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                         {/* AI Evaluation Button */}
@@ -1591,8 +1752,8 @@ const Tracker = ({ embedded = false }) => {
                           <button
                             type="button"
                             onClick={handleAIEvaluation}
-                            disabled={isAIEvaluating || aiEvalComplete}
-                            className="w-full px-4 py-3 bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 disabled:from-gray-400 disabled:to-gray-500 text-white font-bold text-sm rounded-lg shadow-md hover:shadow-lg transition-all duration-200 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                            disabled={isAIEvaluating || aiEvalComplete || isDuplicateChecking || duplicateCheckComplete}
+                            className="w-full px-4 py-3 bg-linear-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 disabled:from-gray-400 disabled:to-gray-500 text-white font-bold text-sm rounded-lg shadow-md hover:shadow-lg transition-all duration-200 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                           >
                             {isAIEvaluating ? (
                               <>
@@ -1622,7 +1783,7 @@ const Tracker = ({ embedded = false }) => {
                           {/* AI Evaluation Result Messages */}
                           {aiEvalComplete && aiEvalSuccess === true && (
                             <div className="mt-3 p-3 bg-green-50 border-2 border-green-300 rounded-lg flex items-center gap-2">
-                              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-green-600 flex-shrink-0">
+                              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-green-600 shrink-0">
                                 <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
                                 <polyline points="22 4 12 14.01 9 11.01"></polyline>
                               </svg>
@@ -1631,12 +1792,30 @@ const Tracker = ({ embedded = false }) => {
                           )}
                           {aiEvalComplete && aiEvalSuccess === false && (
                             <div className="mt-3 p-3 bg-red-50 border-2 border-red-300 rounded-lg flex items-start gap-2">
-                              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-red-600 flex-shrink-0 mt-0.5">
+                              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-red-600 shrink-0 mt-0.5">
                                 <circle cx="12" cy="12" r="10"></circle>
                                 <line x1="12" x2="12" y1="8" y2="12"></line>
                                 <line x1="12" x2="12.01" y1="16" y2="16"></line>
                               </svg>
-                              <p className="text-sm font-bold text-red-700">{aiEvalError}</p>
+                              <div>
+                                <p className="text-sm font-bold text-red-700">{aiEvalError}</p>
+                                {showSuggestions && suggestions.length > 0 && (
+                                  <div className="mt-2">
+                                    <p className="text-xs font-semibold text-red-600 mb-1">Suggestions:</p>
+                                    <ul className="text-xs text-red-600 list-disc list-inside space-y-1">
+                                      {suggestions.map((suggestion, index) => (
+                                        <li key={index}>{suggestion}</li>
+                                      ))}
+                                    </ul>
+                                  </div>
+                                )}
+                                {aiTextualSuggestion && (
+                                  <div className="mt-2">
+                                    <p className="text-xs font-semibold text-red-600 mb-1">AI Suggestion:</p>
+                                    <p className="text-xs text-red-600">{aiTextualSuggestion}</p>
+                                  </div>
+                                )}
+                              </div>
                             </div>
                           )}
                         </div>
@@ -1646,8 +1825,8 @@ const Tracker = ({ embedded = false }) => {
                           <button
                             type="button"
                             onClick={handleDuplicateCheck}
-                            disabled={isDuplicateChecking || duplicateCheckComplete}
-                            className="w-full px-4 py-3 bg-gradient-to-r from-orange-600 to-orange-700 hover:from-orange-700 hover:to-orange-800 disabled:from-gray-400 disabled:to-gray-500 text-white font-bold text-sm rounded-lg shadow-md hover:shadow-lg transition-all duration-200 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                            disabled={isDuplicateChecking || duplicateCheckComplete || !aiEvalComplete || aiEvalSuccess === false}
+                            className="w-full px-4 py-3 bg-linear-to-r from-orange-600 to-orange-700 hover:from-orange-700 hover:to-orange-800 disabled:from-gray-400 disabled:to-gray-500 text-white font-bold text-sm rounded-lg shadow-md hover:shadow-lg transition-all duration-200 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                           >
                             {isDuplicateChecking ? (
                               <>
@@ -1682,7 +1861,7 @@ const Tracker = ({ embedded = false }) => {
                           {/* Duplicate Check Result Messages */}
                           {duplicateCheckComplete && duplicateCheckSuccess === true && (
                             <div className="mt-3 p-3 bg-green-50 border-2 border-green-300 rounded-lg flex items-center gap-2">
-                              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-green-600 flex-shrink-0">
+                              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-green-600 shrink-0">
                                 <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
                                 <polyline points="22 4 12 14.01 9 11.01"></polyline>
                               </svg>
@@ -1691,12 +1870,46 @@ const Tracker = ({ embedded = false }) => {
                           )}
                           {duplicateCheckComplete && duplicateCheckSuccess === false && (
                             <div className="mt-3 p-3 bg-red-50 border-2 border-red-300 rounded-lg flex items-start gap-2">
-                              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-red-600 flex-shrink-0 mt-0.5">
+                              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-red-600 shrink-0 mt-0.5">
                                 <circle cx="12" cy="12" r="10"></circle>
                                 <line x1="12" x2="12" y1="8" y2="12"></line>
                                 <line x1="12" x2="12.01" y1="16" y2="16"></line>
                               </svg>
-                              <p className="text-sm font-bold text-red-700">{duplicateCheckError}</p>
+                              <div>
+                                <p className="text-sm font-bold text-red-700">{duplicateCheckError}</p>
+                                {duplicateCheckResult && (
+                                  <div className="mt-2">
+                                    {duplicateCheckResult.duplicates && duplicateCheckResult.duplicates.length > 0 && (
+                                      <div>
+                                        <p className="text-xs font-semibold text-red-600 mb-1">Duplicate Entries Found ({duplicateCheckResult.duplicateCount || 0} total):</p>
+                                        <ul className="text-xs text-red-600 list-disc list-inside space-y-1 max-h-32 overflow-y-auto">
+                                          {duplicateCheckResult.duplicates.map((duplicate, index) => (
+                                            <li key={index}>
+                                              Row {duplicate.row}: 
+                                              {duplicate.duplicateColumns && duplicate.duplicateColumns.map((col, colIndex) => (
+                                                <span key={colIndex}>
+                                                  {col} = "{duplicate.duplicateValues[col] || 'N/A'}"
+                                                  {colIndex < duplicate.duplicateColumns.length - 1 && ', '}
+                                                </span>
+                                              ))}
+                                            </li>
+                                          ))}
+                                        </ul>
+                                      </div>
+                                    )}
+                                    {duplicateCheckResult.totalRecords && (
+                                      <div className="mt-2">
+                                        <p className="text-xs font-semibold text-red-600">Summary:</p>
+                                        <p className="text-xs text-red-600">
+                                          Total Records: {duplicateCheckResult.totalRecords} | 
+                                          Unique Records: {duplicateCheckResult.uniqueRecords} | 
+                                          Duplicates: {duplicateCheckResult.duplicateCount}
+                                        </p>
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
                             </div>
                           )}
                         </div>
@@ -1707,7 +1920,7 @@ const Tracker = ({ embedded = false }) => {
                   {/* Success message when all checks complete and passed */}
                   {aiEvalComplete && duplicateCheckComplete && aiEvalSuccess === true && duplicateCheckSuccess === true && (
                     <div className="mt-4 p-4 bg-green-50 border-2 border-green-300 rounded-xl flex items-center gap-3">
-                      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-green-600 flex-shrink-0">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-green-600 shrink-0">
                         <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
                         <polyline points="22 4 12 14.01 9 11.01"></polyline>
                       </svg>
@@ -1747,13 +1960,16 @@ const Tracker = ({ embedded = false }) => {
                   {(!file || (aiEvalComplete && duplicateCheckComplete && aiEvalSuccess === true && duplicateCheckSuccess === true)) && (
                     <button
                       type="submit"
-                      disabled={submitting || isUploading || !isSubmissionWindowOpen}
-                      className={`px-8 py-3 font-bold text-sm rounded-lg shadow-lg transition-all duration-200 flex items-center gap-2 ${
-                        !isSubmissionWindowOpen
-                          ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
-                          : 'bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed'
-                      }`}
-                      title={!isSubmissionWindowOpen ? `Submissions only allowed in first 15 minutes of each hour. Next window: ${nextWindowTime}` : ''}
+                      // disabled={submitting || isUploading || !isSubmissionWindowOpen}
+                      disabled={submitting || isUploading}
+                      // className={`px-8 py-3 font-bold text-sm rounded-lg shadow-lg transition-all duration-200 flex items-center gap-2 ${
+                      //   !isSubmissionWindowOpen
+                      //     ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
+                      //     : 'bg-linear-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed'
+                      // }`}
+                      className="px-8 py-3 font-bold text-sm rounded-lg shadow-lg transition-all duration-200 flex items-center gap-2 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
+                      // title={!isSubmissionWindowOpen ? `Submissions only allowed in first 15 minutes of each hour. Next window: ${nextWindowTime}` : ''}
+                      title="Submit tracker entry"
                     >
                       {submitting ? (
                         <>

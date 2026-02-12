@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
 import {
   Upload,
@@ -19,13 +19,81 @@ import {
   FileSearch,
   Lightbulb,
   AlertTriangle,
-  Copy
+  Copy,
+  Briefcase
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import nodeApi from '../../services/nodeApi';
+import api from '../../services/api';
 
-const AIEvaluation = ({ selectedProject, selectedTask }) => {
+const AIEvaluation = ({ externalSelectedProject, externalSelectedTask, onProjectChange, onTaskChange }) => {
   const { user } = useAuth();
+  
+  // Local state for standalone mode
+  const [selectedProject, setSelectedProject] = useState('');
+  const [selectedTask, setSelectedTask] = useState('');
+  const [projects, setProjects] = useState([]);
+  const [tasks, setTasks] = useState([]);
+  
+  // Determine current project and task values
+  const currentProject = externalSelectedProject || selectedProject;
+  const currentTask = externalSelectedTask || selectedTask;
+  
+  // Handle project change
+  const handleProjectChange = (value) => {
+    if (onProjectChange && externalSelectedProject !== undefined) {
+      onProjectChange(value);
+    } else {
+      setSelectedProject(value);
+    }
+  };
+  
+  // Handle task change
+  const handleTaskChange = (value) => {
+    if (onTaskChange && externalSelectedTask !== undefined) {
+      onTaskChange(value);
+    } else {
+      setSelectedTask(value);
+    }
+  };
+  
+  // Fetch projects for standalone mode
+  useEffect(() => {
+    const fetchProjects = async () => {
+      try {
+        const res = await api.post('/dropdown/get', {
+          dropdown_type: 'projects with tasks',
+          logged_in_user_id: user?.user_id
+        });
+        setProjects(res.data?.data || []);
+      } catch (error) {
+        console.error('Failed to fetch projects:', error);
+        toast.error('Failed to fetch projects');
+      }
+    };
+    fetchProjects();
+  }, [user?.user_id]);
+
+  // Fetch tasks when project changes
+  useEffect(() => {
+    if (!currentProject) {
+      setTasks([]);
+      setSelectedTask('');
+      return;
+    }
+    const project = projects.find(p => String(p.project_id) === String(currentProject));
+    console.log('[AIEvaluation] Selected project:', currentProject, 'Found project:', project);
+    const projectTasks = project?.tasks || [];
+    console.log('[AIEvaluation] Project tasks:', projectTasks);
+    setTasks(projectTasks);
+    
+    // Don't clear selected task if we're in AgentDashboard mode (external props provided)
+    // Only clear if the selected task is not in the new task list AND we're in standalone mode
+    if (currentTask && !projectTasks.find(t => String(t.task_id) === String(currentTask)) && !externalSelectedTask) {
+      setSelectedTask('');
+    }
+  }, [currentProject, projects, externalSelectedTask, currentTask]);
+
   const [file, setFile] = useState(null);
   const [fileError, setFileError] = useState('');
   const [isUploading, setIsUploading] = useState(false);
@@ -81,28 +149,34 @@ const AIEvaluation = ({ selectedProject, selectedTask }) => {
   // Handle file selection
   const handleFileChange = (e) => {
     const selectedFile = e.target.files[0];
+    if (!selectedFile) return;
     
-    if (selectedFile) {
-      const error = validateFile(selectedFile);
-      
-      if (error) {
-        setFileError(error);
-        setFile(null);
-        toast.error(error);
-        return;
-      }
-
-      setFile(selectedFile);
-      setFileError('');
-      setEvaluationResult(null);
-      setDuplicateCheckResult(null);
-      setShowSuggestions(false);
-      setAiTextualSuggestion('');
-      
-      // Simulate file upload
-      simulateUpload();
-      toast.success('File uploaded successfully!');
+    // Reset completion refs when new file is selected
+    evaluationCompletedRef.current = false;
+    duplicateCheckCompletedRef.current = false;
+    
+    // Validate file size
+    if (selectedFile.size > MAX_FILE_SIZE) {
+      setFileError('File size must not exceed 10MB');
+      setFile(null);
+      toast.error('File size exceeds 10MB limit');
+      e.target.value = null;
+      return;
     }
+    
+    // Validate file extension
+    const fileExtension = '.' + selectedFile.name.split('.').pop().toLowerCase();
+    if (!ALLOWED_EXTENSIONS.includes(fileExtension)) {
+      setFileError('Invalid file type. Please upload an Excel file');
+      setFile(null);
+      toast.error('Invalid file type. Only Excel files are allowed');
+      e.target.value = null;
+      return;
+    }
+    
+    setFileError('');
+    setFile(selectedFile);
+    toast.success('File uploaded successfully!');
   };
 
   // Simulate file upload progress
@@ -174,8 +248,14 @@ const AIEvaluation = ({ selectedProject, selectedTask }) => {
       return;
     }
 
-    if (!selectedProject || !selectedTask) {
+    if (!currentProject || !currentTask) {
       toast.error('Please select a project and task first');
+      return;
+    }
+
+    // Prevent duplicate evaluations
+    if (evaluationCompletedRef.current) {
+      toast.error('Evaluation already completed for this file');
       return;
     }
 
@@ -190,7 +270,6 @@ const AIEvaluation = ({ selectedProject, selectedTask }) => {
     setEvaluationResult(null);
     setShowSuggestions(false);
     setAiTextualSuggestion('');
-    evaluationCompletedRef.current = false;
 
     let progressInterval;
     
@@ -199,8 +278,8 @@ const AIEvaluation = ({ selectedProject, selectedTask }) => {
       const formData = new FormData();
       formData.append('file', file);
       formData.append('user_id', user?.user_id || 1);
-      formData.append('project_id', Number(selectedProject));
-      formData.append('task_id', Number(selectedTask));
+      formData.append('project_id', Number(currentProject));
+      formData.append('task_id', Number(currentTask));
 
       // Adjust progress for comprehensive analysis
       const progressSpeed = fileSizeMB > 8 ? 1000 : 300; // Slower for large files
@@ -267,6 +346,9 @@ const AIEvaluation = ({ selectedProject, selectedTask }) => {
           toast.success('QC evaluation completed successfully!');
         }
         
+        // Mark evaluation as completed
+        evaluationCompletedRef.current = true;
+        
       } else {
         throw new Error(result.message || 'AI evaluation failed');
       }
@@ -304,23 +386,28 @@ const AIEvaluation = ({ selectedProject, selectedTask }) => {
       return;
     }
 
-    if (!selectedProject || !selectedTask) {
+    if (!currentProject || !currentTask) {
       toast.error('Please select a project and task first');
+      return;
+    }
+
+    // Prevent duplicate checks
+    if (duplicateCheckCompletedRef.current) {
+      toast.error('Duplicate check already completed for this file');
       return;
     }
 
     setIsDuplicateChecking(true);
     setDuplicateCheckProgress(0);
     setDuplicateCheckResult(null);
-    duplicateCheckCompletedRef.current = false;
 
     try {
       // Create FormData for API call
       const formData = new FormData();
       formData.append('file', file);
       formData.append('user_id', user?.user_id || 1);
-      formData.append('project_id', Number(selectedProject));
-      formData.append('task_id', Number(selectedTask));
+      formData.append('project_id', Number(currentProject));
+      formData.append('task_id', Number(currentTask));
 
       // Simulate progress
       const progressInterval = setInterval(() => {
@@ -361,6 +448,9 @@ const AIEvaluation = ({ selectedProject, selectedTask }) => {
         } else {
           toast.success('No duplicates found!');
         }
+        
+        // Mark duplicate check as completed
+        duplicateCheckCompletedRef.current = true;
       } else {
         throw new Error(result.message || 'Duplicate check failed');
       }
@@ -404,6 +494,57 @@ const AIEvaluation = ({ selectedProject, selectedTask }) => {
           </div>
         </div>
       </div>
+
+      {/* Project/Task Selection - Only show in standalone mode */}
+      {!externalSelectedProject && (
+        <div className="bg-white rounded-xl shadow-md border border-slate-200 p-6">
+          <div className="mb-4">
+            <h3 className="text-lg font-semibold text-slate-800 flex items-center gap-2">
+              <Briefcase className="w-5 h-5 text-blue-600" />
+              Select Project and Task
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Project</label>
+                <select
+                  value={currentProject}
+                  onChange={(e) => handleProjectChange(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="">Select a project</option>
+                  {projects.map(project => (
+                    <option key={project.project_id} value={String(project.project_id)}>
+                      {project.project_name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Task</label>
+                <select
+                  value={currentTask}
+                  onChange={(e) => handleTaskChange(e.target.value)}
+                  disabled={!currentProject}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-slate-100 disabled:cursor-not-allowed"
+                >
+                  <option value="">Select a task</option>
+                  {tasks.length === 0 ? (
+                    <option value="">No tasks available</option>
+                  ) : (
+                    tasks.map(task => {
+                      return (
+                        <option key={task.task_id} value={String(task.task_id)}>
+                          {task.label}
+                        </option>
+                      );
+                    })
+                  )}
+                </select>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* File Upload Section */}
       <div className="bg-white rounded-xl shadow-md border border-slate-200 p-6">
