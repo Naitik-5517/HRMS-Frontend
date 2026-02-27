@@ -16,7 +16,6 @@ dist/
 .env.test.local
 .env.production.local
 *.env
-vite.config.js
 
 # Logs
 *.log
