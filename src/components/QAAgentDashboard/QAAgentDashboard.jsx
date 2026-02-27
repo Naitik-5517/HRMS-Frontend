@@ -4,6 +4,7 @@
  * Description: QA Agent Dashboard with stats and pending QC files
  */
 import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 // Set your backend base URL here or use an environment variable (Vite uses import.meta.env)
 const BACKEND_BASE_URL = import.meta.env.VITE_BACKEND_URL || "";
 import { format } from "date-fns";
@@ -68,11 +69,11 @@ const QAAgentDashboard = ({ embedded = false }) => {
   );
   
   // Handle QC Form action
+  const navigate = useNavigate();
   const handleQCForm = (tracker) => {
     log('[QAAgentDashboard] Opening QC Form for tracker:', tracker.tracker_id);
-    // TODO: Implement QC Form modal or navigation
-      toast.success("QC Form functionality coming soon!");
-    };
+    navigate('/qc-form', { state: { tracker } });
+  };
   const { user } = useAuth();
   const { device_id, device_type } = useDeviceInfo();
   

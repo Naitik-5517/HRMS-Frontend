@@ -358,7 +358,7 @@ const DashboardPage = ({
         </div>
       )}
 
-      {/* Agent File Report tab for Assistant Manager and QA */}
+      {/* Agent's Files & QC Report tab for Assistant Manager and QA */}
       {activeTab === 'agent_file_report' && (isAssistantManager || isQA) && (
         <div className="max-w-7xl mx-auto mt-6">
           <QAAgentList />
