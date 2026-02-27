@@ -34,6 +34,18 @@ const AIEvaluation = ({ externalSelectedProject, externalSelectedTask, onProject
   const [selectedTask, setSelectedTask] = useState('');
   const [projects, setProjects] = useState([]);
   const [tasks, setTasks] = useState([]);
+  const [geminiApiKey, setGeminiApiKey] = useState(() => sessionStorage.getItem("gemini_api_key") || "");
+  
+  // Keep geminiApiKey in sync with sessionStorage
+  useEffect(() => {
+    const syncKey = () => setGeminiApiKey(sessionStorage.getItem("gemini_api_key") || "");
+    window.addEventListener("storage", syncKey);
+    window.addEventListener("gemini-key-updated", syncKey);
+    return () => {
+      window.removeEventListener("storage", syncKey);
+      window.removeEventListener("gemini-key-updated", syncKey);
+    };
+  }, []);
   
   // Determine current project and task values
   const currentProject = externalSelectedProject || selectedProject;
@@ -253,6 +265,11 @@ const AIEvaluation = ({ externalSelectedProject, externalSelectedTask, onProject
       return;
     }
 
+    if (!geminiApiKey) {
+      toast.error('Gemini API key required — please add it in your profile settings (Brain icon in header).', { duration: 5000 });
+      return;
+    }
+
     // Prevent duplicate evaluations
     if (evaluationCompletedRef.current) {
       toast.error('Evaluation already completed for this file');
@@ -280,6 +297,7 @@ const AIEvaluation = ({ externalSelectedProject, externalSelectedTask, onProject
       formData.append('user_id', user?.user_id || 1);
       formData.append('project_id', Number(currentProject));
       formData.append('task_id', Number(currentTask));
+      formData.append('gemini_api_key', geminiApiKey);
 
       // Adjust progress for comprehensive analysis
       const progressSpeed = fileSizeMB > 8 ? 1000 : 300; // Slower for large files
@@ -408,6 +426,7 @@ const AIEvaluation = ({ externalSelectedProject, externalSelectedTask, onProject
       formData.append('user_id', user?.user_id || 1);
       formData.append('project_id', Number(currentProject));
       formData.append('task_id', Number(currentTask));
+      if (geminiApiKey) formData.append('gemini_api_key', geminiApiKey);
 
       // Simulate progress
       const progressInterval = setInterval(() => {

@@ -26,6 +26,8 @@ import {
   Brain
 } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
+import GeminiKeyModal from "../GeminiKeyModal";
+
 
 import logo from "../../assets/Transform logo.png";
 
@@ -56,7 +58,9 @@ const Header = ({
   // Debug: Log currentUser to check available properties
   // console.log('Header currentUser:', currentUser);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [geminiKeyOpen, setGeminiKeyOpen] = useState(false);
   const navigate = useNavigate();
+
   const location = useLocation();
 
   // Get role label from role_id or role string
@@ -303,7 +307,8 @@ const Header = ({
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             {/* LEFT: LOGO */}
-            <div className="flex items-center gap-2 flex-shrink-0">
+            <div className="flex items-center gap-2 shrink-0">
+
               <img src={logo} alt="TFS Ops Tracker Logo" className="h-10 w-auto" />
             </div>
 
@@ -313,13 +318,22 @@ const Header = ({
                 {navItems.map(renderNavButton)}
               </div>
               
-              <div className="flex items-center gap-2 border-l border-slate-200 pl-4 flex-shrink-0">
+              <div className="flex items-center gap-2 border-l border-slate-200 pl-4 shrink-0">
+
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-full bg-blue-700 flex items-center justify-center text-lg font-bold text-white">
                     {getInitials()}
                   </div>
                   <button
+                    onClick={() => setGeminiKeyOpen(true)}
+                    className="p-2 rounded-full hover:bg-purple-50 text-purple-600 transition-colors"
+                    title="Gemini AI Key"
+                  >
+                    <Brain className="w-5 h-5" />
+                  </button>
+                  <button
                     onClick={() => {
+
                       if (typeof handleLogout === 'function') {
                         handleLogout();
                       } else if (window && window.sessionStorage) {
@@ -378,9 +392,15 @@ const Header = ({
 
         </div>
       </div>
+      <GeminiKeyModal 
+        isOpen={geminiKeyOpen} 
+        onClose={() => setGeminiKeyOpen(false)} 
+        currentUser={currentUser}
+      />
     </>
   );
 };
+
 
 
 export default Header;

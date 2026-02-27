@@ -63,6 +63,18 @@ const Tracker = ({ embedded = false }) => {
   const [duplicateCheckSuccess, setDuplicateCheckSuccess] = useState(null); // true = passed, false = failed, null = not checked
   const [duplicateCheckError, setDuplicateCheckError] = useState("");
   const [duplicateCheckResult, setDuplicateCheckResult] = useState(null);
+  const [geminiApiKey, setGeminiApiKey] = useState(() => sessionStorage.getItem("gemini_api_key") || "");
+
+  // Sync geminiApiKey with sessionStorage
+  useEffect(() => {
+    const syncKey = () => setGeminiApiKey(sessionStorage.getItem("gemini_api_key") || "");
+    window.addEventListener("storage", syncKey);
+    window.addEventListener("gemini-key-updated", syncKey);
+    return () => {
+      window.removeEventListener("storage", syncKey);
+      window.removeEventListener("gemini-key-updated", syncKey);
+    };
+  }, []);
 
   // Validation state
   const [errors, setErrors] = useState({});
@@ -307,6 +319,11 @@ const Tracker = ({ embedded = false }) => {
       return;
     }
 
+    if (!geminiApiKey) {
+      toast.error('Gemini API key required — please add it in your profile settings (Brain icon in header).', { duration: 5000 });
+      return;
+    }
+
     setIsAIEvaluating(true);
     setAiEvalProgress(0);
     setAiEvalSuccess(null);
@@ -325,6 +342,7 @@ const Tracker = ({ embedded = false }) => {
       formData.append('user_id', user?.user_id || 1);
       formData.append('project_id', Number(selectedProject));
       formData.append('task_id', Number(selectedTask));
+      if (geminiApiKey) formData.append('gemini_api_key', geminiApiKey);
 
       // Simulate progress
       progressInterval = setInterval(() => {
@@ -405,6 +423,11 @@ const Tracker = ({ embedded = false }) => {
       return;
     }
 
+    if (!geminiApiKey) {
+      toast.error('Gemini API key required.', { duration: 5000 });
+      return;
+    }
+
     setIsDuplicateChecking(true);
     setDuplicateCheckProgress(0);
     setDuplicateCheckSuccess(null);
@@ -420,6 +443,7 @@ const Tracker = ({ embedded = false }) => {
       formData.append('user_id', user?.user_id || 1);
       formData.append('project_id', Number(selectedProject));
       formData.append('task_id', Number(selectedTask));
+      if (geminiApiKey) formData.append('gemini_api_key', geminiApiKey);
 
       // Simulate progress
       progressInterval = setInterval(() => {
@@ -625,6 +649,7 @@ const Tracker = ({ embedded = false }) => {
               processFormData.append('user_id', user?.user_id);
               processFormData.append('project_id', Number(selectedProject));
               processFormData.append('task_id', Number(selectedTask));
+              if (geminiApiKey) processFormData.append('gemini_api_key', geminiApiKey);
               
               const processRes = await nodeApi.post('/tracker/process-excel', processFormData, {
                 headers: {
