@@ -6,7 +6,7 @@
 import React, { useEffect, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { format } from "date-fns";
-import { ChevronDown, ChevronUp, Download, FileText, FileCheck, Users as UsersIcon, Search, X, RefreshCw, RotateCcw } from "lucide-react";
+import { ChevronDown, ChevronUp, Download, FileText, FileCheck, Users as UsersIcon, Search, X, RefreshCw, RotateCcw, Check, Loader2 } from "lucide-react";
 import { toast } from "react-hot-toast";
 import api from "../../services/api";
 import { useAuth } from "../../context/AuthContext";
@@ -23,6 +23,7 @@ const QAAgentList = () => {
   const { user } = useAuth();
   const [agents, setAgents] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [agentLoading, setAgentLoading] = useState(false);
   const [expandedAgents, setExpandedAgents] = useState({});
   const [agentTrackers, setAgentTrackers] = useState({});
   const [searchQuery, setSearchQuery] = useState("");
@@ -144,6 +145,7 @@ const QAAgentList = () => {
 
   // Fetch tracker data for specific agent with date range
   const fetchAgentTrackers = async (agentId, startDate = null, endDate = null) => {
+    setAgentLoading(true);
     try {
       // Use provided dates or fall back to state/today's date
       const filters = startDate && endDate 
@@ -185,6 +187,8 @@ const QAAgentList = () => {
     } catch (error) {
       logError("[QAAgentList] Error fetching agent trackers:", error);
       toast.error("Failed to fetch tracker data");
+    } finally {
+      setAgentLoading(false);
     }
   };
 
@@ -444,38 +448,39 @@ const QAAgentList = () => {
                           setSelectedAgentId(agent.user_id);
                           fetchAgentTrackers(agent.user_id);
                         }}
-                        className={`w-full text-left p-4 rounded-xl transition-all duration-300 border-2 ${
+                        disabled={agentLoading}
+                        className={`w-full text-left p-4 rounded-xl transition-all duration-300 border-2 relative overflow-hidden ${
                           isSelected
                             ? 'bg-white border-blue-600 shadow-lg scale-105'
                             : 'bg-white border-slate-200 hover:border-blue-300 hover:shadow-md'
-                        }`}
+                        } ${agentLoading ? 'opacity-70 cursor-not-allowed' : ''}`}
                       >
+                        {/* Left accent border for selected */}
+                        {isSelected && (
+                          <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-blue-600 to-indigo-600"></div>
+                        )}
+                        
                         <div className="flex items-center gap-3">
-                          <div className={`w-12 h-12 rounded-xl flex items-center justify-center transition-all shadow-sm ${
-                            isSelected
-                              ? 'bg-gradient-to-br from-blue-100 to-indigo-100'
-                              : 'bg-gradient-to-br from-blue-100 to-indigo-100'
-                          }`}>
-                            <UsersIcon className={`w-6 h-6 text-blue-600`} />
+                          <div className={`w-12 h-12 rounded-xl flex items-center justify-center transition-all shadow-sm bg-gradient-to-br from-blue-100 to-indigo-100`}>
+                            <UsersIcon className="w-6 h-6 text-blue-600" />
                           </div>
                           <div className="flex-1 min-w-0">
-                            <h4 className={`font-bold text-sm truncate mb-1 ${
-                              isSelected ? 'text-slate-900' : 'text-slate-900'
-                            }`}>
-                              {agent.user_name}
-                            </h4>
-                            <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold ${
-                              isSelected
-                                ? 'bg-blue-100 text-blue-700'
-                                : 'bg-blue-100 text-blue-700'
-                            }`}>
+                            <div className="flex items-center gap-2 mb-1">
+                              <h4 className="font-bold text-sm truncate text-slate-900">
+                                {agent.user_name}
+                              </h4>
+                              {isSelected && (
+                                <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-sm">
+                                  <Check className="w-3 h-3" />
+                                  <span className="text-xs font-bold">Selected</span>
+                                </div>
+                              )}
+                            </div>
+                            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold bg-blue-100 text-blue-700">
                               <FileText className="w-3 h-3" />
                               <span>{trackers.length} file{trackers.length !== 1 ? 's' : ''}</span>
                             </div>
                           </div>
-                          {isSelected && (
-                            <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
-                          )}
                         </div>
                       </button>
                     );
@@ -485,7 +490,15 @@ const QAAgentList = () => {
 
               {/* Right Panel - Agent Details */}
               <div className="flex-1 flex flex-col bg-gradient-to-br from-slate-50 to-blue-50/30">
-                {selectedAgentId ? (() => {
+                {agentLoading ? (
+                  <div className="h-full flex items-center justify-center">
+                    <div className="text-center">
+                      <Loader2 className="w-12 h-12 text-blue-600 animate-spin mx-auto mb-4" />
+                      <p className="text-slate-700 font-bold text-lg">Loading Agent Data...</p>
+                      <p className="text-slate-500 text-sm mt-2">Please wait</p>
+                    </div>
+                  </div>
+                ) : selectedAgentId ? (() => {
                   const selectedAgent = agents.find(a => a.user_id === selectedAgentId);
                   const trackers = agentTrackers[selectedAgentId] || [];
                   
@@ -590,7 +603,9 @@ const QAAgentList = () => {
                                   {trackers.map((tracker, index) => (
                                     <tr
                                       key={tracker.tracker_id || index}
-                                      className="hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 transition-all duration-200 group"
+                                      className={`transition-all duration-200 group ${
+                                        index % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'
+                                      } hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50`}
                                     >
                                       <td className="px-6 py-4 align-middle">
                                         <div className="flex items-center gap-3">
