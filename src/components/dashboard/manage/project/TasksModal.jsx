@@ -5,6 +5,7 @@ import { fetchProjectTasks } from '../../../../services/projectService';
 import { useAuth } from '../../../../context/AuthContext';
 import MultiSelectWithCheckbox from '../../../common/MultiSelectWithCheckbox';
 import * as XLSX from 'xlsx';
+import toast from 'react-hot-toast';
 
 const TasksModal = ({
   project,
@@ -135,70 +136,6 @@ const TasksModal = ({
   const handleRemoveFile = () => {
     setFormData((prev) => ({ ...prev, file: null, importantColumns: [] }));
     setExcelColumnHeaders([]);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
-  };
-
-  const handleFileUpload = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    // Validate file type
-    const validTypes = ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/vnd.ms-excel'];
-    if (!validTypes.includes(file.type) && !file.name.match(/\.(xlsx|xls)$/)) {
-      toast.error('Please upload a valid Excel file (.xlsx or .xls)');
-      e.target.value = '';
-      return;
-    }
-
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      try {
-        const data = new Uint8Array(event.target.result);
-        const workbook = XLSX.read(data, { type: 'array' });
-        const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-        const jsonData = XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
-        const headers = jsonData[0] || [];
-        const filteredHeaders = headers.filter(h => h && String(h).trim());
-        
-        if (filteredHeaders.length === 0) {
-          toast.error('No column headers found in Excel file');
-          return;
-        }
-
-        setColumnNames(filteredHeaders);
-        setFormData((prev) => ({ ...prev, excelFile: file, selectedColumns: [] }));
-        toast.success(`Excel file uploaded successfully! ${filteredHeaders.length} columns found.`);
-      } catch (error) {
-        console.error('Error reading Excel file:', error);
-        toast.error('Failed to read Excel file. Please check the file format.');
-      }
-    };
-    reader.readAsArrayBuffer(file);
-  };
-
-  const toggleColumnSelection = (column) => {
-    setFormData((prev) => {
-      const exists = prev.selectedColumns.includes(column);
-      const updated = exists 
-        ? prev.selectedColumns.filter((c) => c !== column) 
-        : [...prev.selectedColumns, column];
-      return { ...prev, selectedColumns: updated };
-    });
-  };
-
-  const handleSelectAllColumns = (isChecked) => {
-    if (isChecked) {
-      setFormData((prev) => ({ ...prev, selectedColumns: [...columnNames] }));
-    } else {
-      setFormData((prev) => ({ ...prev, selectedColumns: [] }));
-    }
-  };
-
-  const handleRemoveFile = () => {
-    setFormData((prev) => ({ ...prev, excelFile: null, selectedColumns: [] }));
-    setColumnNames([]);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -363,103 +300,6 @@ const TasksModal = ({
                   />
                   {formErrors.target && <p className="text-xs text-red-600 mt-1">{formErrors.target}</p>}
                 </div>
-                
-                {/* Excel File Upload */}
-                <div className="md:col-span-2">
-                  <label className="block text-xs font-semibold text-slate-500 mb-1">Upload Excel File</label>
-                  <div className="flex items-center gap-2">
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept=".xlsx,.xls"
-                      onChange={handleFileUpload}
-                      className="hidden"
-                      id="excel-upload"
-                    />
-                    <label
-                      htmlFor="excel-upload"
-                      className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-300 rounded-lg cursor-pointer hover:bg-slate-50 transition-colors text-sm"
-                    >
-                      <Upload className="w-4 h-4 text-slate-600" />
-                      <span className="text-slate-700">Choose Excel File</span>
-                    </label>
-                    {formData.excelFile && (
-                      <div className="flex items-center gap-2 px-3 py-2 bg-green-50 border border-green-200 rounded-lg">
-                        <FileSpreadsheet className="w-4 h-4 text-green-600" />
-                        <span className="text-xs text-green-700 font-medium">{formData.excelFile.name}</span>
-                        <button
-                          type="button"
-                          onClick={handleRemoveFile}
-                          className="text-green-600 hover:text-green-800"
-                        >
-                          <X className="w-4 h-4" />
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                  {!formData.excelFile && (
-                    <p className="text-xs text-slate-500 mt-1">Upload an Excel file to extract column names</p>
-                  )}
-                </div>
-
-                {/* Column Selection Dropdown */}
-                {columnNames.length > 0 && (
-                  <div className="md:col-span-2" ref={columnDropdownRef}>
-                    <label className="block text-xs font-semibold text-slate-500 mb-1">Select Columns</label>
-                    <div className="relative">
-                      <button
-                        type="button"
-                        onClick={() => setShowColumnDropdown((prev) => !prev)}
-                        className="flex items-center justify-between w-full px-3 py-2 text-sm bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 hover:bg-slate-50"
-                      >
-                        <span className="truncate text-left">
-                          {formData.selectedColumns.length === 0
-                            ? 'Select columns from Excel'
-                            : `${formData.selectedColumns.length} column${formData.selectedColumns.length > 1 ? 's' : ''} selected`}
-                        </span>
-                        <ChevronDown className={`w-4 h-4 transition-transform ${showColumnDropdown ? 'rotate-180' : ''}`} />
-                      </button>
-                      {showColumnDropdown && (
-                        <div className="absolute z-10 mt-1 w-full bg-white border border-slate-200 rounded-lg shadow-lg max-h-64 overflow-y-auto">
-                          {/* Select All Option */}
-                          <label className="flex items-center px-3 py-2 hover:bg-blue-50 cursor-pointer border-b border-slate-200 bg-slate-50 text-sm">
-                            <input
-                              type="checkbox"
-                              className="w-4 h-4 text-blue-600 border-slate-300 rounded mr-2"
-                              checked={columnNames.length > 0 && formData.selectedColumns.length === columnNames.length}
-                              onChange={(e) => handleSelectAllColumns(e.target.checked)}
-                            />
-                            <span className="font-semibold text-slate-900">Select All</span>
-                          </label>
-                          {columnNames.map((column, index) => (
-                            <label key={index} className="flex items-center px-3 py-2 hover:bg-slate-50 cursor-pointer text-sm">
-                              <input
-                                type="checkbox"
-                                className="w-4 h-4 text-blue-600 border-slate-300 rounded mr-2"
-                                checked={formData.selectedColumns.includes(column)}
-                                onChange={() => toggleColumnSelection(column)}
-                              />
-                              <span className="text-slate-700">{column}</span>
-                            </label>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                    {formData.selectedColumns.length > 0 && (
-                      <div className="flex flex-wrap gap-2 mt-2">
-                        {formData.selectedColumns.map((column, index) => (
-                          <span key={index} className="inline-flex items-center gap-1 px-2 py-1 text-xs bg-green-100 text-green-800 rounded-full">
-                            {column}
-                            <button onClick={() => toggleColumnSelection(column)} className="text-green-600 hover:text-green-800">
-                              <X className="w-3 h-3" />
-                            </button>
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
-
                 <div className="md:col-span-2">
                   <label className="block text-xs font-semibold text-slate-500 mb-1">Task Description</label>
                   <textarea
