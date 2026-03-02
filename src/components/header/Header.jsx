@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import GeminiKeyModal from "../GeminiKeyModal";
+import { fetchGeminiApiKey } from "../../services/agentService";
 
 
 import logo from "../../assets/Transform logo.png";
@@ -62,6 +63,27 @@ const Header = ({
   const navigate = useNavigate();
 
   const location = useLocation();
+
+  // Fetch Gemini API key status on mount
+  useEffect(() => {
+    const userId = currentUser?.user_id || currentUser?.id;
+    if (!userId || sessionStorage.getItem("gemini_api_key")) return;
+
+    const loadKey = async () => {
+      try {
+        const res = await fetchGeminiApiKey(userId);
+        if (res.success && res.hasKey && res.gemini_api_key) {
+          sessionStorage.setItem("gemini_api_key", res.gemini_api_key);
+          window.dispatchEvent(new CustomEvent("gemini-key-updated"));
+          console.log('[Header] Gemini API key loaded from DB to sessionStorage');
+        }
+      } catch (error) {
+        console.error("[Header] Failed to load Gemini key:", error);
+      }
+    };
+
+    loadKey();
+  }, [currentUser]);
 
   // Get role label from role_id or role string
   const getRoleLabel = () => {

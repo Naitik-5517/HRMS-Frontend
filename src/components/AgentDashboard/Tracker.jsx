@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo } from "react";
 import { toast } from "react-hot-toast";
-import { Download, Trash2, RotateCcw, RefreshCw } from "lucide-react";
+import { Download, Trash2, RotateCcw, RefreshCw, Copy, ChevronDown } from "lucide-react";
 import * as XLSX from 'xlsx';
 import AppLayout from "../../layouts/AppLayout";
 import api from "../../services/api";
@@ -476,9 +476,10 @@ const Tracker = ({ embedded = false }) => {
           setDuplicateCheckComplete(true);
           
           const duplicateCount = res.data?.data?.duplicateCount || 0;
-          const errorMessage = `Found ${duplicateCount} duplicate entries. Please fix your file and reapply.`;
+          const totalRecords = res.data?.data?.totalRecords || 0;
+          const errorMessage = `${duplicateCount} record${duplicateCount === 1 ? '' : 's'} out of ${totalRecords} are duplicates. Please fix your file and reapply.`;
           setDuplicateCheckError(errorMessage);
-          toast.error(`Duplicate check failed! ${duplicateCount} duplicates found.`);
+          toast.error(`Duplicate check failed! ${duplicateCount} duplicate${duplicateCount === 1 ? '' : 's'} found.`);
         } else {
           // No duplicates - success
           setDuplicateCheckSuccess(true);
@@ -1903,25 +1904,67 @@ const Tracker = ({ embedded = false }) => {
                               <div>
                                 <p className="text-sm font-bold text-red-700">{duplicateCheckError}</p>
                                 {duplicateCheckResult && (
-                                  <div className="mt-2">
-                                    {duplicateCheckResult.duplicates && duplicateCheckResult.duplicates.length > 0 && (
-                                      <div>
-                                        <p className="text-xs font-semibold text-red-600 mb-1">Duplicate Entries Found ({duplicateCheckResult.duplicateCount || 0} total):</p>
-                                        <ul className="text-xs text-red-600 list-disc list-inside space-y-1 max-h-32 overflow-y-auto">
-                                          {duplicateCheckResult.duplicates.map((duplicate, index) => (
-                                            <li key={index}>
-                                              Row {duplicate.row}: 
-                                              {duplicate.duplicateColumns && duplicate.duplicateColumns.map((col, colIndex) => (
-                                                <span key={colIndex}>
-                                                  {col} = "{duplicate.duplicateValues[col] || 'N/A'}"
-                                                  {colIndex < duplicate.duplicateColumns.length - 1 && ', '}
-                                                </span>
-                                              ))}
-                                            </li>
+                                  <>
+                                  {/* Duplicates List */}
+                              {duplicateCheckResult.duplicates && duplicateCheckResult.duplicates.length > 0 && (
+                                <div className="mt-4 max-h-80 overflow-y-auto space-y-3 border-t border-red-100 pt-4 pr-1">
+                                  <p className="text-[11px] font-bold text-red-800 uppercase tracking-wider mb-2">Duplicate Records Grouped by Match:</p>
+                                  
+                                  {/* Group duplicates by hash */}
+                                  {Object.values(duplicateCheckResult.duplicates.reduce((acc, dup) => {
+                                    if (!acc[dup.hash]) {
+                                      acc[dup.hash] = { ...dup, allRows: [dup.row] };
+                                    } else {
+                                      acc[dup.hash].allRows.push(dup.row);
+                                    }
+                                    return acc;
+                                  }, {})).map((dup, idx) => (
+                                    <div key={idx} className="bg-red-50/50 p-4 rounded-xl border border-red-200 shadow-sm">
+                                      <div className="flex items-start justify-between mb-3">
+                                        <div className="flex items-center gap-2">
+                                          <div className="w-8 h-8 bg-red-100 rounded-lg flex items-center justify-center">
+                                            <Copy className="w-4 h-4 text-red-600" />
+                                          </div>
+                                          <span className="text-xs font-bold text-red-900">
+                                            {dup.allRows.length} {dup.allRows.length === 1 ? 'Record' : 'Records'} with same data
+                                          </span>
+                                        </div>
+                                        <div className="flex flex-wrap gap-1 justify-end max-w-[150px]">
+                                          {dup.allRows.map(r => (
+                                            <span key={r} className="text-[10px] font-bold bg-white text-red-700 px-1.5 py-0.5 rounded border border-red-200">
+                                              Row {r}
+                                            </span>
                                           ))}
-                                        </ul>
+                                        </div>
                                       </div>
-                                    )}
+
+                                      <div className="grid grid-cols-1 gap-1.5 mb-3">
+                                        {dup.duplicateColumns && dup.duplicateValues && dup.duplicateColumns.map((col, cIdx) => (
+                                          <div key={cIdx} className="flex gap-2 text-xs">
+                                            <span className="font-bold text-red-800 shrink-0">{col}:</span>
+                                            <span className="text-red-900 break-all">{String(dup.duplicateValues[col] || '(empty)')}</span>
+                                          </div>
+                                        ))}
+                                      </div>
+
+                                      <details className="text-[10px] group">
+                                        <summary className="flex items-center gap-1 cursor-pointer font-bold text-red-600/70 hover:text-red-600 uppercase tracking-tighter select-none">
+                                          <ChevronDown className="w-3 h-3 group-open:rotate-180 transition-transform" />
+                                          <span>View Full Record Sample</span>
+                                        </summary>
+                                        <div className="mt-2 grid grid-cols-1 gap-1 p-2 bg-white/50 rounded-lg border border-red-100">
+                                          {dup.data && Object.entries(dup.data).map(([key, value]) => (
+                                            <div key={key} className="flex gap-2">
+                                              <span className="font-semibold text-red-700/60 shrink-0 w-24 text-right">{key}:</span>
+                                              <span className="text-red-900">{String(value || '(empty)')}</span>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      </details>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
                                     {duplicateCheckResult.totalRecords && (
                                       <div className="mt-2">
                                         <p className="text-xs font-semibold text-red-600">Summary:</p>
@@ -1932,7 +1975,7 @@ const Tracker = ({ embedded = false }) => {
                                         </p>
                                       </div>
                                     )}
-                                  </div>
+                                  </>
                                 )}
                               </div>
                             </div>
