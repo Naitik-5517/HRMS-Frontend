@@ -45,18 +45,18 @@ export default function UserCard({
   const getQCScoreColorClass = (score) => {
     if (score === null || score === undefined || score === '-' || isNaN(Number(score))) return 'text-slate-700';
     const numScore = Number(score);
-    if (numScore >= 98) return 'text-green-700 bg-green-50 font-bold';
-    if (numScore >= 95) return 'text-orange-600 bg-orange-50 font-semibold';
-    return 'text-red-800 bg-red-100 font-bold';
+    if (numScore >= 98) return 'text-green-800 bg-green-100 font-bold';
+    if (numScore >= 95) return 'text-yellow-700 bg-yellow-100 font-bold';
+    return 'text-red-700 bg-red-200 font-bold';
   };
 
   // Helper function to get tracker count color classes
   const getTrackerCountColorClass = (count) => {
     if (count === null || count === undefined || count === '-' || isNaN(Number(count))) return 'text-slate-700';
     const numCount = Number(count);
-    if (numCount >= 9) return 'text-green-700 bg-green-50 font-bold';
-    if (numCount >= 7) return 'text-orange-600 bg-orange-50 font-semibold';
-    return 'text-red-800 bg-red-100 font-bold';
+    if (numCount >= 9) return 'text-green-800 bg-green-100 font-bold';
+    if (numCount >= 7) return 'text-yellow-700 bg-yellow-100 font-bold';
+    return 'text-red-700 bg-red-200 font-bold';
   };
   
   // Helper function to get month's first and last day
@@ -211,7 +211,7 @@ export default function UserCard({
                 <td className="px-6 py-4 text-center text-slate-700 font-semibold">{row.billable_hours || row.total_billable_hours_day ? Number(row.billable_hours || row.total_billable_hours_day).toFixed(2) : '-'}</td>
                 <td className="px-6 py-4 text-center">
                   <span className={`px-2 py-1 rounded-lg inline-block ${getQCScoreColorClass(row.qc_score)}`}>
-                    {row.qc_score !== null && row.qc_score !== undefined ? Number(row.qc_score).toFixed(2) : '-'}
+                    {row.qc_score !== null && row.qc_score !== undefined ? `${Number(row.qc_score).toFixed(2)}%` : '-'}
                   </span>
                 </td>
                 <td className="px-6 py-4 text-center">
@@ -242,6 +242,33 @@ export default function UserCard({
                 )}
               </tr>
             ))}
+            {/* Totals Row */}
+            {filteredRows.length > 0 && (
+              <tr className="bg-gradient-to-r from-blue-100 to-blue-200 border-t-2 border-blue-300">
+                <td className="px-6 py-4 text-gray-900 font-bold whitespace-nowrap">TOTAL</td>
+                <td className="px-6 py-4 text-center text-gray-900 font-bold">
+                  {filteredRows.reduce((sum, row) => sum + (Number(row.assigned_hours) || 0), 0).toFixed(2)}
+                </td>
+                <td className="px-6 py-4 text-center text-gray-900 font-bold">
+                  {filteredRows.reduce((sum, row) => sum + (Number(row.billable_hours || row.total_billable_hours_day) || 0), 0).toFixed(2)}
+                </td>
+                <td className="px-6 py-4 text-center text-gray-900 font-bold">
+                  {(() => {
+                    const scores = filteredRows.filter(row => row.qc_score != null).map(row => Number(row.qc_score));
+                    return scores.length > 0 ? `${(scores.reduce((sum, score) => sum + score, 0) / scores.length).toFixed(2)}%` : '-';
+                  })()}
+                </td>
+                <td className="px-6 py-4 text-center text-gray-900 font-bold">
+                  {filteredRows.reduce((sum, row) => sum + (Number(row.trackers_count_day) || 0), 0)}
+                </td>
+                <td className="px-6 py-4 text-center text-gray-900 font-bold">
+                  {filteredRows.reduce((sum, row) => sum + (Number(row.tenure_target || row.daily_required_hours) || 0), 0).toFixed(2)}
+                </td>
+                {canSeeActions && (
+                  <td className="px-6 py-4 text-center"></td>
+                )}
+              </tr>
+            )}
           </tbody>
         </table>
       </div>
@@ -349,7 +376,7 @@ export default function UserCard({
                         'Date': formatDateTime(row.date_time ?? row.date),
                         'Assign Hours': formatNumber(row.assigned_hours ?? row.assign_hours ?? row.assignHours),
                         'Worked Hours': formatNumber(row.billable_hours ?? row.workedHours ?? row.worked_hours),
-                        'QC Score': formatNumber(row.qc_score ?? row.qcScore),
+                        'QC Score': row.qc_score != null || row.qcScore != null ? `${formatNumber(row.qc_score ?? row.qcScore)}%` : '-',
                         'Tracker Count': row.trackers_count_day !== null && row.trackers_count_day !== undefined ? row.trackers_count_day : '-',
                         'Daily Required Hours': formatNumber(row.tenure_target ?? row.dailyRequiredHours ?? row.daily_required_hours)
                       }));
@@ -358,7 +385,7 @@ export default function UserCard({
                         const totalWorked = exportData.reduce((sum, r) => sum + (parseFloat(r['Worked Hours']) || 0), 0);
                         const totalRequired = exportData.reduce((sum, r) => sum + (parseFloat(r['Daily Required Hours']) || 0), 0);
                         const qcScores = exportData.map(r => parseFloat(r['QC Score'])).filter(v => !isNaN(v));
-                        const avgQC = qcScores.length > 0 ? (qcScores.reduce((a, b) => a + b, 0) / qcScores.length).toFixed(2) : '-';
+                        const avgQC = qcScores.length > 0 ? `${(qcScores.reduce((a, b) => a + b, 0) / qcScores.length).toFixed(2)}%` : '-';
                         
                         const totalTrackers = exportData.reduce((sum, r) => {
                           const count = r['Tracker Count'];
@@ -427,50 +454,89 @@ export default function UserCard({
               </thead>
               <tbody className="bg-white divide-y divide-slate-100">
                 {filteredRows.length > 0 ? (
-                  filteredRows.map((row, idx) => (
-                    <tr key={row.date_time || row.date || idx} className="hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 transition-all duration-200">
-                      <td className="px-6 py-4 text-slate-900 font-medium whitespace-nowrap">{row.date_time || row.date || '-'}</td>
-                      <td className="px-6 py-4 text-center text-slate-700">
-                        {row.assign_hours === '-' || row.assignHours === '-' ? '-' : (row.assign_hours !== undefined && row.assign_hours !== null && !isNaN(Number(row.assign_hours)) ? Number(row.assign_hours).toFixed(2) : (row.assignHours ?? row.assigned_hour ?? "-"))}
+                  <>
+                    {filteredRows.map((row, idx) => (
+                      <tr key={row.date_time || row.date || idx} className="hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 transition-all duration-200">
+                        <td className="px-6 py-4 text-slate-900 font-medium whitespace-nowrap">{row.date_time || row.date || '-'}</td>
+                        <td className="px-6 py-4 text-center text-slate-700">
+                          {row.assign_hours === '-' || row.assignHours === '-' ? '-' : (row.assign_hours !== undefined && row.assign_hours !== null && !isNaN(Number(row.assign_hours)) ? Number(row.assign_hours).toFixed(2) : (row.assignHours ?? row.assigned_hour ?? "-"))}
+                        </td>
+                        <td className="px-6 py-4 text-center text-blue-700 font-semibold">
+                          {row.worked_hours === '-' || row.workedHours === '-' ? '-' : (row.billable_hours !== undefined && row.billable_hours !== null && !isNaN(Number(row.billable_hours)) ? Number(row.billable_hours).toFixed(2) : (row.worked_hours ?? row.workedHours ?? '-'))}
+                        </td>
+                        <td className="px-6 py-4 text-center">
+                          <span className={`px-2 py-1 rounded-lg inline-block ${getQCScoreColorClass(row.qc_score ?? row.qcScore)}`}>
+                          {row.qc_score === '-' || row.qcScore === '-' ? '-' : ('qc_score' in row ? (row.qc_score !== null && row.qc_score !== undefined && !isNaN(Number(row.qc_score)) ? `${Number(row.qc_score).toFixed(2)}%` : '-') : (row.qcScore ? `${row.qcScore}%` : '-'))}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-center">
+                          <span className={`px-2 py-1 rounded-lg inline-block ${getTrackerCountColorClass(row.trackers_count_day)}`}>
+                            {row.trackers_count_day !== null && row.trackers_count_day !== undefined ? row.trackers_count_day : '-'}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-center text-slate-700">
+                          {row.daily_required_hours === '-' || row.dailyRequiredHours === '-' ? '-' : (row.tenure_target !== undefined && row.tenure_target !== null && !isNaN(Number(row.tenure_target)) ? Number(row.tenure_target).toFixed(2) : (row.daily_required_hours ?? row.dailyRequiredHours ?? '-'))}
+                        </td>
+                        {canSeeActions && (
+                          <td className="px-6 py-4 text-center">
+                            <div className="flex items-center justify-center gap-2">
+                              <button
+                                onClick={() => handleAddClick(row)}
+                                className="group relative p-2 rounded-lg bg-gradient-to-br from-emerald-50 to-teal-50 hover:from-emerald-100 hover:to-teal-100 border border-emerald-200 hover:border-emerald-300 transition-all duration-200 hover:shadow-md"
+                                title="Add Entry"
+                              >
+                                <Plus className="w-4 h-4 text-emerald-600 group-hover:text-emerald-700" />
+                              </button>
+                              <button
+                                onClick={() => handleEditClick(row)}
+                                className="group relative p-2 rounded-lg bg-gradient-to-br from-blue-50 to-indigo-50 hover:from-blue-100 hover:to-indigo-100 border border-blue-200 hover:border-blue-300 transition-all duration-200 hover:shadow-md"
+                                title="Edit Entry"
+                              >
+                                <Edit className="w-4 h-4 text-blue-600 group-hover:text-blue-700" />
+                              </button>
+                            </div>
+                          </td>
+                        )}
+                      </tr>
+                    ))}
+                    {/* Totals Row */}
+                    <tr className="bg-gradient-to-r from-blue-100 to-blue-200 border-t-2 border-blue-300">
+                      <td className="px-6 py-4 text-gray-900 font-bold whitespace-nowrap">TOTAL</td>
+                      <td className="px-6 py-4 text-center text-gray-900 font-bold">
+                        {filteredRows.reduce((sum, row) => {
+                          const val = row.assign_hours ?? row.assignHours ?? row.assigned_hour ?? 0;
+                          return sum + (Number(val) || 0);
+                        }, 0).toFixed(2)}
                       </td>
-                      <td className="px-6 py-4 text-center text-blue-700 font-semibold">
-                        {row.worked_hours === '-' || row.workedHours === '-' ? '-' : (row.billable_hours !== undefined && row.billable_hours !== null && !isNaN(Number(row.billable_hours)) ? Number(row.billable_hours).toFixed(2) : (row.worked_hours ?? row.workedHours ?? '-'))}
+                      <td className="px-6 py-4 text-center text-gray-900 font-bold">
+                        {filteredRows.reduce((sum, row) => {
+                          const val = row.billable_hours ?? row.worked_hours ?? row.workedHours ?? 0;
+                          return sum + (Number(val) || 0);
+                        }, 0).toFixed(2)}
                       </td>
-                      <td className="px-6 py-4 text-center">
-                        <span className={`px-2 py-1 rounded-lg inline-block ${getQCScoreColorClass(row.qc_score ?? row.qcScore)}`}>
-                          {row.qc_score === '-' || row.qcScore === '-' ? '-' : ('qc_score' in row ? (row.qc_score !== null && row.qc_score !== undefined && !isNaN(Number(row.qc_score)) ? Number(row.qc_score).toFixed(2) : '-') : (row.qcScore ?? '-'))}
-                        </span>
+                      <td className="px-6 py-4 text-center text-gray-900 font-bold">
+                        {(() => {
+                          const scores = filteredRows.filter(row => {
+                            const score = row.qc_score ?? row.qcScore;
+                            return score != null && score !== '-' && !isNaN(Number(score));
+                          }).map(row => Number(row.qc_score ?? row.qcScore));
+                          return scores.length > 0 ? `${(scores.reduce((sum, score) => sum + score, 0) / scores.length).toFixed(2)}%` : '-';
+                        })()}
                       </td>
-                      <td className="px-6 py-4 text-center">
-                        <span className={`px-2 py-1 rounded-lg inline-block ${getTrackerCountColorClass(row.trackers_count_day)}`}>
-                          {row.trackers_count_day !== null && row.trackers_count_day !== undefined ? row.trackers_count_day : '-'}
-                        </span>
+                      <td className="px-6 py-4 text-center text-gray-900 font-bold">
+                        {filteredRows.reduce((sum, row) => sum + (Number(row.trackers_count_day) || 0), 0)}
                       </td>
-                      <td className="px-6 py-4 text-center text-slate-700">
-                        {row.daily_required_hours === '-' || row.dailyRequiredHours === '-' ? '-' : (row.tenure_target !== undefined && row.tenure_target !== null && !isNaN(Number(row.tenure_target)) ? Number(row.tenure_target).toFixed(2) : (row.daily_required_hours ?? row.dailyRequiredHours ?? '-'))}
+                      <td className="px-6 py-4 text-center text-gray-900 font-bold">
+                        {filteredRows.reduce((sum, row) => {
+                          const val = row.tenure_target ?? row.daily_required_hours ?? row.dailyRequiredHours ?? 0;
+                          return sum + (Number(val) || 0);
+                        }, 0).toFixed(2)}
                       </td>
                       {canSeeActions && (
-                        <td className="px-6 py-4 text-center">
-                          <div className="flex items-center justify-center gap-2">
-                            <button
-                              onClick={() => handleAddClick(row)}
-                              className="group relative p-2 rounded-lg bg-gradient-to-br from-emerald-50 to-teal-50 hover:from-emerald-100 hover:to-teal-100 border border-emerald-200 hover:border-emerald-300 transition-all duration-200 hover:shadow-md"
-                              title="Add Entry"
-                            >
-                              <Plus className="w-4 h-4 text-emerald-600 group-hover:text-emerald-700" />
-                            </button>
-                            <button
-                              onClick={() => handleEditClick(row)}
-                              className="group relative p-2 rounded-lg bg-gradient-to-br from-blue-50 to-indigo-50 hover:from-blue-100 hover:to-indigo-100 border border-blue-200 hover:border-blue-300 transition-all duration-200 hover:shadow-md"
-                              title="Edit Entry"
-                            >
-                              <Edit className="w-4 h-4 text-blue-600 group-hover:text-blue-700" />
-                            </button>
-                          </div>
-                        </td>
+                        <td className="px-6 py-4 text-center"></td>
                       )}
                     </tr>
-                  ))
+                  </>
                 ) : (
                   <tr>
                     <td colSpan="6" className="px-6 py-12 text-center text-slate-500">
