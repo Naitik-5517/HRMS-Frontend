@@ -11,6 +11,7 @@ import { useDeviceInfo } from '../../hooks/useDeviceInfo';
 import BillableReport from "../common/BillableReport";
 import QATrackerReport from './QATrackerReport';
 import QAAgentList from './QAAgentList';
+import { DateRangePicker } from '../common/CustomCalendar';
 
 const AssistantManagerDashboard = () => {
   // StatCard component for dashboard stats
@@ -187,7 +188,7 @@ const AssistantManagerDashboard = () => {
   };
 
   return (
-    <div className="space-y-4 max-w-6xl mx-auto pb-10">
+    <div className="space-y-4 max-w-7xl mx-auto pb-10">
       {/* Navigation Tabs */}
       <AssistantManagerTabsNavigation activeTab={activeTab} setActiveTab={setActiveTab} />
       
@@ -212,40 +213,14 @@ const AssistantManagerDashboard = () => {
                 </div>
                 {/* Custom Calendar Component */}
                 <div className="flex-1">
-                  {/* Replace this with your project's custom calendar component, e.g. <CustomCalendar /> */}
-                  {/* Example usage: */}
-                  {/* <CustomCalendar
-                        startDate={dateRange.start}
-                        endDate={dateRange.end}
-                        onChange={handleDateRangeChange}
-                  /> */}
-                  {/* For now, fallback to QAAgentDashboard's calendar UI: */}
-                  <div className="flex gap-2">
-                    <div className="flex-1">
-                      <label className="flex items-center gap-1.5 text-xs font-bold text-slate-600 uppercase mb-1.5">
-                        <Calendar className="w-3 h-3 text-blue-600" />
-                        From
-                      </label>
-                      <input
-                        type="date"
-                        value={dateRange.start}
-                        onChange={e => handleDateRangeChange('start', e.target.value)}
-                        className="w-full bg-slate-50 border border-slate-300 text-slate-800 text-sm font-medium rounded-lg px-3 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all shadow-sm hover:bg-white"
-                      />
-                    </div>
-                    <div className="flex-1">
-                      <label className="flex items-center gap-1.5 text-xs font-bold text-slate-600 uppercase mb-1.5">
-                        <Calendar className="w-3 h-3 text-blue-600" />
-                        To
-                      </label>
-                      <input
-                        type="date"
-                        value={dateRange.end}
-                        onChange={e => handleDateRangeChange('end', e.target.value)}
-                        className="w-full bg-slate-50 border border-slate-300 text-slate-800 text-sm font-medium rounded-lg px-3 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all shadow-sm hover:bg-white"
-                      />
-                    </div>
-                  </div>
+                  <DateRangePicker
+                    startDate={dateRange.start}
+                    endDate={dateRange.end}
+                    onStartDateChange={(value) => handleDateRangeChange('start', value)}
+                    onEndDateChange={(value) => handleDateRangeChange('end', value)}
+                    noWrapper={true}
+                    showClearButton={false}
+                  />
                 </div>
                 {/* Reset Button */}
                 <div className="flex-shrink-0">

@@ -263,7 +263,7 @@ const DashboardPage = ({
   }
 
   return (
-    <div className="space-y-6 max-w-6xl mx-auto pb-10">
+    <div className="space-y-6 max-w-7xl mx-auto pb-10">
       {/* Debug: Show current active tab */}
       {console.log('[DashboardPage Render] activeTab:', activeTab)}
 

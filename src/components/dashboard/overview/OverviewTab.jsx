@@ -7,13 +7,15 @@ import { useAuth } from '../../../context/AuthContext';
 import { useDeviceInfo } from '../../../hooks/useDeviceInfo';
 import AgentBillableReport from '../../AgentDashboard/AgentBillableReport';
 import AgentTabsNavigation from '../../AgentDashboard/AgentTabsNavigation';
+import { DateRangePicker } from '../../common/CustomCalendar';
 
 // Clear dashboard data when date range changes to force UI refresh
 // (must be inside the component, not before imports)
 import api from '../../../services/api';
 import { toast } from 'react-hot-toast';
 
-const OverviewTab = ({ analytics, isAgent, isQA, dateRange: externalDateRange }) => {
+const OverviewTab = ({ analytics, hourlyChartData, isAgent, isQA, dateRange: externalDateRange }) => {
+
   const { user } = useAuth();
   const { device_id, device_type } = useDeviceInfo();
   const [dashboardData, setDashboardData] = useState(null);
@@ -199,25 +201,29 @@ const OverviewTab = ({ analytics, isAgent, isQA, dateRange: externalDateRange })
       <div className="space-y-4 md:space-y-6 animate-fade-in">
         {/* Agent tab navigation above all content */}
         {isAgent && (
-          <div className="max-w-6xl mx-auto w-full">
+          <div className="max-w-7xl mx-auto w-full">
             <AgentTabsNavigation activeTab={activeTab} setActiveTab={setActiveTab} />
           </div>
         )}
 
         {/* QA DASHBOARD FILTERS & ANALYTICS */}
         {isQA && (
-          <div className="mb-6 max-w-6xl mx-auto w-full">
-            <div className="flex flex-col md:flex-row md:items-end gap-4 mb-4">
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Start Date</label>
-                <input type="date" value={qaStartDate} onChange={e => setQaStartDate(e.target.value)} className="border rounded px-2 py-1 text-sm" />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">End Date</label>
-                <input type="date" value={qaEndDate} onChange={e => setQaEndDate(e.target.value)} className="border rounded px-2 py-1 text-sm" />
-              </div>
-              <button onClick={() => { setQaStartDate(getTodayDate()); setQaEndDate(getTodayDate()); }} className="px-3 py-1.5 text-xs bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-md font-medium transition">Today</button>
-            </div>
+          <div className="mb-6 max-w-7xl mx-auto w-full">
+            {/* Date Range Filter */}
+            <DateRangePicker
+              startDate={qaStartDate}
+              endDate={qaEndDate}
+              onStartDateChange={setQaStartDate}
+              onEndDateChange={setQaEndDate}
+              label="QA Date Range Filter"
+              description="Select date range for QA dashboard"
+              showClearButton={true}
+              onClear={() => {
+                const today = getTodayDate();
+                setQaStartDate(today);
+                setQaEndDate(today);
+              }}
+            />
             {/* QA Analytics Summary */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-4">
               <StatCard title="Total Active Agents" value={qaSummary ? qaSummary.length : 0} subtext="In range" icon={Users} trend="neutral" tooltip="Total agents in summary." className="min-w-0" />
@@ -261,11 +267,11 @@ const OverviewTab = ({ analytics, isAgent, isQA, dateRange: externalDateRange })
 
         {/* Show Billable Report tab content for agents */}
         {isAgent && activeTab === 'billable_report' ? (
-          <div className="max-w-6xl mx-auto w-full">
+          <div className="max-w-7xl mx-auto w-full">
             <AgentBillableReport />
           </div>
         ) : isAgent && activeTab === 'overview' ? (
-          <div className="max-w-6xl mx-auto w-full">
+          <div className="max-w-7xl mx-auto w-full">
             {/* Date Range Filter - Only for Overview Tab */}
             <AgentFilterBar dateRange={agentFilter} setDateRange={setAgentFilter} />
             

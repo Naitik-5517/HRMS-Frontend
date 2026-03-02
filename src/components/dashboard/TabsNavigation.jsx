@@ -1,10 +1,11 @@
 import React, { useRef } from 'react';
 import UserMonthlyReport from './UserMonthlyReport';
+import ProjectMonthlyReport from './ProjectMonthlyReport';
 import {
   LayoutGrid,
   Briefcase,
   Users,
-  FileWarning,
+  FolderKanban,
   DollarSign,
   Gem
 } from 'lucide-react';
@@ -32,11 +33,10 @@ const TabsNavigation = ({
     // Show all required tabs for project manager
     ...(isProjectManager || isAssistantManager || isAdmin || isSuperAdmin ? [
       { id: 'user_monthly_report', label: 'User Monthly Report', icon: Users, visible: true, disabled: false },
-      { id: 'adherence', label: 'Reporting Adherence', icon: FileWarning, visible: true, disabled: false },
+      { id: 'project_monthly_report', label: 'Project Monthly Report', icon: FolderKanban, visible: true, disabled: false },
       { id: 'incentives', label: 'Agent Incentives', icon: DollarSign, visible: true, disabled: false },
       { id: 'mgmt_incentives', label: 'Management Incentives', icon: Gem, visible: true, disabled: false },
     ] : [
-      { id: 'adherence', label: 'Reporting Adherence', icon: FileWarning, visible: canViewAdherence && !isQA, disabled: true },
       { id: 'incentives', label: 'Agent Incentives', icon: DollarSign, visible: canViewIncentivesTab && !isQA, disabled: true },
       { id: 'mgmt_incentives', label: 'Management Incentives', icon: Gem, visible: !isAgent && !isQA, disabled: true },
     ]),
@@ -90,6 +90,13 @@ const TabsNavigation = ({
       {activeTab === 'user_monthly_report' && (
         <div className="mt-4">
           <UserMonthlyReport />
+        </div>
+	  )}
+
+      {/* Render ProjectMonthlyReport below the tab bar when active */}
+      {activeTab === 'project_monthly_report' && (
+        <div className="mt-4">
+          <ProjectMonthlyReport />
         </div>
 	  )}
 

@@ -1,8 +1,7 @@
 // ...existing imports...
-import { useRef } from "react";
 import * as XLSX from 'xlsx';
 import { toast } from "react-hot-toast";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { getFriendlyErrorMessage } from '../../utils/errorMessages';
 import ErrorMessage from '../common/ErrorMessage';
 import dayjs from "dayjs";
@@ -11,13 +10,123 @@ dayjs.extend(customParseFormat);
 import { fetchDailyBillableReport, fetchMonthlyBillableReport } from "../../services/billableReportService";
 import axios from "axios";
 import { useAuth } from "../../context/AuthContext";
-import { Download, Calendar, FileSpreadsheet, X, RotateCcw } from "lucide-react";
+import { Download, Calendar as CalendarIcon, FileSpreadsheet, X, RotateCcw, ChevronDown } from "lucide-react";
+import { DateRangePicker } from '../common/CustomCalendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { cn } from '@/lib/utils';
 
 
 
 const BillableReport = () => {
   // Always call hooks at the top
   const { user } = useAuth();
+  
+  // Helper function to get QC score color classes
+  const getQCScoreColorClass = (score) => {
+    if (score === null || score === undefined || score === '-' || isNaN(Number(score))) return 'text-slate-700';
+    const numScore = Number(score);
+    if (numScore >= 98) return 'text-green-800 bg-green-100 font-bold';
+    if (numScore >= 95) return 'text-yellow-700 bg-yellow-100 font-bold';
+    return 'text-red-700 bg-red-200 font-bold';
+  };
+
+  // Helper function to get tracker count color classes
+  const getTrackerCountColorClass = (count) => {
+    if (count === null || count === undefined || count === '-' || isNaN(Number(count))) return 'text-slate-700';
+    const numCount = Number(count);
+    if (numCount >= 9) return 'text-green-800 bg-green-100 font-bold';
+    if (numCount >= 7) return 'text-yellow-700 bg-yellow-100 font-bold';
+    return 'text-red-700 bg-red-200 font-bold';
+  };
+  
+  // Simple MonthPicker component for selecting month/year in YYYY-MM format
+  const MonthPicker = ({ value, onChange }) => {
+    const [showPicker, setShowPicker] = useState(false);
+    const [viewYear, setViewYear] = useState(() => {
+      if (value) {
+        const [year] = value.split('-');
+        return parseInt(year);
+      }
+      return new Date().getFullYear();
+    });
+
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+    const handleMonthSelect = (monthIndex) => {
+      const monthStr = String(monthIndex + 1).padStart(2, '0');
+      const dateStr = `${viewYear}-${monthStr}`;
+      onChange(dateStr);
+      setShowPicker(false);
+    };
+
+    const selectedMonth = value ? parseInt(value.split('-')[1]) - 1 : -1;
+    const selectedYear = value ? parseInt(value.split('-')[0]) : -1;
+
+    const displayValue = value ? (() => {
+      const [year, month] = value.split('-');
+      const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+      return `${monthNames[parseInt(month) - 1]} ${year}`;
+    })() : 'Select Month';
+
+    return (
+      <div>
+        <label className="flex items-center gap-1.5 text-xs font-bold text-slate-600 uppercase mb-2">
+          <CalendarIcon className="w-3.5 h-3.5 text-blue-600" />
+          Month
+        </label>
+        <Popover open={showPicker} onOpenChange={setShowPicker}>
+          <PopoverTrigger asChild>
+            <button
+              type="button"
+              className="w-full bg-slate-50 border-2 border-blue-200 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-800 hover:bg-blue-50 hover:border-blue-400 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all text-left flex items-center justify-between"
+            >
+              <span>{displayValue}</span>
+              <ChevronDown className="w-4 h-4 text-blue-600" />
+            </button>
+          </PopoverTrigger>
+          <PopoverContent className="w-[280px] border-2 border-blue-200 bg-white p-4" align="start">
+            <div className="flex items-center justify-between mb-4">
+              <button
+                type="button"
+                onClick={() => setViewYear(y => y - 1)}
+                className="p-1.5 hover:bg-slate-100 rounded transition-colors"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+              </button>
+              <span className="font-bold text-sm text-slate-800">{viewYear}</span>
+              <button
+                type="button"
+                onClick={() => setViewYear(y => y + 1)}
+                className="p-1.5 hover:bg-slate-100 rounded transition-colors"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+              </button>
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              {monthNames.map((month, index) => {
+                const isSelected = selectedYear === viewYear && selectedMonth === index;
+                return (
+                  <button
+                    key={month}
+                    type="button"
+                    onClick={() => handleMonthSelect(index)}
+                    className={cn(
+                      "text-sm p-2.5 rounded-lg transition-colors font-medium",
+                      isSelected
+                        ? "bg-blue-600 text-white font-bold"
+                        : "text-slate-700 hover:bg-blue-100"
+                    )}
+                  >
+                    {month}
+                  </button>
+                );
+              })}
+            </div>
+          </PopoverContent>
+        </Popover>
+      </div>
+    );
+  };
   // Export the visible monthly report table (with filters applied)
   const handleExportMonthlyTable = () => {
       try {
@@ -41,7 +150,7 @@ const BillableReport = () => {
             'Billable Hours Delivered': formatNum(row.total_billable_hours ?? row.total_billable_hours_month),
             'Monthly Goal': row.monthly_total_target ?? row.monthly_goal ?? '-',
             'Pending Target': formatNum(row.pending_target),
-            'Avg. QC Score': formatNum(row.avg_qc_score),
+            'Avg. QC Score': row.avg_qc_score != null && row.avg_qc_score !== '' ? `${formatNum(row.avg_qc_score)}%` : '-',
           };
         });
 
@@ -50,7 +159,7 @@ const BillableReport = () => {
         const totalGoal = exportData.reduce((sum, r) => sum + (parseFloat(r['Monthly Goal']) || 0), 0);
         const totalPending = exportData.reduce((sum, r) => sum + (parseFloat(r['Pending Target']) || 0), 0);
         const qcScores = exportData.map(r => parseFloat(r['Avg. QC Score'])).filter(v => !isNaN(v));
-        const avgQC = qcScores.length > 0 ? (qcScores.reduce((a, b) => a + b, 0) / qcScores.length).toFixed(2) : '-';
+        const avgQC = qcScores.length > 0 ? `${(qcScores.reduce((a, b) => a + b, 0) / qcScores.length).toFixed(2)}%` : '-';
 
         exportData.push({
           'Year & Month': 'TOTAL',
@@ -86,7 +195,7 @@ const BillableReport = () => {
         'Billable Hours Delivered': row.delivered,
         'Monthly Goal': row.goal,
         'Pending Target': row.pending,
-        'Avg. QC Score': row.qc,
+        'Avg. QC Score': row.qc != null && row.qc !== '-' ? `${row.qc}%` : '-',
       }];
       const worksheet = XLSX.utils.json_to_sheet(exportData);
       worksheet['!cols'] = [
@@ -140,7 +249,7 @@ const BillableReport = () => {
           'Date-Time': formattedDateTime,
           'Assign Hours': '-',
           'Worked Hours': row.billable_hours ? Number(row.billable_hours).toFixed(2) : '-',
-          'QC score': 'qc_score' in row ? (row.qc_score !== null ? Number(row.qc_score).toFixed(2) : '-') : '-',
+          'QC score': 'qc_score' in row ? (row.qc_score !== null ? `${Number(row.qc_score).toFixed(2)}%` : '-') : '-',
           'Tracker Count': row.trackers_count_day !== null && row.trackers_count_day !== undefined ? row.trackers_count_day : '-',
           'Daily Required Hours': row.tenure_target ? Number(row.tenure_target).toFixed(2) : '-',
         };
@@ -149,7 +258,7 @@ const BillableReport = () => {
       const totalWorked = exportData.reduce((sum, r) => sum + (parseFloat(r['Worked Hours']) || 0), 0);
       const totalRequired = exportData.reduce((sum, r) => sum + (parseFloat(r['Daily Required Hours']) || 0), 0);
       const qcScores = exportData.map(r => parseFloat(r['QC score'])).filter(v => !isNaN(v));
-      const avgQC = qcScores.length > 0 ? (qcScores.reduce((a, b) => a + b, 0) / qcScores.length).toFixed(2) : '-';
+      const avgQC = qcScores.length > 0 ? `${(qcScores.reduce((a, b) => a + b, 0) / qcScores.length).toFixed(2)}%` : '-';
       const totalTrackers = exportData.reduce((sum, r) => {
         const count = r['Tracker Count'];
         return sum + (count !== '-' ? parseInt(count) : 0);
@@ -218,40 +327,8 @@ const BillableReport = () => {
   // State for month filter - default to current month
   const [monthFilter, setMonthFilter] = useState(() => getCurrentMonthRange().month);
   
-  // State for custom calendar picker visibility
-  const [showStartPicker, setShowStartPicker] = useState(false);
-  const [showEndPicker, setShowEndPicker] = useState(false);
-  const [showMonthPicker, setShowMonthPicker] = useState(false);
-
-  // Refs for pickers
-  const startPickerRef = useRef(null);
-  const endPickerRef = useRef(null);
-  const monthPickerRef = useRef(null);
-
-  // Close pickers on outside click
-  useEffect(() => {
-    function handleClickOutside(event) {
-      if (showStartPicker && startPickerRef.current && !startPickerRef.current.contains(event.target)) {
-        setShowStartPicker(false);
-      }
-      if (showEndPicker && endPickerRef.current && !endPickerRef.current.contains(event.target)) {
-        setShowEndPicker(false);
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [showStartPicker, showEndPicker]);
-
-  // Close daily month picker on outside click
-  useEffect(() => {
-    function handleClickOutside(event) {
-      if (showMonthPicker && monthPickerRef.current && !monthPickerRef.current.contains(event.target)) {
-        setShowMonthPicker(false);
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [showMonthPicker]);
+  // Ref to track if we're updating dates from month filter to prevent infinite loop
+  const isUpdatingFromMonthFilter = useRef(false);
 
   // State for API data, loading, and error
   const [dailyData, setDailyData] = useState([]);
@@ -272,10 +349,25 @@ const BillableReport = () => {
         return `${y}-${m}-${d}`;
       };
       
+      isUpdatingFromMonthFilter.current = true;
       setStartDate(formatDate(firstDay));
       setEndDate(formatDate(lastDay));
+      setTimeout(() => {
+        isUpdatingFromMonthFilter.current = false;
+      }, 0);
     }
   }, [monthFilter]);
+
+  // Update month filter when start date changes (from date picker)
+  useEffect(() => {
+    if (startDate && !isUpdatingFromMonthFilter.current) {
+      const [year, month] = startDate.split('-');
+      const newMonthFilter = `${year}-${month}`;
+      if (newMonthFilter !== monthFilter) {
+        setMonthFilter(newMonthFilter);
+      }
+    }
+  }, [startDate, monthFilter]);
 
   // Fetch daily report data from API on mount or when date range/month changes
   useEffect(() => {
@@ -310,19 +402,6 @@ const BillableReport = () => {
   const [loadingMonthly, setLoadingMonthly] = useState(false);
   const [errorMonthly, setErrorMonthly] = useState(null);
   const [monthlyMonth, setMonthlyMonth] = useState(() => getCurrentMonthRange().month);
-  const [showMonthlyMonthPicker, setShowMonthlyMonthPicker] = useState(false);
-  const monthlyMonthPickerRef = useRef(null);
-
-  // Close monthly month picker on outside click
-  useEffect(() => {
-    function handleClickOutside(event) {
-      if (showMonthlyMonthPicker && monthlyMonthPickerRef.current && !monthlyMonthPickerRef.current.contains(event.target)) {
-        setShowMonthlyMonthPicker(false);
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [showMonthlyMonthPicker]);
 
   // Fetch monthly report data from API when monthly tab is active or month filter changes
   useEffect(() => {
@@ -382,7 +461,7 @@ const BillableReport = () => {
           'Date': formattedDate,
           'Assign Hours': row.assigned_hours != null ? Number(row.assigned_hours).toFixed(2) : '-',
           'Worked Hours': row.total_billable_hours_day != null ? Number(row.total_billable_hours_day).toFixed(2) : '-',
-          'QC Score': row.qc_score != null ? Number(row.qc_score).toFixed(2) : '-',
+          'QC Score': row.qc_score != null ? `${Number(row.qc_score).toFixed(2)}%` : '-',
           'Tracker Count': row.trackers_count_day !== null && row.trackers_count_day !== undefined ? row.trackers_count_day : '-',
           'Daily Required Hours': row.daily_required_hours != null ? Number(row.daily_required_hours).toFixed(2) : '-',
         };
@@ -393,7 +472,7 @@ const BillableReport = () => {
       const totalWorked = exportData.reduce((sum, r) => sum + (parseFloat(r['Worked Hours']) || 0), 0);
       const totalRequired = exportData.reduce((sum, r) => sum + (parseFloat(r['Daily Required Hours']) || 0), 0);
       const qcScores = exportData.map(r => parseFloat(r['QC Score'])).filter(v => !isNaN(v));
-      const avgQC = qcScores.length > 0 ? (qcScores.reduce((a, b) => a + b, 0) / qcScores.length).toFixed(2) : '-';
+      const avgQC = qcScores.length > 0 ? `${(qcScores.reduce((a, b) => a + b, 0) / qcScores.length).toFixed(2)}%` : '-';
       const totalTrackers = exportData.reduce((sum, r) => {
         const count = r['Tracker Count'];
         return sum + (count !== '-' ? parseInt(count) : 0);
@@ -425,240 +504,6 @@ const BillableReport = () => {
     } catch {
       toast.error('Failed to export daily report');
     }
-  };
-
-  // Convert yyyy-mm-dd to dd/mm/yyyy for display
-  const formatToDisplay = (dateStr) => {
-    if (!dateStr) return '';
-    const [year, month, day] = dateStr.split('-');
-    return `${day}/${month}/${year}`;
-  };
-
-  // Convert dd/mm/yyyy to yyyy-mm-dd for storage
-  const formatToStorage = (day, month, year) => {
-    return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-  };
-
-  // Handle date selection from custom calendar
-  const handleDateSelect = (name, dateValue) => {
-    if (name === 'start') {
-      setStartDate(dateValue);
-      setShowStartPicker(false);
-    } else if (name === 'end') {
-      setEndDate(dateValue);
-      setShowEndPicker(false);
-    }
-  };
-
-  // Generate calendar days
-  const generateCalendar = (currentDate) => {
-    const date = currentDate ? new Date(currentDate) : new Date();
-    const year = date.getFullYear();
-    const month = date.getMonth();
-    
-    const firstDay = new Date(year, month, 1);
-    const lastDay = new Date(year, month + 1, 0);
-    const daysInMonth = lastDay.getDate();
-    const startingDayOfWeek = firstDay.getDay();
-    
-    return { year, month, daysInMonth, startingDayOfWeek };
-  };
-
-  const CustomDatePicker = ({ name, value, onSelect, show, onClose }) => {
-    const ref = name === 'start' ? startPickerRef : endPickerRef;
-    const [viewDate, setViewDate] = useState(value || new Date().toISOString().split('T')[0]);
-
-    // Sync viewDate with value only when picker opens
-    useEffect(() => {
-      if (show && value) setViewDate(value);
-      // eslint-disable-next-line
-    }, [show]); // Only depend on show to allow navigation while open
-
-    const { year, month, daysInMonth, startingDayOfWeek } = generateCalendar(viewDate);
-    const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-    const dayNames = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
-
-    const handlePrevMonth = (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      let prevMonth = month - 1;
-      let prevYear = year;
-      if (prevMonth < 0) {
-        prevMonth = 11;
-        prevYear = year - 1;
-      }
-      const newDate = new Date(prevYear, prevMonth, 1);
-      setViewDate(newDate.toISOString().split('T')[0]);
-    };
-
-    const handleNextMonth = (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      let nextMonth = month + 1;
-      let nextYear = year;
-      if (nextMonth > 11) {
-        nextMonth = 0;
-        nextYear = year + 1;
-      }
-      const newDate = new Date(nextYear, nextMonth, 1);
-      setViewDate(newDate.toISOString().split('T')[0]);
-    };
-
-    if (!show) return null;
-
-    return (
-      <div ref={ref} className="absolute z-50 mt-1 bg-white rounded-lg shadow-xl border-2 border-blue-200 p-3 w-64">
-        {/* Month/Year Header */}
-        <div className="flex items-center justify-between mb-3">
-          <button type="button" onClick={handlePrevMonth} className="p-1 hover:bg-slate-100 rounded">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
-          </button>
-          <span className="font-bold text-sm text-slate-800">{monthNames[month]} {year}</span>
-          <button type="button" onClick={handleNextMonth} className="p-1 hover:bg-slate-100 rounded">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
-          </button>
-        </div>
-
-        {/* Day Names */}
-        <div className="grid grid-cols-7 gap-1 mb-1">
-          {dayNames.map(day => (
-            <div key={day} className="text-center text-xs font-bold text-slate-600">{day}</div>
-          ))}
-        </div>
-
-        {/* Calendar Days */}
-        <div className="grid grid-cols-7 gap-1">
-          {Array.from({ length: startingDayOfWeek }).map((_, i) => (
-            <div key={`empty-${i}`} />
-          ))}
-          {Array.from({ length: daysInMonth }).map((_, i) => {
-            const day = i + 1;
-            const dateStr = formatToStorage(day, month + 1, year);
-            const isSelected = dateStr === value;
-            return (
-              <button
-                key={day}
-                onClick={() => {
-                  onSelect(name, dateStr);
-                  if (onClose) onClose();
-                }}
-                className={`text-xs p-1.5 rounded hover:bg-blue-100 transition-colors ${
-                  isSelected ? 'bg-blue-600 text-white font-bold' : 'text-slate-700'
-                }`}
-              >
-                {day}
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Close Button */}
-        <button 
-          type="button"
-          onClick={onClose}
-          className="w-full mt-3 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 hover:text-slate-900 rounded-lg font-semibold text-xs flex items-center justify-center gap-2 transition-colors"
-        >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-          </svg>
-          Return
-        </button>
-      </div>
-    );
-  };
-
-  const CustomMonthPicker = ({ value, onSelect, show, onClose }) => {
-    // Use correct ref for daily/monthly picker
-    const ref = onSelect === setMonthFilter ? monthPickerRef : monthlyMonthPickerRef;
-    const [viewYear, setViewYear] = useState(() => {
-      if (value) {
-        const [year] = value.split('-');
-        return parseInt(year);
-      }
-      return new Date().getFullYear();
-    });
-
-    // Fix: allow forward navigation after going backward
-    useEffect(() => {
-      if (value) {
-        const [year] = value.split('-');
-        if (parseInt(year) !== viewYear) {
-          setViewYear(parseInt(year));
-        }
-      }
-      // eslint-disable-next-line
-    }, [value]);
-
-    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-
-    const handlePrevYear = (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      setViewYear(y => y - 1);
-    };
-    
-    const handleNextYear = (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      setViewYear(y => y + 1);
-    };
-
-    const handleMonthSelect = (monthIndex) => {
-      const monthStr = String(monthIndex + 1).padStart(2, '0');
-      const dateStr = `${viewYear}-${monthStr}`;
-      onSelect(dateStr);
-      if (onClose) onClose();
-    };
-
-    if (!show) return null;
-
-    const selectedMonth = value ? parseInt(value.split('-')[1]) - 1 : -1;
-    const selectedYear = value ? parseInt(value.split('-')[0]) : -1;
-
-    return (
-      <div ref={ref} className="absolute z-50 mt-1 bg-white rounded-lg shadow-xl border-2 border-blue-200 p-3 w-64">
-        {/* Year Header */}
-        <div className="flex items-center justify-between mb-3">
-          <button type="button" onClick={handlePrevYear} className="p-1 hover:bg-slate-100 rounded">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
-          </button>
-          <span className="font-bold text-sm text-slate-800">{viewYear}</span>
-          <button type="button" onClick={handleNextYear} className="p-1 hover:bg-slate-100 rounded">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
-          </button>
-        </div>
-
-        {/* Months Grid */}
-        <div className="grid grid-cols-3 gap-2">
-          {monthNames.map((month, index) => {
-            const isSelected = selectedYear === viewYear && selectedMonth === index;
-            return (
-              <button
-                key={month}
-                onClick={() => handleMonthSelect(index)}
-                className={`text-xs p-2 rounded hover:bg-blue-100 transition-colors font-medium ${
-                  isSelected ? 'bg-blue-600 text-white font-bold' : 'text-slate-700'
-                }`}
-              >
-                {month}
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Close Button */}
-        <button 
-          type="button"
-          onClick={onClose}
-          className="w-full mt-3 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 hover:text-slate-900 rounded-lg font-semibold text-xs flex items-center justify-center gap-2 transition-colors"
-        >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-          </svg>
-          Return
-        </button>
-      </div>
-    );
   };
 
   return (
@@ -698,87 +543,22 @@ const BillableReport = () => {
               <div className="flex flex-col lg:flex-row lg:items-end gap-4">
                 {/* Date Range Section */}
                 <div className="flex-1">
-                  <label className="flex items-center gap-1.5 text-xs font-bold text-slate-600 uppercase mb-2">
-                    <Calendar className="w-3.5 h-3.5 text-blue-600" />
-                    Date Range
-                  </label>
-                  <div className="flex items-center gap-2">
-                    <div className="flex-1 relative">
-                      <input 
-                        type="text"
-                        readOnly
-                        className="w-full bg-slate-50 border border-slate-300 text-slate-800 text-sm font-medium rounded-lg px-3 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all shadow-sm hover:bg-white cursor-pointer" 
-                        value={formatToDisplay(startDate)} 
-                        onClick={() => {
-                          setShowStartPicker(!showStartPicker);
-                          setShowEndPicker(false);
-                        }}
-                        placeholder="DD/MM/YYYY"
-                      />
-                      <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
-                      <CustomDatePicker 
-                        name="start"
-                        value={startDate}
-                        onSelect={handleDateSelect}
-                        show={showStartPicker}
-                        onClose={() => setShowStartPicker(false)}
-                      />
-                    </div>
-                    <span className="text-slate-500 font-semibold text-sm">to</span>
-                    <div className="flex-1 relative">
-                      <input 
-                        type="text"
-                        readOnly
-                        className="w-full bg-slate-50 border border-slate-300 text-slate-800 text-sm font-medium rounded-lg px-3 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all shadow-sm hover:bg-white cursor-pointer" 
-                        value={formatToDisplay(endDate)} 
-                        onClick={() => {
-                          setShowEndPicker(!showEndPicker);
-                          setShowStartPicker(false);
-                        }}
-                        placeholder="DD/MM/YYYY"
-                      />
-                      <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
-                      <CustomDatePicker 
-                        name="end"
-                        value={endDate}
-                        onSelect={handleDateSelect}
-                        show={showEndPicker}
-                        onClose={() => setShowEndPicker(false)}
-                      />
-                    </div>
-                  </div>
+                  <DateRangePicker
+                    startDate={startDate}
+                    endDate={endDate}
+                    onStartDateChange={setStartDate}
+                    onEndDateChange={setEndDate}
+                    noWrapper={true}
+                    showClearButton={false}
+                  />
                 </div>
                 
                 {/* Month Filter */}
-                <div className="flex-1 lg:flex-none lg:w-48 relative">
-                  <label className="flex items-center gap-1.5 text-xs font-bold text-slate-600 uppercase mb-2">
-                    <Calendar className="w-3.5 h-3.5 text-blue-600" />
-                    Month
-                  </label>
-                  <div ref={monthPickerRef} className="relative">
-                    <input
-                      type="text"
-                      readOnly
-                      className="w-full bg-slate-50 border border-slate-300 text-slate-800 text-sm font-medium rounded-lg px-3 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all shadow-sm hover:bg-white cursor-pointer"
-                      value={monthFilter ? (() => {
-                        const [year, month] = monthFilter.split('-');
-                        const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-                        return `${monthNames[parseInt(month) - 1]} ${year}`;
-                      })() : ''}
-                      onClick={() => setShowMonthPicker(!showMonthPicker)}
-                      placeholder="Select Month"
-                    />
-                    <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
-                    <CustomMonthPicker
-                      value={monthFilter}
-                      onSelect={(dateStr) => {
-                        setMonthFilter(dateStr);
-                        setShowMonthPicker(false);
-                      }}
-                      show={showMonthPicker}
-                      onClose={() => setShowMonthPicker(false)}
-                    />
-                  </div>
+                <div className="flex-1 lg:flex-none lg:w-48">
+                  <MonthPicker
+                    value={monthFilter}
+                    onChange={setMonthFilter}
+                  />
                 </div>
                 
                 {/* Action Buttons */}
@@ -835,51 +615,75 @@ const BillableReport = () => {
                   </thead>
                   <tbody className="bg-white divide-y divide-blue-50">
                     {filteredDailyData.length > 0 ? (
-                      filteredDailyData.map((row, idx) => (
-                        <tr key={idx} className="hover:bg-blue-50/50 transition-colors duration-150">
-                          {/* Show only date part from work_date */}
-                          <td className="px-6 py-4 text-gray-900 font-medium whitespace-nowrap">{
-                            (() => {
-                              if (row.work_date) {
-                                const d = new Date(row.work_date);
-                                if (!isNaN(d)) {
-                                  const monthNames = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
-                                  const day = d.getUTCDate();
-                                  const month = monthNames[d.getUTCMonth()];
-                                  const year = d.getUTCFullYear();
-                                  return `${day}/${month}/${year}`;
+                      <>
+                        {filteredDailyData.map((row, idx) => (
+                          <tr key={idx} className="hover:bg-blue-50/50 transition-colors duration-150">
+                            {/* Show only date part from work_date */}
+                            <td className="px-6 py-4 text-gray-900 font-medium whitespace-nowrap">{
+                              (() => {
+                                if (row.work_date) {
+                                  const d = new Date(row.work_date);
+                                  if (!isNaN(d)) {
+                                    const monthNames = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+                                    const day = d.getUTCDate();
+                                    const month = monthNames[d.getUTCMonth()];
+                                    const year = d.getUTCFullYear();
+                                    return `${day}/${month}/${year}`;
+                                  }
                                 }
-                              }
-                              return '-';
-                            })()
-                          }</td>
-                          <td className="px-6 py-4 text-center text-gray-900 font-medium">{
-                            row.assigned_hours != null
-                              ? Number(row.assigned_hours).toFixed(2)
-                              : '-'
-                          }</td>
-                          <td className="px-6 py-4 text-center text-gray-900 font-semibold">{
-                            row.total_billable_hours_day != null
-                              ? Number(row.total_billable_hours_day).toFixed(2)
-                              : '-'
-                          }</td>
-                          <td className="px-6 py-4 text-center text-gray-900 font-medium">{
-                            row.qc_score != null
-                              ? Number(row.qc_score).toFixed(2)
-                              : '-'
-                          }</td>
-                          <td className="px-6 py-4 text-center text-gray-900 font-medium">{
-                            row.trackers_count_day !== null && row.trackers_count_day !== undefined
-                              ? row.trackers_count_day
-                              : '-'
-                          }</td>
-                          <td className="px-6 py-4 text-center text-gray-900 font-medium">{
-                            row.daily_required_hours != null
-                              ? Number(row.daily_required_hours).toFixed(2)
-                              : '-'
-                          }</td>
+                                return '-';
+                              })()
+                            }</td>
+                            <td className="px-6 py-4 text-center text-gray-900 font-medium">{
+                              row.assigned_hours != null
+                                ? Number(row.assigned_hours).toFixed(2)
+                                : '-'
+                            }</td>
+                            <td className="px-6 py-4 text-center text-gray-900 font-semibold">{
+                              row.total_billable_hours_day != null
+                                ? Number(row.total_billable_hours_day).toFixed(2)
+                                : '-'
+                            }</td>
+                            <td className="px-6 py-4 text-center">
+                              <span className={`px-2 py-1 rounded-lg inline-block ${getQCScoreColorClass(row.qc_score)}`}>
+                                {row.qc_score != null ? `${Number(row.qc_score).toFixed(2)}%` : '-'}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 text-center">
+                              <span className={`px-2 py-1 rounded-lg inline-block ${getTrackerCountColorClass(row.trackers_count_day)}`}>
+                                {row.trackers_count_day !== null && row.trackers_count_day !== undefined ? row.trackers_count_day : '-'}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 text-center text-gray-900 font-medium">{
+                              row.daily_required_hours != null
+                                ? Number(row.daily_required_hours).toFixed(2)
+                                : '-'
+                            }</td>
+                          </tr>
+                        ))}
+                        {/* Totals Row */}
+                        <tr className="bg-gradient-to-r from-blue-100 to-blue-200 border-t-2 border-blue-300">
+                          <td className="px-6 py-4 text-gray-900 font-bold whitespace-nowrap">TOTAL</td>
+                          <td className="px-6 py-4 text-center text-gray-900 font-bold">
+                            {filteredDailyData.reduce((sum, row) => sum + (Number(row.assigned_hours) || 0), 0).toFixed(2)}
+                          </td>
+                          <td className="px-6 py-4 text-center text-gray-900 font-bold">
+                            {filteredDailyData.reduce((sum, row) => sum + (Number(row.total_billable_hours_day) || 0), 0).toFixed(2)}
+                          </td>
+                          <td className="px-6 py-4 text-center text-gray-900 font-bold">
+                            {(() => {
+                              const scores = filteredDailyData.filter(row => row.qc_score != null).map(row => Number(row.qc_score));
+                              return scores.length > 0 ? `${(scores.reduce((sum, score) => sum + score, 0) / scores.length).toFixed(2)}%` : '-';
+                            })()}
+                          </td>
+                          <td className="px-6 py-4 text-center text-gray-900 font-bold">
+                            {filteredDailyData.reduce((sum, row) => sum + (Number(row.trackers_count_day) || 0), 0)}
+                          </td>
+                          <td className="px-6 py-4 text-center text-gray-900 font-bold">
+                            {filteredDailyData.reduce((sum, row) => sum + (Number(row.daily_required_hours) || 0), 0).toFixed(2)}
+                          </td>
                         </tr>
-                      ))
+                      </>
                     ) : (
                       <tr>
                         <td colSpan={6} className="px-6 py-12 text-center text-gray-400 text-sm">
@@ -904,34 +708,10 @@ const BillableReport = () => {
           <div className="bg-white rounded-xl shadow-md border border-blue-100 p-6 mb-6">
             <div className="flex flex-col sm:flex-row sm:items-end gap-4">
               {/* Month Filter */}
-              <div className="flex-1 sm:flex-none sm:w-64 relative">
-                <label className="flex items-center gap-1.5 text-xs font-bold text-slate-600 uppercase mb-2">
-                  <Calendar className="w-3.5 h-3.5 text-blue-600" />
-                  Select Month
-                </label>
-                <div className="relative">
-                  <input
-                    type="text"
-                    readOnly
-                    className="w-full bg-slate-50 border border-slate-300 text-slate-800 text-sm font-medium rounded-lg px-3 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all shadow-sm hover:bg-white cursor-pointer"
-                    value={monthlyMonth ? (() => {
-                      const [year, month] = monthlyMonth.split('-');
-                      const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-                      return `${monthNames[parseInt(month) - 1]} ${year}`;
-                    })() : ''}
-                    onClick={() => setShowMonthlyMonthPicker(!showMonthlyMonthPicker)}
-                    placeholder="Select Month"
-                  />
-                  <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
-                </div>
-                <CustomMonthPicker
+              <div className="flex-1 sm:flex-none sm:w-64">
+                <MonthPicker
                   value={monthlyMonth}
-                  onSelect={(dateStr) => {
-                    setMonthlyMonth(dateStr);
-                    setShowMonthlyMonthPicker(false);
-                  }}
-                  show={showMonthlyMonthPicker}
-                  onClose={() => setShowMonthlyMonthPicker(false)}
+                  onChange={setMonthlyMonth}
                 />
               </div>
               
@@ -988,7 +768,11 @@ const BillableReport = () => {
                           <td className="px-6 py-4 text-center text-gray-900 font-semibold">{row.total_billable_hours ? Number(row.total_billable_hours).toFixed(2) : (row.total_billable_hours_month ? Number(row.total_billable_hours_month).toFixed(2) : '-')}</td>
                           <td className="px-6 py-4 text-center text-gray-900 font-medium">{row.monthly_total_target ?? row.monthly_goal}</td>
                           <td className="px-6 py-4 text-center text-gray-900 font-medium">{row.pending_target ? Number(row.pending_target).toFixed(2) : '-'}</td>
-                          <td className="px-6 py-4 text-center text-gray-900 font-medium">{row.avg_qc_score ?? '-'}</td>
+                          <td className="px-6 py-4 text-center">
+                            <span className={`px-2 py-1 rounded-lg inline-block ${getQCScoreColorClass(row.avg_qc_score)}`}>
+                              {row.avg_qc_score != null && row.avg_qc_score !== '-' ? `${Number(row.avg_qc_score).toFixed(2)}%` : '-'}
+                            </span>
+                          </td>
                           {/* <td className="px-6 py-4 text-center">
                             <button
                               onClick={() => handleExportMonthDailyExcel(row.month_year)}

@@ -302,7 +302,7 @@ const QAAgentDashboard = ({ embedded = false }) => {
   }, [pendingFiles]);
 
   const content = (
-    <div className="space-y-4 max-w-6xl mx-auto pb-10">
+    <div className="space-y-4 max-w-7xl mx-auto pb-10">
       {/* Tabs Navigation */}
       <QATabsNavigation activeTab={activeTab} setActiveTab={setActiveTab} />
       

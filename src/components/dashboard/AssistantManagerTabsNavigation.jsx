@@ -1,10 +1,11 @@
 import React from 'react';
 import UserMonthlyReport from './UserMonthlyReport';
+import ProjectMonthlyReport from './ProjectMonthlyReport';
 import {
   LayoutGrid,
   Briefcase,
   Users,
-  FileWarning,
+  FolderKanban,
   DollarSign
 } from 'lucide-react';
 
@@ -12,8 +13,8 @@ const AssistantManagerTabsNavigation = ({ activeTab, setActiveTab }) => {
   const tabs = [
     { id: 'overview', label: 'Overview', icon: LayoutGrid },
     { id: 'billable_report', label: 'Billable Report', icon: Briefcase },
-    { id: 'user_monthly_report', label: 'User Monthly Report', icon: Users },
-    { id: 'adherence', label: 'Reporting Adherence', icon: FileWarning, disabled: true },
+    { id: 'user_monthly_report', label: 'User Monthly Goal', icon: Users },
+    { id: 'project_monthly_report', label: 'Project Monthly Report', icon: FolderKanban },
     { id: 'incentives', label: 'Agent Incentives', icon: DollarSign, disabled: true }
   ];
 
@@ -53,10 +54,17 @@ const AssistantManagerTabsNavigation = ({ activeTab, setActiveTab }) => {
       </div>
       {/* Gap between cards */}
       {activeTab === 'user_monthly_report' && <div className="h-4" />}
+      {activeTab === 'project_monthly_report' && <div className="h-4" />}
       {/* Filter and Table Card for User Monthly Report */}
       {activeTab === 'user_monthly_report' && (
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
           <UserMonthlyReport />
+        </div>
+      )}
+      {/* Project Monthly Report Tab */}
+      {activeTab === 'project_monthly_report' && (
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
+          <ProjectMonthlyReport />
         </div>
       )}
     </div>
