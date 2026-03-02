@@ -12,6 +12,7 @@ import api from "../../services/api";
 import { useAuth } from "../../context/AuthContext";
 import { log, logError } from "../../config/environment";
 import { DateRangePicker } from "../common/CustomCalendar";
+import QCFormReportView from "./QCFormReportView";
 
 // Helper to get today's date in YYYY-MM-DD format
 const getTodayDate = () => {
@@ -297,7 +298,7 @@ const QAAgentList = () => {
               <UsersIcon className="w-6 h-6 text-blue-600" />
             </div>
             <div>
-              <h2 className="text-2xl font-bold text-slate-800 tracking-tight cursor-default">Agent's Files & QC Report</h2>
+              <h2 className="text-2xl font-bold text-slate-800 tracking-tight cursor-default">Agent Files & QC Report</h2>
               <p className="text-slate-600 text-sm font-medium mt-1 cursor-default">View and manage agent files with QC forms</p>
             </div>
           </div>
@@ -341,47 +342,9 @@ const QAAgentList = () => {
           </div>
         </div>
 
-        {/* Search Section */}
+        {/* Split View Layout */}
         {activeTab === 'agent_files' && (
           <>
-          <div className="bg-white rounded-2xl shadow-lg p-5 mb-6 border-2 border-slate-200">
-          <div className="flex items-center gap-4">
-            <div className="relative flex-1">
-              <div className="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none">
-                <div className="w-9 h-9 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-xl flex items-center justify-center">
-                  <Search className="w-4 h-4 text-blue-600" />
-                </div>
-              </div>
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search agents by name..."
-                className="w-full pl-16 pr-12 py-4 text-sm font-medium border-2 border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-slate-50 hover:bg-white transition-all placeholder:text-slate-400"
-              />
-              {searchQuery && (
-                <button
-                  onClick={handleClearSearch}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 w-8 h-8 bg-slate-200 hover:bg-red-100 text-slate-600 hover:text-red-600 rounded-lg transition-all flex items-center justify-center group"
-                >
-                  <X className="w-4 h-4 group-hover:rotate-90 transition-transform duration-300" />
-                </button>
-              )}
-            </div>
-            {searchQuery && (
-              <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-5 py-4 rounded-xl shadow-md whitespace-nowrap">
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
-                  <span className="font-bold text-sm">
-                    {filteredAndSortedAgents.length} result{filteredAndSortedAgents.length !== 1 ? 's' : ''}
-                  </span>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Split View Layout */}
         <div className="bg-white rounded-2xl shadow-xl border-2 border-slate-200 overflow-hidden" style={{ height: 'calc(100vh - 400px)', minHeight: '600px' }}>
           {loading ? (
             <div className="h-full flex flex-col items-center justify-center p-16">
@@ -433,6 +396,36 @@ const QAAgentList = () => {
                       <p className="text-blue-100 text-xs font-medium">{filteredAndSortedAgents.length} Total</p>
                     </div>
                   </div>
+                </div>
+
+                {/* Search Section */}
+                <div className="p-3 border-b-2 border-slate-200 bg-white">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-blue-600 pointer-events-none" />
+                    <input
+                      type="text"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      placeholder="Search agents..."
+                      className="w-full pl-10 pr-9 py-2.5 text-sm font-medium border-2 border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-slate-50 hover:bg-white transition-all placeholder:text-slate-400"
+                    />
+                    {searchQuery && (
+                      <button
+                        onClick={handleClearSearch}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 w-6 h-6 bg-slate-200 hover:bg-red-100 text-slate-600 hover:text-red-600 rounded-md transition-all flex items-center justify-center group"
+                      >
+                        <X className="w-3.5 h-3.5 group-hover:rotate-90 transition-transform duration-300" />
+                      </button>
+                    )}
+                  </div>
+                  {searchQuery && (
+                    <div className="mt-2 flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-3 py-1.5 rounded-lg shadow-sm">
+                      <div className="w-1.5 h-1.5 bg-white rounded-full animate-pulse"></div>
+                      <span className="font-bold text-xs">
+                        {filteredAndSortedAgents.length} result{filteredAndSortedAgents.length !== 1 ? 's' : ''}
+                      </span>
+                    </div>
+                  )}
                 </div>
 
                 {/* Agents List */}
@@ -723,21 +716,7 @@ const QAAgentList = () => {
 
         {/* QC Form Report Tab */}
         {activeTab === 'qc_report' && (
-          <div className="bg-white rounded-2xl shadow-lg p-12 border-2 border-dashed border-slate-300">
-            <div className="text-center py-12">
-              <div className="w-24 h-24 bg-gradient-to-br from-blue-100 via-indigo-100 to-purple-100 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-lg">
-                <FileCheck className="w-12 h-12 text-blue-600" />
-              </div>
-              <h3 className="text-2xl font-bold text-slate-800 mb-3">QC Form Report</h3>
-              <p className="text-slate-600 max-w-md mx-auto mb-6">
-                Quality control form reports and analytics will be displayed here. This feature is coming soon!
-              </p>
-              <div className="inline-flex items-center gap-2 bg-blue-50 text-blue-700 px-6 py-3 rounded-xl font-semibold text-sm border-2 border-blue-200">
-                <div className="w-2 h-2 bg-blue-600 rounded-full animate-pulse"></div>
-                <span>Under Development</span>
-              </div>
-            </div>
-          </div>
+          <QCFormReportView />
         )}
 
         {/* Loader spinner style */}

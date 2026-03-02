@@ -148,6 +148,16 @@ export default defineConfig(({ mode }) => {
 
         },
 
+        "/qc_afd": {
+
+          target: apiBaseURL,
+
+          changeOrigin: true,
+
+          secure: false,
+
+        },
+
       },
       middlewareMode: false,
 

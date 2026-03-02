@@ -164,7 +164,7 @@ const Header = ({
       return [
         { view: ViewState.DASHBOARD, label: "Analytics", icon: LayoutDashboard },
         { view: "TRACKER_REPORT", label: "Tracker Report", icon: FileText },
-        { view: "AGENT_LIST", label: "Agent's Files & QC Report", icon: Users },
+        { view: "AGENT_LIST", label: "Agent Files & QC Report", icon: Users },
         { view: ViewState.ADMIN_PANEL, label: "Manage", icon: Settings },
         { view: ViewState.ENTRY, label: "User Permission", icon: PenTool },
       ];
@@ -187,14 +187,14 @@ const Header = ({
           return [
             { view: ViewState.DASHBOARD, label: "Analytics", icon: LayoutDashboard },
             { view: "TRACKER_REPORT", label: "Tracker Report", icon: FileText },
-            { view: "AGENT_LIST", label: "Agent's Files & QC Report", icon: Users },
+            { view: "AGENT_LIST", label: "Agent Files & QC Report", icon: Users },
           ];
         }
         if (roleId === 3) {
           return [
             { view: ViewState.DASHBOARD, label: "Analytics", icon: LayoutDashboard },
             { view: "TRACKER_REPORT", label: "Tracker Report", icon: FileText },
-            { view: "AGENT_LIST", label: "Agent's Files & QC Report", icon: Users },
+            { view: "AGENT_LIST", label: "Agent Files & QC Report", icon: Users },
             { view: ViewState.ADMIN_PANEL, label: "Manage", icon: Settings },
             { view: ViewState.ENTRY, label: "User Permission", icon: PenTool },
           ];
@@ -203,7 +203,7 @@ const Header = ({
           return [
             { view: ViewState.DASHBOARD, label: "Analytics", icon: LayoutDashboard },
             { view: "TRACKER_REPORT", label: "Tracker Report", icon: FileText },
-            { view: "AGENT_LIST", label: "Agent's Files & QC Report", icon: Users },
+            { view: "AGENT_LIST", label: "Agent Files & QC Report", icon: Users },
             { view: ViewState.ADMIN_PANEL, label: "Manage", icon: Settings },
             { view: ViewState.ENTRY, label: "User Permission", icon: PenTool },
           ];
@@ -221,14 +221,14 @@ const Header = ({
       return [
         { view: ViewState.DASHBOARD, label: "Analytics", icon: LayoutDashboard },
         { view: "TRACKER_REPORT", label: "Tracker Report", icon: FileText },
-        { view: "AGENT_LIST", label: "Agent's Files & QC Report", icon: Users },
+        { view: "AGENT_LIST", label: "Agent Files & QC Report", icon: Users },
       ];
     }
     if (role.includes('ASSISTANT') || role.includes('ASST')) {
       return [
         { view: ViewState.DASHBOARD, label: "Analytics", icon: LayoutDashboard },
         { view: "TRACKER_REPORT", label: "Tracker Report", icon: FileText },
-        { view: "AGENT_LIST", label: "Agent's Files & QC Report", icon: Users },
+        { view: "AGENT_LIST", label: "Agent Files & QC Report", icon: Users },
         { view: ViewState.ADMIN_PANEL, label: "Manage", icon: Settings },
         { view: ViewState.ENTRY, label: "User Permission", icon: PenTool },
       ];
@@ -238,7 +238,7 @@ const Header = ({
       return [
         { view: ViewState.DASHBOARD, label: "Analytics", icon: LayoutDashboard },
         { view: "TRACKER_REPORT", label: "Tracker Report", icon: FileText },
-        { view: "AGENT_LIST", label: "Agent's Files & QC Report", icon: Users },
+        { view: "AGENT_LIST", label: "Agent Files & QC Report", icon: Users },
         { view: ViewState.ADMIN_PANEL, label: "Manage", icon: Settings },
         { view: ViewState.ENTRY, label: "User Permission", icon: PenTool },
       ];
