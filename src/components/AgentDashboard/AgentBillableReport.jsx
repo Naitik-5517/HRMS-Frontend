@@ -21,6 +21,24 @@ const BillableReport = () => {
   // Always call hooks at the top
   const { user } = useAuth();
   
+  // Helper function to get QC score color classes
+  const getQCScoreColorClass = (score) => {
+    if (score === null || score === undefined || score === '-' || isNaN(Number(score))) return 'text-slate-700';
+    const numScore = Number(score);
+    if (numScore >= 98) return 'text-green-800 bg-green-100 font-bold';
+    if (numScore >= 95) return 'text-yellow-700 bg-yellow-100 font-bold';
+    return 'text-red-700 bg-red-200 font-bold';
+  };
+
+  // Helper function to get tracker count color classes
+  const getTrackerCountColorClass = (count) => {
+    if (count === null || count === undefined || count === '-' || isNaN(Number(count))) return 'text-slate-700';
+    const numCount = Number(count);
+    if (numCount >= 9) return 'text-green-800 bg-green-100 font-bold';
+    if (numCount >= 7) return 'text-yellow-700 bg-yellow-100 font-bold';
+    return 'text-red-700 bg-red-200 font-bold';
+  };
+  
   // Simple MonthPicker component for selecting month/year in YYYY-MM format
   const MonthPicker = ({ value, onChange }) => {
     const [showPicker, setShowPicker] = useState(false);
@@ -132,7 +150,7 @@ const BillableReport = () => {
             'Billable Hours Delivered': formatNum(row.total_billable_hours ?? row.total_billable_hours_month),
             'Monthly Goal': row.monthly_total_target ?? row.monthly_goal ?? '-',
             'Pending Target': formatNum(row.pending_target),
-            'Avg. QC Score': formatNum(row.avg_qc_score),
+            'Avg. QC Score': row.avg_qc_score != null && row.avg_qc_score !== '' ? `${formatNum(row.avg_qc_score)}%` : '-',
           };
         });
 
@@ -141,7 +159,7 @@ const BillableReport = () => {
         const totalGoal = exportData.reduce((sum, r) => sum + (parseFloat(r['Monthly Goal']) || 0), 0);
         const totalPending = exportData.reduce((sum, r) => sum + (parseFloat(r['Pending Target']) || 0), 0);
         const qcScores = exportData.map(r => parseFloat(r['Avg. QC Score'])).filter(v => !isNaN(v));
-        const avgQC = qcScores.length > 0 ? (qcScores.reduce((a, b) => a + b, 0) / qcScores.length).toFixed(2) : '-';
+        const avgQC = qcScores.length > 0 ? `${(qcScores.reduce((a, b) => a + b, 0) / qcScores.length).toFixed(2)}%` : '-';
 
         exportData.push({
           'Year & Month': 'TOTAL',
@@ -177,7 +195,7 @@ const BillableReport = () => {
         'Billable Hours Delivered': row.delivered,
         'Monthly Goal': row.goal,
         'Pending Target': row.pending,
-        'Avg. QC Score': row.qc,
+        'Avg. QC Score': row.qc != null && row.qc !== '-' ? `${row.qc}%` : '-',
       }];
       const worksheet = XLSX.utils.json_to_sheet(exportData);
       worksheet['!cols'] = [
@@ -231,7 +249,7 @@ const BillableReport = () => {
           'Date-Time': formattedDateTime,
           'Assign Hours': '-',
           'Worked Hours': row.billable_hours ? Number(row.billable_hours).toFixed(2) : '-',
-          'QC score': 'qc_score' in row ? (row.qc_score !== null ? Number(row.qc_score).toFixed(2) : '-') : '-',
+          'QC score': 'qc_score' in row ? (row.qc_score !== null ? `${Number(row.qc_score).toFixed(2)}%` : '-') : '-',
           'Tracker Count': row.trackers_count_day !== null && row.trackers_count_day !== undefined ? row.trackers_count_day : '-',
           'Daily Required Hours': row.tenure_target ? Number(row.tenure_target).toFixed(2) : '-',
         };
@@ -240,7 +258,7 @@ const BillableReport = () => {
       const totalWorked = exportData.reduce((sum, r) => sum + (parseFloat(r['Worked Hours']) || 0), 0);
       const totalRequired = exportData.reduce((sum, r) => sum + (parseFloat(r['Daily Required Hours']) || 0), 0);
       const qcScores = exportData.map(r => parseFloat(r['QC score'])).filter(v => !isNaN(v));
-      const avgQC = qcScores.length > 0 ? (qcScores.reduce((a, b) => a + b, 0) / qcScores.length).toFixed(2) : '-';
+      const avgQC = qcScores.length > 0 ? `${(qcScores.reduce((a, b) => a + b, 0) / qcScores.length).toFixed(2)}%` : '-';
       const totalTrackers = exportData.reduce((sum, r) => {
         const count = r['Tracker Count'];
         return sum + (count !== '-' ? parseInt(count) : 0);
@@ -443,7 +461,7 @@ const BillableReport = () => {
           'Date': formattedDate,
           'Assign Hours': row.assigned_hours != null ? Number(row.assigned_hours).toFixed(2) : '-',
           'Worked Hours': row.total_billable_hours_day != null ? Number(row.total_billable_hours_day).toFixed(2) : '-',
-          'QC Score': row.qc_score != null ? Number(row.qc_score).toFixed(2) : '-',
+          'QC Score': row.qc_score != null ? `${Number(row.qc_score).toFixed(2)}%` : '-',
           'Tracker Count': row.trackers_count_day !== null && row.trackers_count_day !== undefined ? row.trackers_count_day : '-',
           'Daily Required Hours': row.daily_required_hours != null ? Number(row.daily_required_hours).toFixed(2) : '-',
         };
@@ -454,7 +472,7 @@ const BillableReport = () => {
       const totalWorked = exportData.reduce((sum, r) => sum + (parseFloat(r['Worked Hours']) || 0), 0);
       const totalRequired = exportData.reduce((sum, r) => sum + (parseFloat(r['Daily Required Hours']) || 0), 0);
       const qcScores = exportData.map(r => parseFloat(r['QC Score'])).filter(v => !isNaN(v));
-      const avgQC = qcScores.length > 0 ? (qcScores.reduce((a, b) => a + b, 0) / qcScores.length).toFixed(2) : '-';
+      const avgQC = qcScores.length > 0 ? `${(qcScores.reduce((a, b) => a + b, 0) / qcScores.length).toFixed(2)}%` : '-';
       const totalTrackers = exportData.reduce((sum, r) => {
         const count = r['Tracker Count'];
         return sum + (count !== '-' ? parseInt(count) : 0);
@@ -597,51 +615,75 @@ const BillableReport = () => {
                   </thead>
                   <tbody className="bg-white divide-y divide-blue-50">
                     {filteredDailyData.length > 0 ? (
-                      filteredDailyData.map((row, idx) => (
-                        <tr key={idx} className="hover:bg-blue-50/50 transition-colors duration-150">
-                          {/* Show only date part from work_date */}
-                          <td className="px-6 py-4 text-gray-900 font-medium whitespace-nowrap">{
-                            (() => {
-                              if (row.work_date) {
-                                const d = new Date(row.work_date);
-                                if (!isNaN(d)) {
-                                  const monthNames = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
-                                  const day = d.getUTCDate();
-                                  const month = monthNames[d.getUTCMonth()];
-                                  const year = d.getUTCFullYear();
-                                  return `${day}/${month}/${year}`;
+                      <>
+                        {filteredDailyData.map((row, idx) => (
+                          <tr key={idx} className="hover:bg-blue-50/50 transition-colors duration-150">
+                            {/* Show only date part from work_date */}
+                            <td className="px-6 py-4 text-gray-900 font-medium whitespace-nowrap">{
+                              (() => {
+                                if (row.work_date) {
+                                  const d = new Date(row.work_date);
+                                  if (!isNaN(d)) {
+                                    const monthNames = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+                                    const day = d.getUTCDate();
+                                    const month = monthNames[d.getUTCMonth()];
+                                    const year = d.getUTCFullYear();
+                                    return `${day}/${month}/${year}`;
+                                  }
                                 }
-                              }
-                              return '-';
-                            })()
-                          }</td>
-                          <td className="px-6 py-4 text-center text-gray-900 font-medium">{
-                            row.assigned_hours != null
-                              ? Number(row.assigned_hours).toFixed(2)
-                              : '-'
-                          }</td>
-                          <td className="px-6 py-4 text-center text-gray-900 font-semibold">{
-                            row.total_billable_hours_day != null
-                              ? Number(row.total_billable_hours_day).toFixed(2)
-                              : '-'
-                          }</td>
-                          <td className="px-6 py-4 text-center text-gray-900 font-medium">{
-                            row.qc_score != null
-                              ? Number(row.qc_score).toFixed(2)
-                              : '-'
-                          }</td>
-                          <td className="px-6 py-4 text-center text-gray-900 font-medium">{
-                            row.trackers_count_day !== null && row.trackers_count_day !== undefined
-                              ? row.trackers_count_day
-                              : '-'
-                          }</td>
-                          <td className="px-6 py-4 text-center text-gray-900 font-medium">{
-                            row.daily_required_hours != null
-                              ? Number(row.daily_required_hours).toFixed(2)
-                              : '-'
-                          }</td>
+                                return '-';
+                              })()
+                            }</td>
+                            <td className="px-6 py-4 text-center text-gray-900 font-medium">{
+                              row.assigned_hours != null
+                                ? Number(row.assigned_hours).toFixed(2)
+                                : '-'
+                            }</td>
+                            <td className="px-6 py-4 text-center text-gray-900 font-semibold">{
+                              row.total_billable_hours_day != null
+                                ? Number(row.total_billable_hours_day).toFixed(2)
+                                : '-'
+                            }</td>
+                            <td className="px-6 py-4 text-center">
+                              <span className={`px-2 py-1 rounded-lg inline-block ${getQCScoreColorClass(row.qc_score)}`}>
+                                {row.qc_score != null ? `${Number(row.qc_score).toFixed(2)}%` : '-'}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 text-center">
+                              <span className={`px-2 py-1 rounded-lg inline-block ${getTrackerCountColorClass(row.trackers_count_day)}`}>
+                                {row.trackers_count_day !== null && row.trackers_count_day !== undefined ? row.trackers_count_day : '-'}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 text-center text-gray-900 font-medium">{
+                              row.daily_required_hours != null
+                                ? Number(row.daily_required_hours).toFixed(2)
+                                : '-'
+                            }</td>
+                          </tr>
+                        ))}
+                        {/* Totals Row */}
+                        <tr className="bg-gradient-to-r from-blue-100 to-blue-200 border-t-2 border-blue-300">
+                          <td className="px-6 py-4 text-gray-900 font-bold whitespace-nowrap">TOTAL</td>
+                          <td className="px-6 py-4 text-center text-gray-900 font-bold">
+                            {filteredDailyData.reduce((sum, row) => sum + (Number(row.assigned_hours) || 0), 0).toFixed(2)}
+                          </td>
+                          <td className="px-6 py-4 text-center text-gray-900 font-bold">
+                            {filteredDailyData.reduce((sum, row) => sum + (Number(row.total_billable_hours_day) || 0), 0).toFixed(2)}
+                          </td>
+                          <td className="px-6 py-4 text-center text-gray-900 font-bold">
+                            {(() => {
+                              const scores = filteredDailyData.filter(row => row.qc_score != null).map(row => Number(row.qc_score));
+                              return scores.length > 0 ? `${(scores.reduce((sum, score) => sum + score, 0) / scores.length).toFixed(2)}%` : '-';
+                            })()}
+                          </td>
+                          <td className="px-6 py-4 text-center text-gray-900 font-bold">
+                            {filteredDailyData.reduce((sum, row) => sum + (Number(row.trackers_count_day) || 0), 0)}
+                          </td>
+                          <td className="px-6 py-4 text-center text-gray-900 font-bold">
+                            {filteredDailyData.reduce((sum, row) => sum + (Number(row.daily_required_hours) || 0), 0).toFixed(2)}
+                          </td>
                         </tr>
-                      ))
+                      </>
                     ) : (
                       <tr>
                         <td colSpan={6} className="px-6 py-12 text-center text-gray-400 text-sm">
@@ -726,7 +768,11 @@ const BillableReport = () => {
                           <td className="px-6 py-4 text-center text-gray-900 font-semibold">{row.total_billable_hours ? Number(row.total_billable_hours).toFixed(2) : (row.total_billable_hours_month ? Number(row.total_billable_hours_month).toFixed(2) : '-')}</td>
                           <td className="px-6 py-4 text-center text-gray-900 font-medium">{row.monthly_total_target ?? row.monthly_goal}</td>
                           <td className="px-6 py-4 text-center text-gray-900 font-medium">{row.pending_target ? Number(row.pending_target).toFixed(2) : '-'}</td>
-                          <td className="px-6 py-4 text-center text-gray-900 font-medium">{row.avg_qc_score ?? '-'}</td>
+                          <td className="px-6 py-4 text-center">
+                            <span className={`px-2 py-1 rounded-lg inline-block ${getQCScoreColorClass(row.avg_qc_score)}`}>
+                              {row.avg_qc_score != null && row.avg_qc_score !== '-' ? `${Number(row.avg_qc_score).toFixed(2)}%` : '-'}
+                            </span>
+                          </td>
                           {/* <td className="px-6 py-4 text-center">
                             <button
                               onClick={() => handleExportMonthDailyExcel(row.month_year)}

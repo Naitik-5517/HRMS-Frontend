@@ -110,7 +110,7 @@ const BillableReport = ({ userId }) => {
         rowData['Date'] = dateDisplay;
         rowData['Assign Hours'] = formatNumber(row.assigned_hours);
         rowData['Worked Hours'] = formatNumber(row.total_billable_hours_day);
-        rowData['QC Score'] = formatNumber(row.qc_score);
+        rowData['QC Score'] = row.qc_score != null ? `${formatNumber(row.qc_score)}%` : '-';
         rowData['Tracker Count'] = row.trackers_count_day !== null && row.trackers_count_day !== undefined ? row.trackers_count_day : '-';
         rowData['Daily Required Hours'] = formatNumber(row.daily_required_hours);
         
@@ -123,7 +123,7 @@ const BillableReport = ({ userId }) => {
         const totalWorked = exportData.reduce((sum, r) => sum + (parseFloat(r['Worked Hours']) || 0), 0);
         const totalRequired = exportData.reduce((sum, r) => sum + (parseFloat(r['Daily Required Hours']) || 0), 0);
         const qcScores = exportData.map(r => parseFloat(r['QC Score'])).filter(v => !isNaN(v));
-        const avgQC = qcScores.length > 0 ? (qcScores.reduce((a, b) => a + b, 0) / qcScores.length).toFixed(2) : '-';
+        const avgQC = qcScores.length > 0 ? `${(qcScores.reduce((a, b) => a + b, 0) / qcScores.length).toFixed(2)}%` : '-';
         const totalTrackers = exportData.reduce((sum, r) => {
           const count = r['Tracker Count'];
           return sum + (count !== '-' ? parseInt(count) : 0);
@@ -184,7 +184,7 @@ const BillableReport = ({ userId }) => {
         rowData['Billable Hour Delivered'] = user.total_billable_hours ? Number(user.total_billable_hours).toFixed(2) : '-';
         rowData['Monthly Goal'] = user.monthly_total_target ?? '-';
         rowData['Pending Target'] = user.pending_target ? Number(user.pending_target).toFixed(2) : '-';
-        rowData['Avg. QC Score'] = user.avg_qc_score ? Number(user.avg_qc_score).toFixed(2) : '-';
+        rowData['Avg. QC Score'] = user.avg_qc_score ? `${Number(user.avg_qc_score).toFixed(2)}%` : '-';
         
         return rowData;
       });
@@ -195,7 +195,7 @@ const BillableReport = ({ userId }) => {
         const totalPending = exportData.reduce((sum, r) => sum + (parseFloat(r['Pending Target']) || 0), 0);
         // For Avg. QC Score, show average if all are numbers
         const qcScores = exportData.map(r => Number(r['Avg. QC Score'])).filter(v => !isNaN(v));
-        const avgQC = qcScores.length > 0 ? (qcScores.reduce((a, b) => a + b, 0) / qcScores.length).toFixed(2) : '-';
+        const avgQC = qcScores.length > 0 ? `${(qcScores.reduce((a, b) => a + b, 0) / qcScores.length).toFixed(2)}%` : '-';
         
         const totalRow = {
           'User Name': 'TOTAL'
@@ -377,7 +377,7 @@ const BillableReport = ({ userId }) => {
         // User filter (if userId is passed as prop)
         if (userId) payload.user_id = userId;
         // Call the /tracker/view_daily API
-        const res = await api.post('/tracker/view_daily', payload);
+        const res = await api.post('/python/tracker/view_daily', payload);
         console.log('Daily report API response:', res.data);
         console.log('Payload sent:', payload);
         // Get trackers from API response
@@ -509,7 +509,7 @@ const BillableReport = ({ userId }) => {
           'Date-Time': row.date_time ?? row.date ?? '-',
           'Assigned Hour': formatNum(row.assigned_hours ?? row.assign_hours),
           'Worked Hours': formatNum(row.total_billable_hours_day ?? row.billable_hours),
-          'QC Score': formatNum(row.qc_score),
+          'QC Score': row.qc_score != null && row.qc_score !== '' ? `${formatNum(row.qc_score)}%` : '-',
           'Tracker Count': row.trackers_count_day !== null && row.trackers_count_day !== undefined ? row.trackers_count_day : '-',
           'Daily Required Hours': formatNum(row.daily_required_hours ?? row.tenure_target)
         };
@@ -521,7 +521,7 @@ const BillableReport = ({ userId }) => {
         const totalRequired = exportData.reduce((sum, r) => sum + (parseFloat(r['Daily Required Hours']) || 0), 0);
         // For QC Score, calculate average instead of sum
         const qcScores = exportData.map(r => parseFloat(r['QC Score'])).filter(v => !isNaN(v));
-        const avgQC = qcScores.length > 0 ? (qcScores.reduce((a, b) => a + b, 0) / qcScores.length).toFixed(2) : '-';
+        const avgQC = qcScores.length > 0 ? `${(qcScores.reduce((a, b) => a + b, 0) / qcScores.length).toFixed(2)}%` : '-';
         const totalTrackers = exportData.reduce((sum, r) => {
           const count = r['Tracker Count'];
           return sum + (count !== '-' ? parseInt(count) : 0);

@@ -13,9 +13,9 @@ export default function MonthCard({ month, users, onExport, onExportMonth, teamO
   const getQCScoreColorClass = (score) => {
     if (score === null || score === undefined || score === '-' || isNaN(Number(score))) return 'text-slate-800';
     const numScore = Number(score);
-    if (numScore >= 98) return 'text-green-700 bg-green-50 font-bold';
-    if (numScore >= 95) return 'text-orange-600 bg-orange-50 font-semibold';
-    return 'text-red-800 bg-red-100 font-bold';
+    if (numScore >= 98) return 'text-green-800 bg-green-100 font-bold';
+    if (numScore >= 95) return 'text-yellow-700 bg-yellow-100 font-bold';
+    return 'text-red-700 bg-red-200 font-bold';
   };
 
   // Client-side search filter by user name and team
@@ -193,7 +193,7 @@ export default function MonthCard({ month, users, onExport, onExportMonth, teamO
                         <td className="px-4 py-3 text-center text-slate-800">{formatNumber(user.pending_target)}</td>
                         <td className="px-4 py-3 text-center">
                           <span className={`px-2 py-1 rounded-lg inline-block ${getQCScoreColorClass(user.avg_qc_score)}`}>
-                            {formatNumber(user.avg_qc_score)}
+                            {user.avg_qc_score != null && user.avg_qc_score !== '' ? `${formatNumber(user.avg_qc_score)}%` : '-'}
                           </span>
                         </td>
                         {/* <td className="px-4 py-3 text-center">
@@ -248,7 +248,7 @@ export default function MonthCard({ month, users, onExport, onExportMonth, teamO
                           .filter(val => !isNaN(val) && val !== null);
                         if (scores.length === 0) return <span className="text-slate-900 font-bold">-</span>;
                         const avg = scores.reduce((a, b) => a + b, 0) / scores.length;
-                        return <span className={`px-3 py-1.5 rounded-lg ${getQCScoreColorClass(avg)}`}>{avg.toFixed(2)}</span>;
+                        return <span className={`px-3 py-1.5 rounded-lg ${getQCScoreColorClass(avg)}`}>{`${avg.toFixed(2)}%`}</span>;
                       })()}
                     </td>
                   </tr>
