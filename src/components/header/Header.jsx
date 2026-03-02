@@ -23,9 +23,11 @@ import {
   FileText,
   Users,
   Briefcase,
-  Sparkles
+  Brain
 } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
+import GeminiKeyModal from "../GeminiKeyModal";
+import { fetchGeminiApiKey } from "../../services/agentService";
 
 import logo from "../../assets/Transform logo.png";
 
@@ -56,8 +58,31 @@ const Header = ({
   // Debug: Log currentUser to check available properties
   // console.log('Header currentUser:', currentUser);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [geminiKeyOpen, setGeminiKeyOpen] = useState(false);
   const navigate = useNavigate();
+
   const location = useLocation();
+
+  // Fetch Gemini API key status on mount
+  useEffect(() => {
+    const userId = currentUser?.user_id || currentUser?.id;
+    if (!userId || sessionStorage.getItem("gemini_api_key")) return;
+
+    const loadKey = async () => {
+      try {
+        const res = await fetchGeminiApiKey(userId);
+        if (res.success && res.hasKey && res.gemini_api_key) {
+          sessionStorage.setItem("gemini_api_key", res.gemini_api_key);
+          window.dispatchEvent(new CustomEvent("gemini-key-updated"));
+          console.log('[Header] Gemini API key loaded from DB to sessionStorage');
+        }
+      } catch (error) {
+        console.error("[Header] Failed to load Gemini key:", error);
+      }
+    };
+
+    loadKey();
+  }, [currentUser]);
 
   // Get role label from role_id or role string
   const getRoleLabel = () => {
@@ -104,9 +129,17 @@ const Header = ({
       return;
     }
     if (view === 'AGENT_LIST') {
-      console.log('🚀 [Header goTo] Navigating to Agent\'s Files & QC Report');
+      console.log('🚀 [Header goTo] Navigating to Agent File Report');
       // For Assistant Manager and QA Agent, open the agent_file_report tab
       navigate('/dashboard?tab=agent_file_report');
+      setIsMobileMenuOpen(false);
+      return;
+    }
+    
+    // Handle Manage tab for Assistant Managers - route to /dashboard with tab=manage
+    if (view === ViewState.ADMIN_PANEL && roleId === 4) {
+      console.log('🚀 [Header goTo] Navigating Assistant Manager to /dashboard with tab=manage');
+      navigate('/dashboard?tab=manage');
       setIsMobileMenuOpen(false);
       return;
     }
@@ -119,14 +152,14 @@ const Header = ({
       } else if (view === ViewState.DASHBOARD || view === 'DASHBOARD') {
         console.log('🚀 [Header goTo] Navigating agent to /dashboard');
         navigate("/dashboard");
-      } else if (view === 'AI_EVALUATION') {
-        console.log('🚀 [Header goTo] Navigating agent to /ai-evaluation');
-        navigate('/ai-evaluation');
-        setIsMobileMenuOpen(false);
-        return;
       } else if (view === 'billable_report') {
         // Set the billable_report tab for agent
         navigate('/dashboard?tab=billable_report');
+      } else if (view === 'AI_EVALUATION') {
+        console.log('🚀 [Header goTo] Navigating agent to AI Evaluation');
+        navigate("/ai-evaluation");
+        setIsMobileMenuOpen(false);
+        return;
       } else if (view === 'AGENT_PROJECTS') {
         navigate("/agent-projects");
         setIsMobileMenuOpen(false);
@@ -175,7 +208,7 @@ const Header = ({
         { view: ViewState.DASHBOARD, label: "Analytics", icon: LayoutDashboard },
         // Billable Report tab removed for agents in header
         { view: ViewState.ENTRY, label: "Tracker", icon: PenTool },
-        { view: "AI_EVALUATION", label: "AI Evaluation", icon: Sparkles },
+        { view: "AI_EVALUATION", label: "AI Evaluation", icon: Brain },
         { view: "AGENT_PROJECTS", label: "Projects", icon: Database, disabled: true },
         // Roster tab temporarily removed for agents
       ];
@@ -288,7 +321,7 @@ const Header = ({
       return currentPath === '/entry';
     }
 
-    // Check for AI Evaluation (Agents only)
+    // Check for AI Evaluation` (Agents only)
     if (view === 'AI_EVALUATION') {
       return currentPath === '/ai-evaluation';
     }
@@ -315,9 +348,9 @@ const Header = ({
       <button
         key={item.view}
         onClick={() => !item.disabled && goTo(item.view)}
-        className={`flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors whitespace-nowrap ${
-          isActive 
-            ? 'bg-blue-600 text-white hover:bg-blue-700' 
+        className={`flex items-center justify-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors whitespace-nowrap ${
+          isActive
+            ? 'bg-blue-600 text-white hover:bg-blue-700'
             : 'text-slate-600 bg-slate-50 hover:bg-slate-200'
         } ${item.disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
         disabled={item.disabled}
@@ -339,8 +372,8 @@ const Header = ({
         key={item.view}
         onClick={() => goTo(item.view)}
         className={`flex items-center gap-3 px-4 py-3 rounded-lg text-base font-medium transition-colors w-full ${
-          isActive 
-            ? 'bg-blue-600 text-white hover:bg-blue-700' 
+          isActive
+            ? 'bg-blue-600 text-white hover:bg-blue-700'
             : 'text-slate-700 bg-slate-50 hover:bg-slate-200'
         }`}
       >
@@ -364,29 +397,33 @@ const Header = ({
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             {/* LEFT: LOGO */}
-            <div className="flex items-center gap-2 flex-shrink-0">
-              <img 
-                src={logo} 
-                alt="TFS Ops Tracker Logo" 
-                className="h-10 w-auto cursor-pointer hover:opacity-80 transition-opacity" 
-                onClick={() => goTo('Analytics')}
-                title="Go to Analytics"
-              />
+            <div className="flex items-center gap-2 shrink-0">
+
+              <img src={logo} alt="TFS Ops Tracker Logo" className="h-10 w-auto" />
             </div>
 
             {/* RIGHT: NAVIGATION + USER INFO + LOGOUT */}
             <div className="flex items-center gap-6">
-              <div className="hidden lg:flex items-center space-x-3">
+              <div className="hidden lg:flex items-center space-x-2">
                 {navItems.map(renderNavButton)}
               </div>
               
-              <div className="flex items-center gap-2 border-l border-slate-200 pl-4 flex-shrink-0">
+              <div className="flex items-center gap-2 border-l border-slate-200 pl-4 shrink-0">
+
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-full bg-blue-700 flex items-center justify-center text-lg font-bold text-white">
                     {getInitials()}
                   </div>
                   <button
+                    onClick={() => setGeminiKeyOpen(true)}
+                    className="p-2 rounded-full hover:bg-purple-50 text-purple-600 transition-colors"
+                    title="Gemini AI Key"
+                  >
+                    <Brain className="w-5 h-5" />
+                  </button>
+                  <button
                     onClick={() => {
+
                       if (typeof handleLogout === 'function') {
                         handleLogout();
                       } else if (window && window.sessionStorage) {
@@ -445,9 +482,15 @@ const Header = ({
 
         </div>
       </div>
+      <GeminiKeyModal 
+        isOpen={geminiKeyOpen} 
+        onClose={() => setGeminiKeyOpen(false)} 
+        currentUser={currentUser}
+      />
     </>
   );
 };
+
 
 
 export default Header;
