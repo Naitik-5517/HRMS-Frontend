@@ -135,7 +135,11 @@ const QATrackerReport = () => {
       };
       
       const res = await api.post("/dropdown/get", payload);
-      const projectsData = res.data?.data || [];
+      log('[QATrackerReport] Projects API Response:', res.data);
+      
+      // Handle different possible response structures
+      const projectsData = res.data?.data || res.data || [];
+      log('[QATrackerReport] Extracted projects data:', projectsData);
       
       // Extract projects for project dropdown
       const projects = projectsData.map(project => ({
@@ -176,28 +180,46 @@ const QATrackerReport = () => {
     }
   };
 
-  // Fetch users from user/list API for agent dropdown
+  // Fetch users from dropdown/get API for agent dropdown
   const fetchUsers = async () => {
     try {
       setLoadingUsers(true);
-      log('[QATrackerReport] Fetching users list for agent filter');
+      log('[QATrackerReport] Fetching agents list for agent filter');
       const payload = {
-        user_id: String(user?.user_id),
-        device_id: device_id,
-        device_type: device_type
+        logged_in_user_id: Number(user?.user_id),
+        dropdown_type: "agent"
       };
-      const res = await api.post("/user/list", payload);
-      const users = res.data?.data || [];
-      // Sort users alphabetically by name
+      const res = await api.post("/dropdown/get", payload);
+      log('[QATrackerReport] Agents API Response:', res.data);
+      
+      // Handle different possible response structures
+      const users = res.data?.data || res.data || [];
+      log('[QATrackerReport] Extracted agents:', users);
+      
+      // Log first item to see structure
+      if (users.length > 0) {
+        log('[QATrackerReport] First agent item structure:', users[0]);
+      }
+      
+      // Filter and map agents - handle multiple possible field names
       const sortedUsers = users
-        .filter(u => u.user_name && u.user_id) // Filter out invalid entries
+        .filter(u => {
+          const hasName = u.user_name || u.name || u.agent_name || u.label;
+          const hasId = u.user_id || u.id || u.agent_id || u.value;
+          return hasName && hasId;
+        })
+        .map(u => ({
+          user_id: u.user_id || u.id || u.agent_id || u.value,
+          user_name: u.user_name || u.name || u.agent_name || u.label
+        }))
         .sort((a, b) => a.user_name.localeCompare(b.user_name));
+      
       setUsersList(sortedUsers);
-      log('[QATrackerReport] Users fetched successfully:', sortedUsers.length);
+      log('[QATrackerReport] Agents fetched successfully:', sortedUsers.length);
     } catch (error) {
-      logError('[QATrackerReport] Error fetching users:', error);
+      logError('[QATrackerReport] Error fetching agents:', error);
       setUsersList([]);
-      toast.error("Failed to load users for filter");
+      toast.error("Failed to load agents for filter");
     } finally {
       setLoadingUsers(false);
     }
@@ -263,8 +285,18 @@ const QATrackerReport = () => {
       
       log('[QATrackerReport] Fetching trackers with payload:', payload);
       const res = await api.post("/tracker/view", payload);
-      const data = res.data?.data || {};
-      const fetchedTrackers = Array.isArray(data.trackers) ? data.trackers : [];
+      log('[QATrackerReport] API Response:', res.data);
+      
+      // Handle different possible response structures
+      const data = res.data?.data || res.data || {};
+      log('[QATrackerReport] Extracted data:', data);
+      
+      const fetchedTrackers = Array.isArray(data.trackers) 
+        ? data.trackers 
+        : Array.isArray(data) 
+          ? data 
+          : [];
+      log('[QATrackerReport] Fetched trackers count:', fetchedTrackers.length);
       setTrackers(fetchedTrackers); // Display fetched trackers (already filtered by backend)
       setSummary(Array.isArray(data.month_summary) ? data.month_summary : []);
       
