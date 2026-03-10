@@ -5,7 +5,7 @@
  */
 import React, { useEffect, useState, useMemo } from "react";
 import { format } from "date-fns";
-import { Download, Filter, FileDown, Users as UsersIcon, Calendar, RotateCcw, RefreshCw, Edit, Trash2, X, ChevronDown, Briefcase, ListTodo, Info, Plus, ListChecks } from "lucide-react";
+import { Download, Filter, FileDown, Users as UsersIcon, Calendar, RotateCcw, RefreshCw, Edit, Trash2, X, ChevronDown, Briefcase, ListTodo, Info, Plus, ListChecks, Clock, Target, TrendingUp } from "lucide-react";
 import { toast } from "react-hot-toast";
 import * as XLSX from 'xlsx';
 import api from "../../services/api";
@@ -15,7 +15,6 @@ import { useDeviceInfo } from "../../hooks/useDeviceInfo";
 import { DateRangePicker } from "../common/CustomCalendar";
 import MultiSelectWithCheckbox from "../common/MultiSelectWithCheckbox";
 import SearchableSelect from "../common/SearchableSelect";
-import { Clock } from "lucide-react";
 
 // Helper to get today's date in YYYY-MM-DD format
 const getTodayDate = () => {
@@ -37,9 +36,17 @@ const QATrackerReport = () => {
                     String(role).toLowerCase().includes('qa');
   
   const [trackers, setTrackers] = useState([]);
-  const [allTrackers, setAllTrackers] = useState([]); // Store all trackers for frontend filtering
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  // State for API totals
+  const [apiTotals, setApiTotals] = useState({
+    total_active_agents: 0,
+    total_assigned_hours: 0,
+    total_tenure_target: 0,
+    total_production: 0,
+    total_billable_hours: 0
+  });
 
   // Filter states - Multi-select for agents
   const [selectedAgents, setSelectedAgents] = useState([]);
@@ -219,13 +226,17 @@ const QATrackerReport = () => {
     }
   };
 
-  // Fetch trackers and summary from tracker/view API with only date range (no agent filter in API)
+  // Fetch trackers and summary from tracker/view API with filters applied from backend
   const fetchData = async () => {
     try {
       setLoading(true);
       let payload = {
         logged_in_user_id: user?.user_id,
+        device_id: device_id,
+        device_type: device_type,
       };
+      
+      // Add date filters
       if (startDate) payload.date_from = startDate;
       if (endDate) payload.date_to = endDate;
       // If no date filter, use today's date for both from/to
@@ -234,18 +245,51 @@ const QATrackerReport = () => {
         payload.date_from = today;
         payload.date_to = today;
       }
+      
+      // Add agent filter (array of user IDs)
+      if (selectedAgents.length > 0) {
+        payload.user_id = selectedAgents.map(id => Number(id));
+      }
+      
+      // Add project filter (single value)
+      if (selectedProject) {
+        payload.project_id = Number(selectedProject);
+      }
+      
+      // Add task filter (single value)
+      if (selectedTask) {
+        payload.task_id = Number(selectedTask);
+      }
+      
+      log('[QATrackerReport] Fetching trackers with payload:', payload);
       const res = await api.post("/tracker/view", payload);
       const data = res.data?.data || {};
       const fetchedTrackers = Array.isArray(data.trackers) ? data.trackers : [];
-      setAllTrackers(fetchedTrackers); // Store all trackers
-      setTrackers(fetchedTrackers); // Initially show all
+      setTrackers(fetchedTrackers); // Display fetched trackers (already filtered by backend)
       setSummary(Array.isArray(data.month_summary) ? data.month_summary : []);
+      
+      // Store API totals
+      if (data.totals) {
+        setApiTotals({
+          total_active_agents: data.totals.total_active_agents || 0,
+          total_assigned_hours: data.totals.total_assigned_hours || 0,
+          total_tenure_target: data.totals.total_tenure_target || 0,
+          total_production: data.totals.total_production || 0,
+          total_billable_hours: data.totals.total_billable_hours || 0
+        });
+      }
     } catch (err) {
       logError('[QATrackerReport] Error fetching tracker/view:', err);
       toast.error("Failed to load tracker data");
-      setAllTrackers([]);
       setTrackers([]);
       setSummary([]);
+      setApiTotals({
+        total_active_agents: 0,
+        total_assigned_hours: 0,
+        total_tenure_target: 0,
+        total_production: 0,
+        total_billable_hours: 0
+      });
     } finally {
       setLoading(false);
     }
@@ -260,13 +304,13 @@ const QATrackerReport = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.user_id, device_id, device_type]);
 
-  // Fetch tracker data when date filters change
+  // Fetch tracker data when date filters or other filters change
   useEffect(() => {
-    if (user?.user_id) {
+    if (user?.user_id && device_id && device_type) {
       fetchData();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.user_id, startDate, endDate]);
+  }, [user?.user_id, device_id, device_type, startDate, endDate, selectedAgents, selectedProject, selectedTask]);
 
   // Clear selected task when project changes
   useEffect(() => {
@@ -283,35 +327,7 @@ const QATrackerReport = () => {
     return tasksList.filter(task => String(task.project_id) === String(selectedProject));
   }, [tasksList, selectedProject]);
 
-  // Filter trackers based on selected agents, project, and task (frontend filtering)
-  useEffect(() => {
-    let filtered = allTrackers;
-
-    // Filter by selected agents
-    if (selectedAgents.length > 0) {
-      filtered = filtered.filter(tracker => 
-        selectedAgents.includes(String(tracker.user_id))
-      );
-    }
-
-    // Filter by selected project
-    if (selectedProject) {
-      filtered = filtered.filter(tracker => 
-        String(tracker.project_id) === String(selectedProject)
-      );
-    }
-
-    // Filter by selected task
-    if (selectedTask) {
-      filtered = filtered.filter(tracker => 
-        String(tracker.task_id) === String(selectedTask)
-      );
-    }
-
-    setTrackers(filtered);
-  }, [selectedAgents, selectedProject, selectedTask, allTrackers]);
-
-  // Remove in-memory filtering; handled by API
+  // Frontend filtering removed - now handled by backend API
 
   // Format date and time to display format: 3/Feb/2026 and 9:52 PM (UTC)
   const formatDateTime = (dateTimeStr) => {
@@ -1121,6 +1137,86 @@ const QATrackerReport = () => {
         'Has File': ''
       });
 
+      // Add empty row for spacing
+      exportData.push({
+        'Date/Time': '',
+        'Agent': '',
+        'Project': '',
+        'Task': '',
+        'Per Hour Target': '',
+        'Production': '',
+        'Billable Hours': '',
+        'Has File': ''
+      });
+
+      // Add Summary Totals section header
+      exportData.push({
+        'Date/Time': 'SUMMARY TOTALS',
+        'Agent': '',
+        'Project': '',
+        'Task': '',
+        'Per Hour Target': '',
+        'Production': '',
+        'Billable Hours': '',
+        'Has File': ''
+      });
+
+      // Add Summary Totals data
+      exportData.push({
+        'Date/Time': 'Total Active Agents',
+        'Agent': apiTotals.total_active_agents,
+        'Project': '',
+        'Task': '',
+        'Per Hour Target': '',
+        'Production': '',
+        'Billable Hours': '',
+        'Has File': ''
+      });
+
+      exportData.push({
+        'Date/Time': 'Total Assign Hours',
+        'Agent': Number(apiTotals.total_assigned_hours).toFixed(2),
+        'Project': '',
+        'Task': '',
+        'Per Hour Target': '',
+        'Production': '',
+        'Billable Hours': '',
+        'Has File': ''
+      });
+
+      exportData.push({
+        'Date/Time': 'Total Per Hour Target',
+        'Agent': Number(apiTotals.total_tenure_target).toFixed(2),
+        'Project': '',
+        'Task': '',
+        'Per Hour Target': '',
+        'Production': '',
+        'Billable Hours': '',
+        'Has File': ''
+      });
+
+      exportData.push({
+        'Date/Time': 'Total Production',
+        'Agent': Number(apiTotals.total_production).toFixed(2),
+        'Project': '',
+        'Task': '',
+        'Per Hour Target': '',
+        'Production': '',
+        'Billable Hours': '',
+        'Has File': ''
+      });
+
+      exportData.push({
+        'Date/Time': 'Total Billable Hours',
+        'Agent': Number(apiTotals.total_billable_hours).toFixed(2),
+        'Project': '',
+        'Task': '',
+        'Per Hour Target': '',
+        'Production': '',
+        'Billable Hours': '',
+        'Has File': ''
+      });
+
       // Create workbook and worksheet
       const worksheet = XLSX.utils.json_to_sheet(exportData);
       const workbook = XLSX.utils.book_new();
@@ -1475,26 +1571,103 @@ const QATrackerReport = () => {
       {!loading && trackers.length > 0 && (
         <div className="bg-white rounded-2xl shadow-lg p-8 border border-slate-200 mt-6">
           <h3 className="text-xl font-bold text-slate-800 mb-6 flex items-center gap-3">
-            <div className="w-1.5 h-8 bg-gradient-to-b from-blue-600 to-blue-700 rounded-full"></div>
+            <div className="w-1.5 h-8 bg-linear-to-b from-blue-600 to-blue-700 rounded-full"></div>
             Summary Totals
           </h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {/* Per Hour Target */}
-            <div className="bg-gradient-to-br from-blue-50 to-blue-100 border-2 border-blue-200 rounded-2xl p-6 shadow-md hover:shadow-xl hover:scale-105 transition-all duration-300">
-              <p className="text-xs font-bold text-blue-700 uppercase tracking-wider mb-2">Per Hour Target</p>
-              <p className="text-4xl font-extrabold text-blue-900">{totals.tenureTarget.toFixed(2)}</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+            {/* Total Active Agents */}
+            <div 
+              className="bg-white rounded-2xl border-2 border-slate-200 shadow-md hover:shadow-xl transition-all duration-300 overflow-hidden cursor-pointer"
+              title={`Total Active Agents: ${apiTotals.total_active_agents}`}
+            >
+              <div className="relative p-5 flex items-center justify-between gap-4">
+                <div className="flex-1 min-w-0 z-10">
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <p className="text-xs font-bold uppercase tracking-wide truncate text-slate-600">Total Active Agents</p>
+                  </div>
+                  <h3 className="text-2xl sm:text-3xl font-extrabold truncate text-slate-900">{apiTotals.total_active_agents}</h3>
+                  <p className="text-xs font-semibold mt-1.5 truncate text-blue-600">Active agents</p>
+                </div>
+                <div className="p-3 rounded-xl shadow-sm flex-shrink-0 z-10 bg-blue-100">
+                  <UsersIcon className="w-6 h-6 text-blue-600" aria-hidden="true" />
+                </div>
+              </div>
             </div>
             
-            {/* Production */}
-            <div className="bg-gradient-to-br from-green-50 to-green-100 border-2 border-green-200 rounded-2xl p-6 shadow-md hover:shadow-xl hover:scale-105 transition-all duration-300">
-              <p className="text-xs font-bold text-green-700 uppercase tracking-wider mb-2">Production</p>
-              <p className="text-4xl font-extrabold text-green-900">{totals.production.toFixed(2)}</p>
+            {/* Total Assign Hours Target */}
+            <div 
+              className="bg-white rounded-2xl border-2 border-slate-200 shadow-md hover:shadow-xl transition-all duration-300 overflow-hidden cursor-pointer"
+              title={`Total Assign Hours: ${apiTotals.total_assigned_hours}`}
+            >
+              <div className="relative p-5 flex items-center justify-between gap-4">
+                <div className="flex-1 min-w-0 z-10">
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <p className="text-xs font-bold uppercase tracking-wide truncate text-slate-600">Total Assign Hours</p>
+                  </div>
+                  <h3 className="text-2xl sm:text-3xl font-extrabold truncate text-slate-900">{Number(apiTotals.total_assigned_hours).toFixed(2)}</h3>
+                  <p className="text-xs font-semibold mt-1.5 truncate text-amber-600">Assigned hours</p>
+                </div>
+                <div className="p-3 rounded-xl shadow-sm flex-shrink-0 z-10 bg-amber-100">
+                  <Calendar className="w-6 h-6 text-amber-600" aria-hidden="true" />
+                </div>
+              </div>
             </div>
             
-            {/* Billable Hours */}
-            <div className="bg-gradient-to-br from-purple-50 to-purple-100 border-2 border-purple-200 rounded-2xl p-6 shadow-md hover:shadow-xl hover:scale-105 transition-all duration-300">
-              <p className="text-xs font-bold text-purple-700 uppercase tracking-wider mb-2">Billable Hours</p>
-              <p className="text-4xl font-extrabold text-purple-900">{totals.billableHours.toFixed(2)}</p>
+            {/* Total Per Hour Target */}
+            <div 
+              className="bg-white rounded-2xl border-2 border-slate-200 shadow-md hover:shadow-xl transition-all duration-300 overflow-hidden cursor-pointer"
+              title={`Total Per Hour Target: ${apiTotals.total_tenure_target}`}
+            >
+              <div className="relative p-5 flex items-center justify-between gap-4">
+                <div className="flex-1 min-w-0 z-10">
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <p className="text-xs font-bold uppercase tracking-wide truncate text-slate-600">Total Per Hour Target</p>
+                  </div>
+                  <h3 className="text-2xl sm:text-3xl font-extrabold truncate text-slate-900">{Number(apiTotals.total_tenure_target).toFixed(2)}</h3>
+                  <p className="text-xs font-semibold mt-1.5 truncate text-purple-600">Per hour target</p>
+                </div>
+                <div className="p-3 rounded-xl shadow-sm flex-shrink-0 z-10 bg-purple-100">
+                  <Target className="w-6 h-6 text-purple-600" aria-hidden="true" />
+                </div>
+              </div>
+            </div>
+            
+            {/* Total Production */}
+            <div 
+              className="bg-white rounded-2xl border-2 border-slate-200 shadow-md hover:shadow-xl transition-all duration-300 overflow-hidden cursor-pointer"
+              title={`Total Production: ${apiTotals.total_production}`}
+            >
+              <div className="relative p-5 flex items-center justify-between gap-4">
+                <div className="flex-1 min-w-0 z-10">
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <p className="text-xs font-bold uppercase tracking-wide truncate text-slate-600">Total Production</p>
+                  </div>
+                  <h3 className="text-2xl sm:text-3xl font-extrabold truncate text-slate-900">{Number(apiTotals.total_production).toFixed(2)}</h3>
+                  <p className="text-xs font-semibold mt-1.5 truncate text-teal-600">Production count</p>
+                </div>
+                <div className="p-3 rounded-xl shadow-sm flex-shrink-0 z-10 bg-teal-100">
+                  <TrendingUp className="w-6 h-6 text-teal-600" aria-hidden="true" />
+                </div>
+              </div>
+            </div>
+            
+            {/* Total Billable Hours */}
+            <div 
+              className="bg-white rounded-2xl border-2 border-slate-200 shadow-md hover:shadow-xl transition-all duration-300 overflow-hidden cursor-pointer"
+              title={`Total Billable Hours: ${apiTotals.total_billable_hours}`}
+            >
+              <div className="relative p-5 flex items-center justify-between gap-4">
+                <div className="flex-1 min-w-0 z-10">
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <p className="text-xs font-bold uppercase tracking-wide truncate text-slate-600">Total Billable Hours</p>
+                  </div>
+                  <h3 className="text-2xl sm:text-3xl font-extrabold truncate text-slate-900">{Number(apiTotals.total_billable_hours).toFixed(2)}</h3>
+                  <p className="text-xs font-semibold mt-1.5 truncate text-green-600">Billable hours</p>
+                </div>
+                <div className="p-3 rounded-xl shadow-sm flex-shrink-0 z-10 bg-green-100">
+                  <Clock className="w-6 h-6 text-green-600" aria-hidden="true" />
+                </div>
+              </div>
             </div>
           </div>
         </div>

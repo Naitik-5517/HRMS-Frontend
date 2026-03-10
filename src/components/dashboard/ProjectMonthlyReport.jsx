@@ -132,7 +132,9 @@ const ProjectMonthlyReport = () => {
           month_year: record.month_year,
           monthly_target: parseFloat(record.monthly_target) || 0,
           achieved_monthly_target: parseFloat(record.achieved_hours) || 0,
-          pending_monthly_target: parseFloat(record.pending_hours) || 0
+          pending_monthly_target: parseFloat(record.pending_hours) || 0,
+          tenure_achieved_hours: parseFloat(record.tenure_achieved_hours) || 0,
+          tenure_pending_hours: parseFloat(record.tenure_pending_hours) || 0
         }));
         setReportData(mappedData);
       } else {
@@ -366,11 +368,18 @@ const ProjectMonthlyReport = () => {
   };
 
   // Export to Excel function for a specific month
-  const handleExportToExcel = (monthYear) => {
+  const handleExportToExcel = async (monthYear) => {
     try {
-      // Get all projects for the specific month (including those without data)
-      const groupedData = getTableDataByMonth();
-      let monthData = groupedData[monthYear] || [];
+      // Fetch fresh data directly from API for export
+      const response = await api.post('/project_monthly_tracker/list', {});
+      
+      if (!response.data?.data?.rows) {
+        toast.error('No data available to export');
+        return;
+      }
+
+      // Filter data for the specific month
+      let monthData = response.data.data.rows.filter(record => record.month_year === monthYear);
       
       // Apply search filter if search term exists
       if (searchTerm) {
@@ -380,31 +389,32 @@ const ProjectMonthlyReport = () => {
       }
 
       if (monthData.length === 0) {
-        toast.error('No projects to export');
+        toast.error('No projects to export for this month');
         return;
       }
 
-      // Export all projects (both with and without data)
+      // Export all projects with data directly from API
       const exportData = monthData.map((record) => ({
         'Project Name': record.project_name || '-',
         'Month/Year': record.month_year || '-',
-        'Monthly Target': record.isNew ? '-' : (record.monthly_target || 0),
-        'Achieved Monthly Target': record.isNew ? '-' : (record.achieved_monthly_target || 0),
-        'Pending Monthly Target': record.isNew ? '-' : (record.pending_monthly_target || 0)
+        'Monthly Target': record.monthly_target || 0,
+        'Achieved Monthly Target': record.achieved_hours || 0,
+        'Pending Monthly Target': record.pending_hours || 0,
+        'Tenure Achieved Hours': Number(record.tenure_achieved_hours || 0).toFixed(2),
+        'Tenure Pending Hours': Number(record.tenure_pending_hours || 0).toFixed(2)
       }));
 
-      // Calculate totals for projects with data
-      const projectsWithData = monthData.filter(r => !r.isNew);
-      if (projectsWithData.length > 0) {
-        const totals = {
-          'Project Name': 'TOTAL',
-          'Month/Year': '',
-          'Monthly Target': projectsWithData.reduce((sum, r) => sum + (Number(r.monthly_target) || 0), 0),
-          'Achieved Monthly Target': projectsWithData.reduce((sum, r) => sum + (Number(r.achieved_monthly_target) || 0), 0),
-          'Pending Monthly Target': projectsWithData.reduce((sum, r) => sum + (Number(r.pending_monthly_target) || 0), 0)
-        };
-        exportData.push(totals);
-      }
+      // Calculate totals
+      const totals = {
+        'Project Name': 'TOTAL',
+        'Month/Year': '',
+        'Monthly Target': monthData.reduce((sum, r) => sum + (Number(r.monthly_target) || 0), 0),
+        'Achieved Monthly Target': monthData.reduce((sum, r) => sum + (Number(r.achieved_hours) || 0), 0),
+        'Pending Monthly Target': monthData.reduce((sum, r) => sum + (Number(r.pending_hours) || 0), 0),
+        'Tenure Achieved Hours': monthData.reduce((sum, r) => sum + (Number(r.tenure_achieved_hours) || 0), 0).toFixed(2),
+        'Tenure Pending Hours': monthData.reduce((sum, r) => sum + (Number(r.tenure_pending_hours) || 0), 0).toFixed(2)
+      };
+      exportData.push(totals);
 
       // Create worksheet
       const worksheet = XLSX.utils.json_to_sheet(exportData);
@@ -415,7 +425,9 @@ const ProjectMonthlyReport = () => {
         { wch: 15 }, // Month/Year
         { wch: 15 }, // Monthly Target
         { wch: 22 }, // Achieved Monthly Target
-        { wch: 22 }  // Pending Monthly Target
+        { wch: 22 }, // Pending Monthly Target
+        { wch: 22 }, // Tenure Achieved Hours
+        { wch: 22 }  // Tenure Pending Hours
       ];
 
       // Create workbook
