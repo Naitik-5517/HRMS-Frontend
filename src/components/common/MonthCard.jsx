@@ -244,8 +244,9 @@ export default function MonthCard({ month, users, onExport, onExportMonth, teamO
                     <td className="px-4 py-3 text-center">
                       {(() => {
                         const scores = filteredUsers
+                          .filter(user => user.avg_qc_score !== null && user.avg_qc_score !== undefined && user.avg_qc_score !== '')
                           .map(user => Number(user.avg_qc_score))
-                          .filter(val => !isNaN(val) && val !== null);
+                          .filter(val => !isNaN(val));
                         if (scores.length === 0) return <span className="text-slate-900 font-bold">-</span>;
                         const avg = scores.reduce((a, b) => a + b, 0) / scores.length;
                         return <span className={`px-3 py-1.5 rounded-lg ${getQCScoreColorClass(avg)}`}>{`${avg.toFixed(2)}%`}</span>;

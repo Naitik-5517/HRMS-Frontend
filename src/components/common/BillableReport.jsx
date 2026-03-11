@@ -193,8 +193,11 @@ const BillableReport = ({ userId }) => {
         const totalBillable = exportData.reduce((sum, r) => sum + (parseFloat(r['Billable Hour Delivered']) || 0), 0);
         const totalGoal = exportData.reduce((sum, r) => sum + (parseFloat(r['Monthly Goal']) || 0), 0);
         const totalPending = exportData.reduce((sum, r) => sum + (parseFloat(r['Pending Target']) || 0), 0);
-        // For Avg. QC Score, show average if all are numbers
-        const qcScores = exportData.map(r => Number(r['Avg. QC Score'])).filter(v => !isNaN(v));
+        // For Avg. QC Score, show average if all are numbers (exclude null, empty, undefined)
+        const qcScores = exportData
+          .filter(r => r['Avg. QC Score'] !== null && r['Avg. QC Score'] !== undefined && r['Avg. QC Score'] !== '' && r['Avg. QC Score'] !== '-')
+          .map(r => parseFloat(r['Avg. QC Score']))
+          .filter(v => !isNaN(v));
         const avgQC = qcScores.length > 0 ? `${(qcScores.reduce((a, b) => a + b, 0) / qcScores.length).toFixed(2)}%` : '-';
         
         const totalRow = {
