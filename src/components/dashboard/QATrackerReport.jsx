@@ -2264,7 +2264,7 @@ const QATrackerReport = () => {
                             onChange={(value) => handleAddFieldChange('agent_id', value)}
                             options={[
                               { value: '', label: 'Select an agent...' },
-                              ...usersList.map(u => ({ value: String(u.user_id), label: u.user_name }))
+                              ...usersList.map(u => ({ value: String(u.user_id), label: u.label }))
                             ]}
                             icon={UsersIcon}
                             placeholder="Select an agent..."
