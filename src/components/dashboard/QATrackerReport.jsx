@@ -200,6 +200,10 @@ const QATrackerReport = () => {
       const res = await api.post("/dropdown/get", payload);
       const agents = res.data?.data || [];
       console.log('[QATrackerReport] Agents received from API:', agents.length);
+      if (agents.length > 0) {
+        console.log('[QATrackerReport] First agent sample:', agents[0]);
+        log('[QATrackerReport] Agent properties sample:', Object.keys(agents[0]));
+      }
       // Sort agents alphabetically by label
       const sortedAgents = agents
         .filter(a => a.label && a.user_id) // Filter out invalid entries
@@ -374,6 +378,11 @@ const QATrackerReport = () => {
       setSelectedTask(''); // Clear task selection when project changes
     }
   }, [selectedProject]);
+
+  // Debug: Log addFormData changes
+  useEffect(() => {
+    log('[QATrackerReport] addFormData changed:', addFormData);
+  }, [addFormData]);
 
   // Filter tasks based on selected project for cascading dropdown
   const filteredTasksList = useMemo(() => {
@@ -570,12 +579,19 @@ const QATrackerReport = () => {
     // When agent changes, recalculate base target if task is selected
     if (field === 'agent_id' && value) {
       const selectedAgent = usersList.find(u => String(u.user_id) === String(value));
+      log('[QATrackerReport] Agent changed:', value, 'selectedAgent:', selectedAgent);
+      log('[QATrackerReport] Current task_id:', addFormData.task_id, 'Current project_id:', addFormData.project_id);
       if (selectedAgent && addFormData.task_id) {
         const project = addProjects.find(p => String(p.project_id) === String(addFormData.project_id));
         const task = project?.tasks?.find(t => String(t.task_id) === String(addFormData.task_id));
+        log('[QATrackerReport] Found project:', project, 'Found task:', task);
         if (task && selectedAgent.user_tenure) {
-          const calculated = Number(task.task_target) * Number(selectedAgent.user_tenure);
+          const perHourTarget = task.task_target || task.per_hour_target || task.target || 0;
+          const calculated = Number(perHourTarget) * Number(selectedAgent.user_tenure);
+          log('[QATrackerReport] Calculated base_target on agent change:', calculated, 'perHourTarget:', perHourTarget, 'user_tenure:', selectedAgent.user_tenure);
           setAddFormData(prev => ({ ...prev, base_target: calculated.toFixed(2) }));
+          setAddTouched(prev => ({ ...prev, base_target: true }));
+          validateAddField('base_target', calculated.toFixed(2));
         }
       }
     }
@@ -592,9 +608,15 @@ const QATrackerReport = () => {
       const project = addProjects.find(p => String(p.project_id) === String(addFormData.project_id));
       const task = project?.tasks?.find(t => String(t.task_id) === String(value));
       const selectedAgent = usersList.find(u => String(u.user_id) === String(addFormData.agent_id));
+      log('[QATrackerReport] Task changed:', value, 'Found task:', task);
+      log('[QATrackerReport] Selected agent:', selectedAgent, 'user_tenure:', selectedAgent?.user_tenure);
       if (task && selectedAgent?.user_tenure) {
-        const calculated = Number(task.task_target) * Number(selectedAgent.user_tenure);
+        const perHourTarget = task.task_target || task.per_hour_target || task.target || 0;
+        const calculated = Number(perHourTarget) * Number(selectedAgent.user_tenure);
+        log('[QATrackerReport] Calculated base_target on task change:', calculated, 'perHourTarget:', perHourTarget, 'user_tenure:', selectedAgent.user_tenure);
         setAddFormData(prev => ({ ...prev, base_target: calculated.toFixed(2) }));
+        setAddTouched(prev => ({ ...prev, base_target: true }));
+        validateAddField('base_target', calculated.toFixed(2));
       }
     }
     
@@ -634,6 +656,10 @@ const QATrackerReport = () => {
       case 'shift_type':
         if (!value) newErrors.shift_type = 'Shift is required';
         else delete newErrors.shift_type;
+        break;
+      case 'base_target':
+        if (!value) newErrors.base_target = 'Base target is required';
+        else delete newErrors.base_target;
         break;
       case 'production':
         if (!value) newErrors.production = 'Production is required';
@@ -678,6 +704,7 @@ const QATrackerReport = () => {
       project_id: true,
       task_id: true,
       shift_type: true,
+      base_target: true,
       production: true
     });
     
@@ -696,6 +723,7 @@ const QATrackerReport = () => {
     if (!addFormData.project_id) errors.project_id = 'Project is required';
     if (!addFormData.task_id) errors.task_id = 'Task is required';
     if (!addFormData.shift_type) errors.shift_type = 'Shift is required';
+    if (!addFormData.base_target) errors.base_target = 'Base target is required';
     if (!addFormData.production) errors.production = 'Production is required';
     else if (isNaN(addFormData.production) || Number(addFormData.production) <= 0) {
       errors.production = 'Enter valid production';
@@ -2528,6 +2556,16 @@ const QATrackerReport = () => {
                               <span>{addFormData.base_target ? Number(addFormData.base_target).toFixed(2) : '—'}</span>
                             </div>
                           </div>
+                          {addTouched.base_target && addErrors.base_target && (
+                            <p className="text-xs text-red-600 font-medium flex items-center gap-1 mt-1">
+                              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <circle cx="12" cy="12" r="10"></circle>
+                                <line x1="12" x2="12" y1="8" y2="12"></line>
+                                <line x1="12" x2="12.01" y1="16" y2="16"></line>
+                              </svg>
+                              {addErrors.base_target}
+                            </p>
+                          )}
                         </div>
 
                         {/* Production Target */}
