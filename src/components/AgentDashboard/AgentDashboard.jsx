@@ -636,10 +636,8 @@ const AgentDashboard = ({ embedded = false }) => {
                       </svg>
                       Notes
                     </span>
-                    <span className={`text-xs font-medium ${
-                      trackerNote.length > 200 ? 'text-red-600' : 'text-slate-500'
-                    }`}>
-                      {trackerNote.length}/200
+                    <span className="text-xs font-medium text-slate-500">
+                      {trackerNote.length} characters
                     </span>
                   </label>
                   <div className="relative">
@@ -649,27 +647,12 @@ const AgentDashboard = ({ embedded = false }) => {
                     </svg>
                     <textarea
                       rows="3"
-                      maxLength="200"
-                      className={`w-full bg-slate-50 border rounded-lg pl-10 pr-4 py-3 text-sm font-medium text-slate-800 focus:outline-none focus:ring-2 transition-all shadow-sm hover:bg-white resize-none ${
-                        trackerNote.length > 200 
-                          ? 'border-red-500 focus:border-red-500 focus:ring-red-100' 
-                          : 'border-slate-300 focus:border-blue-500 focus:ring-blue-100'
-                      }`}
+                      className="w-full bg-slate-50 border border-slate-300 rounded-lg pl-10 pr-4 py-3 text-sm font-medium text-slate-800 focus:outline-none focus:ring-2 focus:border-blue-500 focus:ring-blue-100 transition-all shadow-sm hover:bg-white resize-none"
                       value={trackerNote}
                       onChange={e => setTrackerNote(e.target.value)}
                       placeholder="Add any additional notes... (Optional)"
                     />
                   </div>
-                  {trackerNote.length > 200 && (
-                    <p className="text-xs text-red-600 font-medium flex items-center gap-1 mt-1">
-                      <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <circle cx="12" cy="12" r="10"></circle>
-                        <line x1="12" x2="12" y1="8" y2="12"></line>
-                        <line x1="12" x2="12.01" y1="16" y2="16"></line>
-                      </svg>
-                      Notes cannot exceed 200 characters
-                    </p>
-                  )}
                 </div>
 
               </div>
