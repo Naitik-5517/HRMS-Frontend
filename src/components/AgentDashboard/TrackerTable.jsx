@@ -329,19 +329,27 @@ const TrackerTable = ({ userId, projects, onClose }) => {
 
     try {
       // Prepare data for export
-      const exportData = trackers.map((tracker) => ({
-        'Date/Time': tracker.date_time ? tracker.date_time : "-",
-        'Project': tracker.project_name || getProjectName(tracker.project_id),
-        'Task': tracker.task_name || '-',
-        // Always show tenure_target from tracker/view for all roles
-        'Per Hour Target': tracker.tenure_target ?? 0,
-        'Production': tracker.production || 0,
-        'Billable Hours': tracker.billable_hours !== null && tracker.billable_hours !== undefined
-          ? Number(tracker.billable_hours).toFixed(2)
-          : "0.00",
-        'Notes': tracker.tracker_note || tracker.notes || "-",
-        'Has File': tracker.tracker_file ? 'Yes' : 'No'
-      }));
+      const exportData = trackers.map((tracker) => {
+        // Split project and task names by spaces and join with newlines
+        const projectName = tracker.project_name || getProjectName(tracker.project_id);
+        const taskName = tracker.task_name || '-';
+        const projectFormatted = projectName !== "-" ? projectName.split(' ').join('\n') : "-";
+        const taskFormatted = taskName !== "-" ? taskName.split(' ').join('\n') : "-";
+        
+        return {
+          'Date/Time': tracker.date_time ? tracker.date_time : "-",
+          'Project': projectFormatted,
+          'Task': taskFormatted,
+          // Always show tenure_target from tracker/view for all roles
+          'Per Hour Target': tracker.tenure_target ?? 0,
+          'Production': tracker.production || 0,
+          'Billable Hours': tracker.billable_hours !== null && tracker.billable_hours !== undefined
+            ? Number(tracker.billable_hours).toFixed(2)
+            : "0.00",
+          'Notes': tracker.tracker_note || tracker.notes || "-",
+          'Has File': tracker.tracker_file ? 'Yes' : 'No'
+        };
+      });
 
       // Add totals row
       exportData.push({
@@ -357,6 +365,19 @@ const TrackerTable = ({ userId, projects, onClose }) => {
 
       // Create worksheet
       const worksheet = XLSX.utils.json_to_sheet(exportData);
+      
+      // Set text wrapping for Project and Task columns (columns B and C)
+      const range = XLSX.utils.decode_range(worksheet['!ref']);
+      for (let R = range.s.r; R <= range.e.r; ++R) {
+        // Column B (Project) and Column C (Task) - indices 1 and 2
+        ['B', 'C'].forEach(col => {
+          const cellAddress = col + (R + 1);
+          if (worksheet[cellAddress]) {
+            if (!worksheet[cellAddress].s) worksheet[cellAddress].s = {};
+            worksheet[cellAddress].s.alignment = { wrapText: true, vertical: 'top' };
+          }
+        });
+      }
 
       // Set column widths
       worksheet['!cols'] = [
@@ -561,8 +582,16 @@ const TrackerTable = ({ userId, projects, onClose }) => {
                           <span className="text-xs text-slate-500">{formatDateTime(tracker.date_time).time}</span>
                         </div>
                       </td>
-                      <td className="px-5 py-4 align-middle text-slate-700 font-medium">{tracker.project_name || getProjectName(tracker.project_id)}</td>
-                      <td className="px-5 py-4 align-middle text-slate-700">{tracker.task_name || getTaskName(tracker.task_id, tracker.project_id) || '-'}</td>
+                      <td className="px-5 py-4 align-middle text-slate-700 font-medium">
+                        <div className="whitespace-pre-line">
+                          {(tracker.project_name || getProjectName(tracker.project_id) || '-').split(' ').join('\n')}
+                        </div>
+                      </td>
+                      <td className="px-5 py-4 align-middle text-slate-700">
+                        <div className="whitespace-pre-line">
+                          {(tracker.task_name || getTaskName(tracker.task_id, tracker.project_id) || '-').split(' ').join('\n')}
+                        </div>
+                      </td>
                       <td className="px-5 py-4 align-middle text-slate-700">
                         <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${
                           (tracker.shift || tracker.shift_type || '').toLowerCase() === 'day' || (tracker.shift || tracker.shift_type) === 'day_shift'

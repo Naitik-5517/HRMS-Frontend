@@ -288,8 +288,8 @@ const QATrackerReport = () => {
       
       // Add filter parameters if selected
       if (selectedAgents.length > 0) {
-        // Send first selected agent as user_id (API expects single value)
-        payload.user_id = Number(selectedAgents[0]);
+        // Send selected agents as array
+        payload.user_id = selectedAgents.map(id => Number(id));
       }
       
       if (selectedTeams) {
@@ -1206,19 +1206,30 @@ const QATrackerReport = () => {
 
     try {
       // Prepare data for export
-      const exportData = trackers.map((tracker) => ({
-        'Date/Time': tracker.date_time ? tracker.date_time : "-",
-        'Agent': tracker.user_name || "-",
-        'Project': tracker.project_name || "-",
-        'Task': tracker.task_name || "-",
-        'Per Hour Target': tracker.tenure_target || 0,
-        'Production': tracker.production || 0,
-        'Billable Hours': tracker.billable_hours !== null && tracker.billable_hours !== undefined
-          ? Number(tracker.billable_hours).toFixed(2)
-          : "0.00",
-        'Notes': tracker.tracker_note || "-",
-        'Has File': tracker.tracker_file ? 'Yes' : 'No'
-      }));
+      const exportData = trackers.map((tracker) => {
+        // Split agent, project and task names by spaces and join with newlines
+        const agentName = tracker.user_name || "-";
+        const projectName = tracker.project_name || "-";
+        const taskName = tracker.task_name || "-";
+        const agentFormatted = agentName !== "-" ? agentName.split(' ').join('\n') : "-";
+        const projectFormatted = projectName !== "-" ? projectName.split(' ').join('\n') : "-";
+        const taskFormatted = taskName !== "-" ? taskName.split(' ').join('\n') : "-";
+        
+        return {
+          'Date/Time': tracker.date_time ? tracker.date_time : "-",
+          'Agent': agentFormatted,
+          'Project': projectFormatted,
+          'Task': taskFormatted,
+          'Shift': tracker.shift_type === 'day' ? 'Day' : tracker.shift_type === 'night' ? 'Night' : '-',
+          'Per Hour Target': tracker.tenure_target || 0,
+          'Production': tracker.production || 0,
+          'Billable Hours': tracker.billable_hours !== null && tracker.billable_hours !== undefined
+            ? Number(tracker.billable_hours).toFixed(2)
+            : "0.00",
+          'Notes': tracker.tracker_note || '-',
+          'Has File': tracker.tracker_file ? 'Yes' : 'No'
+        };
+      });
 
       // Add totals row
       exportData.push({
@@ -1226,6 +1237,7 @@ const QATrackerReport = () => {
         'Agent': '',
         'Project': '',
         'Task': 'TOTALS',
+        'Shift': '',
         'Per Hour Target': totals.tenureTarget.toFixed(2),
         'Production': totals.production.toFixed(2),
         'Billable Hours': totals.billableHours.toFixed(2),
@@ -1235,6 +1247,34 @@ const QATrackerReport = () => {
 
       // Create workbook and worksheet
       const worksheet = XLSX.utils.json_to_sheet(exportData);
+      
+      // Set text wrapping for Agent, Project and Task columns (columns B, C and D)
+      const range = XLSX.utils.decode_range(worksheet['!ref']);
+      for (let R = range.s.r; R <= range.e.r; ++R) {
+        // Column B (Agent), Column C (Project) and Column D (Task) - indices 1, 2 and 3
+        ['B', 'C', 'D'].forEach(col => {
+          const cellAddress = col + (R + 1);
+          if (worksheet[cellAddress]) {
+            if (!worksheet[cellAddress].s) worksheet[cellAddress].s = {};
+            worksheet[cellAddress].s.alignment = { wrapText: true, vertical: 'top' };
+          }
+        });
+      }
+      
+      // Set column widths
+      worksheet['!cols'] = [
+        { wch: 18 }, // Date/Time
+        { wch: 15 }, // Agent
+        { wch: 20 }, // Project
+        { wch: 25 }, // Task
+        { wch: 8 },  // Shift
+        { wch: 15 }, // Per Hour Target
+        { wch: 12 }, // Production
+        { wch: 15 }, // Billable Hours
+        { wch: 30 }, // Notes
+        { wch: 10 }  // Has File
+      ];
+      
       const workbook = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(workbook, worksheet, "Tracker Report");
 
@@ -1442,39 +1482,37 @@ const QATrackerReport = () => {
             <div className="max-h-[600px] overflow-y-auto">
               <table className="min-w-full text-sm text-slate-700 table-fixed">
                 <colgroup>
-                  <col style={{ width: canViewTeamFilter ? '7%' : (isQAAgent ? '9%' : '7%') }}/>
-                  <col style={{ width: canViewTeamFilter ? '8%' : (isQAAgent ? '10%' : '8%') }}/>
-                  {canViewTeamFilter && <col style={{ width: '8%' }}/>}
-                  <col style={{ width: canViewTeamFilter ? '8%' : (isQAAgent ? '10%' : '8%') }}/>
-                  <col style={{ width: canViewTeamFilter ? '8%' : (isQAAgent ? '10%' : '8%') }}/>
-                  <col style={{ width: canViewTeamFilter ? '7%' : (isQAAgent ? '8%' : '7%') }}/>
-                  <col style={{ width: canViewTeamFilter ? '7%' : (isQAAgent ? '9%' : '7%') }}/>
-                  <col style={{ width: canViewTeamFilter ? '7%' : (isQAAgent ? '9%' : '7%') }}/>
-                  <col style={{ width: canViewTeamFilter ? '7%' : (isQAAgent ? '9%' : '7%') }}/>
-                  <col style={{ width: canViewTeamFilter ? '14%' : (isQAAgent ? '16%' : '14%') }}/>
-                  <col style={{ width: canViewTeamFilter ? '8%' : (isQAAgent ? '10%' : '8%') }}/>
-                  {!isQAAgent && <col style={{ width: '12%' }}/>}
+                  <col style={{ width: isQAAgent ? '8%' : '7%' }}/>
+                  <col style={{ width: isQAAgent ? '12%' : '10%' }}/>
+                  <col style={{ width: isQAAgent ? '10%' : '9%' }}/>
+                  <col style={{ width: isQAAgent ? '10%' : '9%' }}/>
+                  <col style={{ width: isQAAgent ? '8%' : '7%' }}/>
+                  <col style={{ width: isQAAgent ? '9%' : '8%' }}/>
+                  <col style={{ width: isQAAgent ? '9%' : '8%' }}/>
+                  <col style={{ width: isQAAgent ? '16%' : '14%' }}/>
+                  <col style={{ width: isQAAgent ? '10%' : '8%' }}/>
+                  <col style={{ width: isQAAgent ? '8%' : '7%' }}/>
+                  {!isQAAgent && <col style={{ width: '13%' }}/>}
                 </colgroup>
                 <thead className="bg-gradient-to-r from-blue-600 to-blue-700 sticky top-0 z-10">
                   <tr>
                     <th className="px-5 py-4 font-bold text-white text-xs uppercase tracking-wider text-left">Date/Time</th>
-                    <th className="px-5 py-4 font-bold text-white text-xs uppercase tracking-wider text-left">Agent</th>
-                    {canViewTeamFilter && <th className="px-5 py-4 font-bold text-white text-xs uppercase tracking-wider text-left">Team</th>}
+                    <th className="px-5 py-4 font-bold text-white text-xs uppercase tracking-wider text-left">{canViewTeamFilter ? 'Agent / Team' : 'Agent'}</th>
                     <th className="px-5 py-4 font-bold text-white text-xs uppercase tracking-wider text-left">Project</th>
                     <th className="px-5 py-4 font-bold text-white text-xs uppercase tracking-wider text-left">Task</th>
-                    <th className="px-5 py-4 font-bold text-white text-xs uppercase tracking-wider text-left">Shift</th>
                     <th className="px-5 py-4 font-bold text-white text-xs uppercase tracking-wider text-left">Per Hour Target</th>
                     <th className="px-5 py-4 font-bold text-white text-xs uppercase tracking-wider text-left">Production</th>
                     <th className="px-5 py-4 font-bold text-white text-xs uppercase tracking-wider text-left">Billable Hours</th>
                     <th className="px-5 py-4 font-bold text-white text-xs uppercase tracking-wider text-left">Notes</th>
                     <th className="px-5 py-4 font-bold text-white text-xs uppercase tracking-wider text-center">File</th>
+                    <th className="px-5 py-4 font-bold text-white text-xs uppercase tracking-wider text-left">Shift</th>
                     {!isQAAgent && <th className="px-5 py-4 font-bold text-white text-xs uppercase tracking-wider text-center">Actions</th>}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200">
             {loading ? (
               <tr>
-                <td colSpan={canViewTeamFilter ? (isQAAgent ? "11" : "12") : (isQAAgent ? "10" : "11")} className="px-5 py-16 text-center">
+                <td colSpan={isQAAgent ? "10" : "11"} className="px-5 py-16 text-center">
                   <div className="flex flex-col items-center justify-center gap-4">
                     <RefreshCw className="w-10 h-10 text-blue-600 animate-spin" />
                     <p className="text-slate-600 font-medium text-base">Loading tracker data...</p>
@@ -1483,7 +1521,7 @@ const QATrackerReport = () => {
               </tr>
             ) : trackers.length === 0 ? (
               <tr>
-                <td colSpan={canViewTeamFilter ? (isQAAgent ? "11" : "12") : (isQAAgent ? "10" : "11")} className="px-5 py-16 text-center">
+                <td colSpan={isQAAgent ? "10" : "11"} className="px-5 py-16 text-center">
                   <div className="flex flex-col items-center justify-center gap-4">
                     <svg className="w-16 h-16 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -1505,30 +1543,37 @@ const QATrackerReport = () => {
                       <span className="text-slate-600 text-xs">{time}</span>
                     </div>
                   </td>
-                  <td className="px-5 py-3 align-middle font-semibold text-blue-700 whitespace-nowrap">
-                    {tracker.user_name || "-"}
+                  <td className="px-5 py-3 align-middle">
+                    {canViewTeamFilter ? (
+                      <div className="flex flex-col">
+                        <div className="font-semibold text-blue-700 whitespace-pre-line">
+                          {(tracker.user_name || "-").split(' ').join('\n')}
+                        </div>
+                        <span className="text-slate-600 text-xs">{tracker.team_name || "-"}</span>
+                      </div>
+                    ) : (
+                      <div className="font-semibold text-blue-700 whitespace-pre-line">
+                        {(tracker.user_name || "-").split(' ').join('\n')}
+                      </div>
+                    )}
                   </td>
-                  {canViewTeamFilter && (
-                    <td className="px-5 py-3 align-middle whitespace-nowrap text-slate-800">
-                      {tracker.team_name || "-"}
-                    </td>
-                  )}
-                  <td className="px-5 py-3 align-middle whitespace-nowrap">
-                    {tracker.project_name || "-"}
+                  <td className="px-5 py-3 align-middle text-slate-800 text-sm">
+                    {tracker.project_name ? (
+                      <div className="whitespace-pre-line">
+                        {tracker.project_name.split(' ').join('\n')}
+                      </div>
+                    ) : (
+                      <span className="text-slate-300">—</span>
+                    )}
                   </td>
-                  <td className="px-5 py-3 align-middle whitespace-nowrap">
-                    {tracker.task_name || "-"}
-                  </td>
-                  <td className="px-5 py-3 align-middle whitespace-nowrap">
-                    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${
-                      (tracker.shift || tracker.shift_type || '').toLowerCase() === 'day' || (tracker.shift || tracker.shift_type) === 'day_shift'
-                        ? 'bg-amber-100 text-amber-800 border border-amber-200' 
-                        : (tracker.shift || tracker.shift_type || '').toLowerCase() === 'night' || (tracker.shift || tracker.shift_type) === 'night_shift'
-                        ? 'bg-indigo-100 text-indigo-800 border border-indigo-200'
-                        : 'bg-slate-100 text-slate-600'
-                    }`}>
-                      {(tracker.shift || tracker.shift_type || '').toLowerCase() === 'day' || (tracker.shift || tracker.shift_type) === 'day_shift' ? 'Day' : (tracker.shift || tracker.shift_type || '').toLowerCase() === 'night' || (tracker.shift || tracker.shift_type) === 'night_shift' ? 'Night' : '—'}
-                    </span>
+                  <td className="px-5 py-3 align-middle text-slate-800 text-sm">
+                    {tracker.task_name ? (
+                      <div className="whitespace-pre-line">
+                        {tracker.task_name.split(' ').join('\n')}
+                      </div>
+                    ) : (
+                      <span className="text-slate-300">—</span>
+                    )}
                   </td>
                   <td className="px-5 py-3 align-middle whitespace-nowrap text-slate-800">
                     {formatDecimal(tracker.tenure_target || dropdownTaskMap[tracker.task_id])}
@@ -1584,6 +1629,17 @@ const QATrackerReport = () => {
                     ) : (
                       <span className="text-slate-300">—</span>
                     )}
+                  </td>
+                  <td className="px-5 py-3 align-middle whitespace-nowrap">
+                    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${
+                      (tracker.shift || tracker.shift_type || '').toLowerCase() === 'day' || (tracker.shift || tracker.shift_type) === 'day_shift'
+                        ? 'bg-amber-100 text-amber-800 border border-amber-200' 
+                        : (tracker.shift || tracker.shift_type || '').toLowerCase() === 'night' || (tracker.shift || tracker.shift_type) === 'night_shift'
+                        ? 'bg-indigo-100 text-indigo-800 border border-indigo-200'
+                        : 'bg-slate-100 text-slate-600'
+                    }`}>
+                      {(tracker.shift || tracker.shift_type || '').toLowerCase() === 'day' || (tracker.shift || tracker.shift_type) === 'day_shift' ? 'Day' : (tracker.shift || tracker.shift_type || '').toLowerCase() === 'night' || (tracker.shift || tracker.shift_type) === 'night_shift' ? 'Night' : '—'}
+                    </span>
                   </td>
                   {!isQAAgent && (
                     <td className="px-5 py-3 align-middle">
@@ -2165,11 +2221,6 @@ const QATrackerReport = () => {
                             </svg>
                             Notes
                           </span>
-                          <span className={`text-xs font-medium ${
-                            (editFormData.tracker_note?.length || 0) > 200 ? 'text-red-600' : 'text-slate-500'
-                          }`}>
-                            {editFormData.tracker_note?.length || 0}/200
-                          </span>
                         </label>
                         <div className="relative">
                           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="absolute left-3 top-3 text-blue-600 pointer-events-none">
@@ -2181,27 +2232,12 @@ const QATrackerReport = () => {
                           </svg>
                           <textarea
                             rows="3"
-                            maxLength="200"
-                            className={`w-full bg-slate-50 border rounded-lg pl-10 pr-4 py-3 text-sm font-medium text-slate-800 focus:outline-none focus:ring-2 transition-all shadow-sm hover:bg-white resize-none ${
-                              (editFormData.tracker_note?.length || 0) > 200 
-                                ? 'border-red-500 focus:border-red-500 focus:ring-red-100' 
-                                : 'border-slate-300 focus:border-blue-500 focus:ring-blue-100'
-                            }`}
+                            className="w-full bg-slate-50 border border-slate-300 rounded-lg pl-10 pr-4 py-3 text-sm font-medium text-slate-800 focus:outline-none focus:ring-2 focus:border-blue-500 focus:ring-blue-100 transition-all shadow-sm hover:bg-white resize-none"
                             value={editFormData.tracker_note}
                             onChange={(e) => handleEditFieldChange('tracker_note', e.target.value)}
                             placeholder="Enter any additional notes or comments..."
                           ></textarea>
                         </div>
-                        {(editFormData.tracker_note?.length || 0) > 200 && (
-                          <p className="text-xs text-red-600 font-medium flex items-center gap-1 mt-1">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                              <circle cx="12" cy="12" r="10"></circle>
-                              <line x1="12" x2="12" y1="8" y2="12"></line>
-                              <line x1="12" x2="12.01" y1="16" y2="16"></line>
-                            </svg>
-                            Notes cannot exceed 200 characters
-                          </p>
-                        )}
                       </div>
                     </div>
 
@@ -2665,11 +2701,6 @@ const QATrackerReport = () => {
                               </svg>
                               Notes
                             </span>
-                            <span className={`text-xs font-medium ${
-                              (addFormData.tracker_note?.length || 0) > 200 ? 'text-red-600' : 'text-slate-500'
-                            }`}>
-                              {addFormData.tracker_note?.length || 0}/200
-                            </span>
                           </label>
                           <div className="relative">
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="absolute left-3 top-3 text-blue-600 pointer-events-none">
@@ -2681,27 +2712,12 @@ const QATrackerReport = () => {
                             </svg>
                             <textarea
                               rows="3"
-                              maxLength="200"
-                              className={`w-full bg-slate-50 border rounded-lg pl-10 pr-4 py-3 text-sm font-medium text-slate-800 focus:outline-none focus:ring-2 transition-all shadow-sm hover:bg-white resize-none ${
-                                (addFormData.tracker_note?.length || 0) > 200 
-                                  ? 'border-red-500 focus:border-red-500 focus:ring-red-100' 
-                                  : 'border-slate-300 focus:border-blue-500 focus:ring-blue-100'
-                              }`}
+                              className="w-full bg-slate-50 border border-slate-300 rounded-lg pl-10 pr-4 py-3 text-sm font-medium text-slate-800 focus:outline-none focus:ring-2 focus:border-blue-500 focus:ring-blue-100 transition-all shadow-sm hover:bg-white resize-none"
                               value={addFormData.tracker_note}
                               onChange={(e) => handleAddFieldChange('tracker_note', e.target.value)}
                               placeholder="Enter any additional notes or comments..."
                             ></textarea>
                           </div>
-                          {(addFormData.tracker_note?.length || 0) > 200 && (
-                            <p className="text-xs text-red-600 font-medium flex items-center gap-1 mt-1">
-                              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <circle cx="12" cy="12" r="10"></circle>
-                                <line x1="12" x2="12" y1="8" y2="12"></line>
-                                <line x1="12" x2="12.01" y1="16" y2="16"></line>
-                              </svg>
-                              Notes cannot exceed 200 characters
-                            </p>
-                          )}
                         </div>
                       </div>
                     </div>
