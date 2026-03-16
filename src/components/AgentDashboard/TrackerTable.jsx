@@ -339,6 +339,7 @@ const TrackerTable = ({ userId, projects, onClose }) => {
         'Billable Hours': tracker.billable_hours !== null && tracker.billable_hours !== undefined
           ? Number(tracker.billable_hours).toFixed(2)
           : "0.00",
+        'Notes': tracker.tracker_note || tracker.notes || "-",
         'Has File': tracker.tracker_file ? 'Yes' : 'No'
       }));
 
@@ -350,6 +351,7 @@ const TrackerTable = ({ userId, projects, onClose }) => {
         'Per Hour Target': totals.tenureTarget.toFixed(2),
         'Production': totals.production.toFixed(2),
         'Billable Hours': totals.billableHours.toFixed(2),
+        'Notes': '',
         'Has File': ''
       });
 
@@ -364,6 +366,7 @@ const TrackerTable = ({ userId, projects, onClose }) => {
         { wch: 15 }, // Tenure Target
         { wch: 12 }, // Production
         { wch: 15 }, // Billable Hours
+        { wch: 30 }, // Notes
         { wch: 10 }  // Has File
       ];
 

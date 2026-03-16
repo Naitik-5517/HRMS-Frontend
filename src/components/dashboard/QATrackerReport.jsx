@@ -1216,6 +1216,7 @@ const QATrackerReport = () => {
         'Billable Hours': tracker.billable_hours !== null && tracker.billable_hours !== undefined
           ? Number(tracker.billable_hours).toFixed(2)
           : "0.00",
+        'Notes': tracker.tracker_note || "-",
         'Has File': tracker.tracker_file ? 'Yes' : 'No'
       }));
 
@@ -1228,6 +1229,7 @@ const QATrackerReport = () => {
         'Per Hour Target': totals.tenureTarget.toFixed(2),
         'Production': totals.production.toFixed(2),
         'Billable Hours': totals.billableHours.toFixed(2),
+        'Notes': '',
         'Has File': ''
       });
 
