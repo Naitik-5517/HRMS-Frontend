@@ -1,7 +1,7 @@
 import { useState, useCallback } from "react";
 import { fetchUserDropdowns } from "../services/dropdownService";
 
-export const useUserDropdowns = () => {
+export const useUserDropdowns = (userId = null) => {
      const [dropdowns, setDropdowns] = useState({
           roles: [],
           designations: [],
@@ -21,7 +21,7 @@ export const useUserDropdowns = () => {
           setError(null);
 
           try {
-               const data = await fetchUserDropdowns();
+               const data = await fetchUserDropdowns(userId);
 
                console.log('[useUserDropdowns] Raw data received:', data);
                console.log('[useUserDropdowns] projectManagers:', data.projectManagers);
@@ -64,7 +64,7 @@ export const useUserDropdowns = () => {
                setLoading(false);
                return null;
           }
-     }, []);
+     }, [userId]);
 
      return {
           dropdowns,

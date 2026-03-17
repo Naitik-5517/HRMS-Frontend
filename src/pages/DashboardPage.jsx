@@ -48,7 +48,7 @@ const DashboardPage = ({
     canViewSalary 
   } = useAuth();
   const { device_id, device_type } = useDeviceInfo();
-  const { dropdowns, loadDropdowns } = useUserDropdowns();
+  const { dropdowns, loadDropdowns } = useUserDropdowns(currentUser?.user_id);
   const [searchParams] = useSearchParams();
   const viewParam = searchParams.get('view');
   const [selectedAgent, setSelectedAgent] = useState(null);

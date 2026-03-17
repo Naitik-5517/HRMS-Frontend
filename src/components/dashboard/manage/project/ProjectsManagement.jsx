@@ -48,7 +48,7 @@ const ProjectsManagement = ({
     dropdowns,
     loading: dropdownLoading,
     loadDropdowns
-  } = useUserDropdowns();
+  } = useUserDropdowns(user?.user_id);
 
   const {
     newProject,
