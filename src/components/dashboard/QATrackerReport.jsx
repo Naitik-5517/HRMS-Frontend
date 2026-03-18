@@ -98,7 +98,7 @@ const QATrackerReport = () => {
     tracker_datetime: "",
     project_id: "",
     task_id: "",
-    shift_type: "day",
+    shift_type: "",
     production: "",
     base_target: "",
     tracker_note: "",
@@ -522,7 +522,7 @@ const QATrackerReport = () => {
         tracker_datetime: "",
         project_id: "",
         task_id: "",
-        shift_type: "day",
+        shift_type: "",
         production: "",
         base_target: "",
         tracker_note: "",
@@ -655,6 +655,10 @@ const QATrackerReport = () => {
       case 'production':
         if (!value) newErrors.production = 'Production is required';
         else if (isNaN(value) || Number(value) <= 0) newErrors.production = 'Enter valid production';
+        // Skip double base target validation for task ID 42
+        else if (addFormData.base_target && Number(value) > (Number(addFormData.base_target) * 2) && String(addFormData.task_id) !== '42') {
+          newErrors.production = `Production cannot exceed ${(Number(addFormData.base_target) * 2).toFixed(2)} (double of base target)`;
+        }
         else delete newErrors.production;
         break;
       default:
@@ -716,6 +720,10 @@ const QATrackerReport = () => {
     if (!addFormData.production) errors.production = 'Production is required';
     else if (isNaN(addFormData.production) || Number(addFormData.production) <= 0) {
       errors.production = 'Enter valid production';
+    }
+    // Skip double base target validation for task ID 42
+    else if (addFormData.base_target && Number(addFormData.production) > (Number(addFormData.base_target) * 2) && String(addFormData.task_id) !== '42') {
+      errors.production = `Production cannot exceed ${(Number(addFormData.base_target) * 2).toFixed(2)} (double of base target)`;
     }
     
     setAddErrors(errors);
@@ -2544,6 +2552,7 @@ const QATrackerReport = () => {
             value={addFormData.shift_type}
             onChange={(value) => handleAddFieldChange('shift_type', value)}
             options={[
+              { value: '', label: 'Select shift...' },
               { value: 'day', label: 'Day' },
               { value: 'night', label: 'Night' }
             ]}

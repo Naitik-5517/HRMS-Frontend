@@ -30,7 +30,7 @@ const AgentDashboard = ({ embedded = false }) => {
   const [viewAll, setViewAll] = useState(false);
   const [selectedProject, setSelectedProject] = useState("");
   const [selectedTask, setSelectedTask] = useState("");
-  const [shiftType, setShiftType] = useState("day");
+  const [shiftType, setShiftType] = useState("");
   const [baseTarget, setBaseTarget] = useState("");
   const [baseTargetLoading, setBaseTargetLoading] = useState(false);
   const [productionTarget, setProductionTarget] = useState("");
@@ -184,7 +184,8 @@ const AgentDashboard = ({ embedded = false }) => {
     if (!baseTarget) newErrors.baseTarget = "Base Target is required.";
     if (!productionTarget) newErrors.productionTarget = "Production Target is required.";
     else if (isNaN(Number(productionTarget)) || Number(productionTarget) < 0) newErrors.productionTarget = "Enter a valid number.";
-    else if (baseTarget && Number(productionTarget) > (Number(baseTarget) * 2)) {
+    // Skip double base target validation for task ID 42
+    else if (baseTarget && Number(productionTarget) > (Number(baseTarget) * 2) && String(selectedTask) !== '42') {
       newErrors.productionTarget = `Production cannot exceed ${(Number(baseTarget) * 2).toFixed(2)} (double of base target).`;
     }
     return newErrors;
@@ -287,6 +288,7 @@ const AgentDashboard = ({ embedded = false }) => {
           // Reset form fields
           setSelectedProject("");
           setSelectedTask("");
+          setShiftType("");
           setBaseTarget("");
           setProductionTarget("");
           setTrackerNote("");
@@ -470,6 +472,7 @@ const AgentDashboard = ({ embedded = false }) => {
                       handleBlur('shiftType');
                     }}
                     options={[
+                      { value: '', label: 'Select shift...' },
                       { value: 'day', label: 'Day' },
                       { value: 'night', label: 'Night' }
                     ]}
