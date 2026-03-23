@@ -973,7 +973,9 @@ const QATrackerReport = () => {
         setEditProductionError('Please enter a valid number');
       } else if (productionValue < 0) {
         setEditProductionError('Production cannot be negative');
-      } else if (baseTarget && productionValue > (baseTarget * 2)) {
+      } 
+      // Skip double base target validation for task ID 42
+      else if (baseTarget && productionValue > (baseTarget * 2) && String(editFormData.task_id) !== '42') {
         setEditProductionError(`Production cannot exceed ${(baseTarget * 2).toFixed(2)} (double of base target)`);
       } else {
         setEditProductionError('');
