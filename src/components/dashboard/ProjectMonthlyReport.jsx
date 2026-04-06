@@ -5,7 +5,7 @@ import api from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import LoadingSpinner from '../common/LoadingSpinner';
 import ErrorMessage from '../common/ErrorMessage';
-import * as XLSX from 'xlsx';
+import { downloadCSV } from '../../utils/csvExport';
 import { MonthYearPicker } from '../common/CustomCalendar';
 import DeleteConfirmationModal from '../common/DeleteConfirmationModal';
 
@@ -367,12 +367,12 @@ const ProjectMonthlyReport = () => {
     }));
   };
 
-  // Export to Excel function for a specific month
+  // Export to CSV function for a specific month
   const handleExportToExcel = async (monthYear) => {
     try {
       // Fetch fresh data directly from API for export
       const response = await api.post('/project_monthly_tracker/list', {});
-      
+
       if (!response.data?.data?.rows) {
         toast.error('No data available to export');
         return;
@@ -380,10 +380,10 @@ const ProjectMonthlyReport = () => {
 
       // Filter data for the specific month
       let monthData = response.data.data.rows.filter(record => record.month_year === monthYear);
-      
+
       // Apply search filter if search term exists
       if (searchTerm) {
-        monthData = monthData.filter(record => 
+        monthData = monthData.filter(record =>
           record.project_name.toLowerCase().includes(searchTerm.toLowerCase())
         );
       }
@@ -416,33 +416,15 @@ const ProjectMonthlyReport = () => {
       };
       exportData.push(totals);
 
-      // Create worksheet
-      const worksheet = XLSX.utils.json_to_sheet(exportData);
-
-      // Set column widths
-      worksheet['!cols'] = [
-        { wch: 30 }, // Project Name
-        { wch: 15 }, // Month/Year
-        { wch: 15 }, // Monthly Target
-        { wch: 22 }, // Achieved Monthly Target
-        { wch: 22 }, // Pending Monthly Target
-        { wch: 22 }, // Tenure Achieved Hours
-        { wch: 22 }  // Tenure Pending Hours
-      ];
-
-      // Create workbook
-      const workbook = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(workbook, worksheet, 'Project Monthly Report');
-
       // Generate filename
-      const filename = `Project_Monthly_Report_${monthYear}.xlsx`;
+      const filename = `Project_Monthly_Report_${monthYear}.csv`;
 
-      // Download file
-      XLSX.writeFile(workbook, filename);
+      // Download CSV file
+      downloadCSV(exportData, filename);
 
       toast.success(`Exported ${monthData.length} projects successfully!`);
     } catch (err) {
-      console.error('Excel export error:', err);
+      console.error('CSV export error:', err);
       toast.error('Failed to export data');
     }
   };
@@ -584,12 +566,12 @@ const ProjectMonthlyReport = () => {
                           </button>
                         )}
                       </div>
-                      {/* Export to Excel Button */}
+                      {/* Export to CSV Button */}
                       <button
                         onClick={() => handleExportToExcel(monthYear)}
                         disabled={loading || filteredMonthData.length === 0}
                         className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 disabled:from-gray-400 disabled:to-gray-400 disabled:cursor-not-allowed text-white font-semibold text-sm shadow-md hover:shadow-lg transition-all duration-200"
-                        title="Export this month's data to Excel"
+                        title="Export this month's data to CSV"
                       >
                         <Download className="w-4 h-4" />
                         Export

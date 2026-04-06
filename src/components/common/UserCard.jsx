@@ -2,7 +2,7 @@
 import React, { useState } from "react";
 import { useCurrentUserRole } from "../../hooks/useCurrentUserRole";
 import { useAuth } from "../../context/AuthContext";
-import * as XLSX from "xlsx";
+import { downloadCSV } from "../../utils/csvExport";
 import { toast } from "react-hot-toast";
 import { User, Download, ChevronUp, Calendar, X, RotateCcw, Edit, Plus } from "lucide-react";
 import DailyEntryFormModal from "./DailyEntryFormModal";
@@ -370,7 +370,7 @@ export default function UserCard({
                         const num = Number(val);
                         return isNaN(num) ? '-' : num.toFixed(2);
                       };
-                      
+
                       // Use filteredRows (already filtered by date range)
                       let exportData = filteredRows.map(row => ({
                         'Date': formatDateTime(row.date_time ?? row.date),
@@ -386,12 +386,12 @@ export default function UserCard({
                         const totalRequired = exportData.reduce((sum, r) => sum + (parseFloat(r['Daily Required Hours']) || 0), 0);
                         const qcScores = exportData.map(r => parseFloat(r['QC Score'])).filter(v => !isNaN(v));
                         const avgQC = qcScores.length > 0 ? `${(qcScores.reduce((a, b) => a + b, 0) / qcScores.length).toFixed(2)}%` : '-';
-                        
+
                         const totalTrackers = exportData.reduce((sum, r) => {
                           const count = r['Tracker Count'];
                           return sum + (count !== '-' ? parseInt(count) : 0);
                         }, 0);
-                        
+
                         exportData.push({
                           'Date': 'TOTAL',
                           'Assign Hours': totalAssigned.toFixed(2),
@@ -401,19 +401,8 @@ export default function UserCard({
                           'Daily Required Hours': totalRequired.toFixed(2)
                         });
                       }
-                      const worksheet = XLSX.utils.json_to_sheet(exportData);
-                      worksheet['!cols'] = [
-                        { wch: 16 }, // Date
-                        { wch: 16 }, // Assign Hours
-                        { wch: 16 }, // Worked Hours
-                        { wch: 12 }, // QC Score
-                        { wch: 15 }, // Tracker Count
-                        { wch: 22 }  // Daily Required Hours
-                      ];
-                      const workbook = XLSX.utils.book_new();
-                      XLSX.utils.book_append_sheet(workbook, worksheet, user.user_name || 'User');
-                      const filename = `Daily_Report_${user.user_name || 'User'}_${start || 'all'}_${end || 'all'}.xlsx`;
-                      XLSX.writeFile(workbook, filename);
+                      const filename = `Daily_Report_${user.user_name || 'User'}_${start || 'all'}_${end || 'all'}.csv`;
+                      downloadCSV(exportData, filename);
                       toast.success('Daily report exported successfully!');
                     } catch {
                       toast.error('Failed to export daily report');

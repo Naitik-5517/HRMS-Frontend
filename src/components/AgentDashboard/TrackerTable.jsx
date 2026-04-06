@@ -6,7 +6,7 @@
 import React, { useEffect, useState, useMemo } from "react";
 import { Download, Trash2, Filter, FileDown, RotateCcw, RefreshCw, FolderOpen, ClipboardList, Info } from "lucide-react";
 import { toast } from "react-hot-toast";
-import * as XLSX from 'xlsx';
+import { downloadCSV } from "../../utils/csvExport";
 import api from "../../services/api";
 import { useAuth } from "../../context/AuthContext";
 import { log, logError } from "../../config/environment";
@@ -320,7 +320,7 @@ const TrackerTable = ({ userId, projects, onClose }) => {
     });
   }, [trackers]);
 
-  // Export to Excel function
+  // Export to CSV function
   const handleExportToExcel = () => {
     if (trackers.length === 0) {
       toast.error("No data to export");
@@ -330,16 +330,14 @@ const TrackerTable = ({ userId, projects, onClose }) => {
     try {
       // Prepare data for export
       const exportData = trackers.map((tracker) => {
-        // Split project and task names by spaces and join with newlines
+        // Keep project and task names as is (no newlines for CSV)
         const projectName = tracker.project_name || getProjectName(tracker.project_id);
         const taskName = tracker.task_name || '-';
-        const projectFormatted = projectName !== "-" ? projectName.split(' ').join('\n') : "-";
-        const taskFormatted = taskName !== "-" ? taskName.split(' ').join('\n') : "-";
-        
+
         return {
           'Date/Time': tracker.date_time ? tracker.date_time : "-",
-          'Project': projectFormatted,
-          'Task': taskFormatted,
+          'Project': projectName,
+          'Task': taskName,
           // Always show tenure_target from tracker/view for all roles
           'Per Hour Target': tracker.tenure_target ?? 0,
           'Production': tracker.production || 0,
@@ -363,48 +361,16 @@ const TrackerTable = ({ userId, projects, onClose }) => {
         'Has File': ''
       });
 
-      // Create worksheet
-      const worksheet = XLSX.utils.json_to_sheet(exportData);
-      
-      // Set text wrapping for Project and Task columns (columns B and C)
-      const range = XLSX.utils.decode_range(worksheet['!ref']);
-      for (let R = range.s.r; R <= range.e.r; ++R) {
-        // Column B (Project) and Column C (Task) - indices 1 and 2
-        ['B', 'C'].forEach(col => {
-          const cellAddress = col + (R + 1);
-          if (worksheet[cellAddress]) {
-            if (!worksheet[cellAddress].s) worksheet[cellAddress].s = {};
-            worksheet[cellAddress].s.alignment = { wrapText: true, vertical: 'top' };
-          }
-        });
-      }
-
-      // Set column widths
-      worksheet['!cols'] = [
-        { wch: 18 }, // Date/Time
-        { wch: 20 }, // Project
-        { wch: 25 }, // Task
-        { wch: 15 }, // Tenure Target
-        { wch: 12 }, // Production
-        { wch: 15 }, // Billable Hours
-        { wch: 30 }, // Notes
-        { wch: 10 }  // Has File
-      ];
-
-      // Create workbook
-      const workbook = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(workbook, worksheet, 'Trackers');
-
       // Generate filename with date range
-      const filename = `Trackers_${startDate}_to_${endDate}.xlsx`;
+      const filename = `Trackers_${startDate}_to_${endDate}.csv`;
 
-      // Download file
-      XLSX.writeFile(workbook, filename);
+      // Download CSV file
+      downloadCSV(exportData, filename);
 
       toast.success(`Exported ${trackers.length} records successfully!`);
-      log('[TrackerTable] Excel export successful:', filename);
+      log('[TrackerTable] CSV export successful:', filename);
     } catch (err) {
-      logError('[TrackerTable] Excel export error:', err);
+      logError('[TrackerTable] CSV export error:', err);
       toast.error("Failed to export data");
     }
   };
@@ -432,7 +398,7 @@ const TrackerTable = ({ userId, projects, onClose }) => {
                 onClick={handleExportToExcel}
                 disabled={loading || trackers.length === 0}
                 className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 disabled:from-gray-400 disabled:to-gray-400 disabled:cursor-not-allowed text-white font-semibold text-sm shadow-md hover:shadow-lg transition-all duration-200"
-                title="Export filtered data to Excel"
+                title="Export filtered data to CSV"
               >
                 <Download className="w-4 h-4" />
                 Export

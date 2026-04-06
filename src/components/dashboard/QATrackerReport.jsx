@@ -7,7 +7,7 @@ import React, { useEffect, useState, useMemo } from "react";
 import { format } from "date-fns";
 import { Download, Filter, FileDown, Users as UsersIcon, Calendar, RotateCcw, RefreshCw, Edit, Trash2, X, ChevronDown, Briefcase, ListTodo, Info, Plus, ListChecks, Clock, TrendingUp, Target } from "lucide-react";
 import { toast } from "react-hot-toast";
-import * as XLSX from 'xlsx';
+import { downloadCSV } from "../../utils/csvExport";
 import api from "../../services/api";
 import { useAuth } from "../../context/AuthContext";
 import { log, logError } from "../../config/environment";
@@ -1255,48 +1255,15 @@ const QATrackerReport = () => {
         'Has File': ''
       });
 
-      // Create workbook and worksheet
-      const worksheet = XLSX.utils.json_to_sheet(exportData);
-      
-      // Set text wrapping for Agent, Project and Task columns (columns B, C and D)
-      const range = XLSX.utils.decode_range(worksheet['!ref']);
-      for (let R = range.s.r; R <= range.e.r; ++R) {
-        // Column B (Agent), Column C (Project) and Column D (Task) - indices 1, 2 and 3
-        ['B', 'C', 'D'].forEach(col => {
-          const cellAddress = col + (R + 1);
-          if (worksheet[cellAddress]) {
-            if (!worksheet[cellAddress].s) worksheet[cellAddress].s = {};
-            worksheet[cellAddress].s.alignment = { wrapText: true, vertical: 'top' };
-          }
-        });
-      }
-      
-      // Set column widths
-      worksheet['!cols'] = [
-        { wch: 18 }, // Date/Time
-        { wch: 15 }, // Agent
-        { wch: 20 }, // Project
-        { wch: 25 }, // Task
-        { wch: 8 },  // Shift
-        { wch: 15 }, // Per Hour Target
-        { wch: 12 }, // Production
-        { wch: 15 }, // Billable Hours
-        { wch: 30 }, // Notes
-        { wch: 10 }  // Has File
-      ];
-      
-      const workbook = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(workbook, worksheet, "Tracker Report");
-
       // Generate filename with date range
-      const filename = `QA_Tracker_Report_${startDate}_to_${endDate}.xlsx`;
+      const filename = `QA_Tracker_Report_${startDate}_to_${endDate}.csv`;
 
-      // Download
-      XLSX.writeFile(workbook, filename);
+      // Download CSV
+      downloadCSV(exportData, filename);
       toast.success("Report exported successfully!");
-      log('[QATrackerReport] Excel export completed:', filename);
+      log('[QATrackerReport] CSV export completed:', filename);
     } catch (error) {
-      logError('[QATrackerReport] Excel export error:', error);
+      logError('[QATrackerReport] CSV export error:', error);
       toast.error("Failed to export data");
     }
   };
@@ -1320,7 +1287,7 @@ const QATrackerReport = () => {
               onClick={handleExportToExcel}
               disabled={loading || trackers.length === 0}
               className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 disabled:from-gray-400 disabled:to-gray-400 disabled:cursor-not-allowed text-white font-semibold text-sm shadow-md hover:shadow-lg transition-all duration-200"
-              title="Export filtered data to Excel"
+              title="Export filtered data to CSV"
             >
               <Download className="w-4 h-4" />
               Export
@@ -1687,14 +1654,14 @@ const QATrackerReport = () => {
             <div className="w-1.5 h-8 bg-gradient-to-b from-blue-600 to-blue-700 rounded-full"></div>
             Summary Totals
           </h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {/* Total Active Agents */}
             <div className="relative p-5 flex items-center justify-between gap-4 bg-white border border-slate-200 rounded-xl shadow-sm hover:shadow-md transition-all duration-300">
               <div className="flex-1 min-w-0 z-10">
                 <div className="flex items-center gap-1.5 mb-2">
                   <p className="text-xs font-bold uppercase tracking-wide text-slate-600">Total Active Agents</p>
                 </div>
-                <h3 className="text-2xl sm:text-3xl font-extrabold truncate text-slate-900">{totals.activeAgents}</h3>
+                <h3 className="text-2xl sm:text-3xl font-extrabold text-slate-900">{totals.activeAgents}</h3>
               </div>
               <div className="p-3 rounded-xl shadow-sm flex-shrink-0 z-10 bg-blue-100">
                 <UsersIcon className="w-6 h-6 text-blue-600" />
@@ -1707,23 +1674,10 @@ const QATrackerReport = () => {
                 <div className="flex items-center gap-1.5 mb-2">
                   <p className="text-xs font-bold uppercase tracking-wide text-slate-600">Total Assign Hours</p>
                 </div>
-                <h3 className="text-2xl sm:text-3xl font-extrabold truncate text-slate-900">{totals.assignHours.toFixed(2)}</h3>
+                <h3 className="text-2xl sm:text-3xl font-extrabold text-slate-900">{totals.assignHours.toFixed(2)}</h3>
               </div>
               <div className="p-3 rounded-xl shadow-sm flex-shrink-0 z-10 bg-green-100">
                 <Clock className="w-6 h-6 text-green-600" />
-              </div>
-            </div>
-            
-            {/* Total Per Hour Target */}
-            <div className="relative p-5 flex items-center justify-between gap-4 bg-white border border-slate-200 rounded-xl shadow-sm hover:shadow-md transition-all duration-300">
-              <div className="flex-1 min-w-0 z-10">
-                <div className="flex items-center gap-1.5 mb-2">
-                  <p className="text-xs font-bold uppercase tracking-wide text-slate-600">Total Per Hour Target</p>
-                </div>
-                <h3 className="text-2xl sm:text-3xl font-extrabold truncate text-slate-900">{totals.tenureTarget.toFixed(2)}</h3>
-              </div>
-              <div className="p-3 rounded-xl shadow-sm flex-shrink-0 z-10 bg-purple-100">
-                <Target className="w-6 h-6 text-purple-600" />
               </div>
             </div>
             
@@ -1733,7 +1687,7 @@ const QATrackerReport = () => {
                 <div className="flex items-center gap-1.5 mb-2">
                   <p className="text-xs font-bold uppercase tracking-wide text-slate-600">Total Production</p>
                 </div>
-                <h3 className="text-2xl sm:text-3xl font-extrabold truncate text-slate-900">{totals.production.toFixed(2)}</h3>
+                <h3 className="text-2xl sm:text-3xl font-extrabold text-slate-900">{totals.production.toFixed(2)}</h3>
               </div>
               <div className="p-3 rounded-xl shadow-sm flex-shrink-0 z-10 bg-orange-100">
                 <TrendingUp className="w-6 h-6 text-orange-600" />
@@ -1746,7 +1700,7 @@ const QATrackerReport = () => {
                 <div className="flex items-center gap-1.5 mb-2">
                   <p className="text-xs font-bold uppercase tracking-wide text-slate-600">Total Billable Hours</p>
                 </div>
-                <h3 className="text-2xl sm:text-3xl font-extrabold truncate text-slate-900">{totals.billableHours.toFixed(2)}</h3>
+                <h3 className="text-2xl sm:text-3xl font-extrabold text-slate-900">{totals.billableHours.toFixed(2)}</h3>
               </div>
               <div className="p-3 rounded-xl shadow-sm flex-shrink-0 z-10 bg-indigo-100">
                 <Briefcase className="w-6 h-6 text-indigo-600" />

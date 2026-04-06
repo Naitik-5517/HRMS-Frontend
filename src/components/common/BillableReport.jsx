@@ -1,5 +1,5 @@
 import { useRef } from "react";
-import * as XLSX from 'xlsx';
+import { downloadCSV } from "../../utils/csvExport";
 import { toast } from "react-hot-toast";
 import React, { useState, useEffect } from "react";
 import { fetchDropdown } from "../../services/dropdownService";
@@ -95,25 +95,25 @@ const BillableReport = ({ userId }) => {
             dateDisplay = `${pad(d.getDate())}-${pad(d.getMonth() + 1)}-${d.getFullYear()}`;
           }
         }
-        
+
         // Helper to safely format number or return '-'
         const formatNumber = (val) => {
           if (val === null || val === undefined || val === '') return '-';
           const num = Number(val);
           return isNaN(num) ? '-' : num.toFixed(2);
         };
-        
+
         const rowData = {
           'User Name': row.user_name || '-'
         };
-        
+
         rowData['Date'] = dateDisplay;
         rowData['Assign Hours'] = formatNumber(row.assigned_hours);
         rowData['Worked Hours'] = formatNumber(row.total_billable_hours_day);
         rowData['QC Score'] = row.qc_score != null ? `${formatNumber(row.qc_score)}%` : '-';
         rowData['Tracker Count'] = row.trackers_count_day !== null && row.trackers_count_day !== undefined ? row.trackers_count_day : '-';
         rowData['Daily Required Hours'] = formatNumber(row.daily_required_hours);
-        
+
         return rowData;
       });
 
@@ -128,36 +128,22 @@ const BillableReport = ({ userId }) => {
           const count = r['Tracker Count'];
           return sum + (count !== '-' ? parseInt(count) : 0);
         }, 0);
-        
+
         const totalRow = {
           'User Name': 'TOTAL'
         };
-        
+
         totalRow['Date'] = '';
         totalRow['Assign Hours'] = totalAssigned.toFixed(2);
         totalRow['Worked Hours'] = totalWorked.toFixed(2);
         totalRow['QC Score'] = avgQC;
         totalRow['Tracker Count'] = totalTrackers;
         totalRow['Daily Required Hours'] = totalRequired.toFixed(2);
-        
+
         exportData.push(totalRow);
       }
 
-      const worksheet = XLSX.utils.json_to_sheet(exportData);
-      const colWidths = [
-        { wch: 20 }, // User Name
-        { wch: 16 }, // Date
-        { wch: 16 }, // Assign Hours
-        { wch: 18 }, // Worked Hours
-        { wch: 12 }, // QC Score
-        { wch: 15 }, // Tracker Count
-        { wch: 22 }  // Daily Required Hours
-      ];
-      
-      worksheet['!cols'] = colWidths;
-      const workbook = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(workbook, worksheet, 'Daily_Report');
-      XLSX.writeFile(workbook, 'All_Users_Daily_Report.xlsx');
+      downloadCSV(exportData, 'All_Users_Daily_Report.csv');
       toast.success('Exported all users daily report!');
     } catch {
       toast.error('Failed to export all users');
@@ -175,17 +161,17 @@ const BillableReport = ({ userId }) => {
         const rowData = {
           'User Name': user.user_name || '-'
         };
-        
+
         // Add Team column only if not Assistant Manager (right after User Name)
         if (!isAssistantManager) {
           rowData['Team'] = user.team_name || '-';
         }
-        
+
         rowData['Billable Hour Delivered'] = user.total_billable_hours ? Number(user.total_billable_hours).toFixed(2) : '-';
         rowData['Monthly Goal'] = user.monthly_total_target ?? '-';
         rowData['Pending Target'] = user.pending_target ? Number(user.pending_target).toFixed(2) : '-';
         rowData['Avg. QC Score'] = user.avg_qc_score ? `${Number(user.avg_qc_score).toFixed(2)}%` : '-';
-        
+
         return rowData;
       });
       // Add totals row for numeric columns
@@ -199,42 +185,23 @@ const BillableReport = ({ userId }) => {
           .map(r => parseFloat(r['Avg. QC Score']))
           .filter(v => !isNaN(v));
         const avgQC = qcScores.length > 0 ? `${(qcScores.reduce((a, b) => a + b, 0) / qcScores.length).toFixed(2)}%` : '-';
-        
+
         const totalRow = {
           'User Name': 'TOTAL'
         };
-        
+
         if (!isAssistantManager) {
           totalRow['Team'] = '';
         }
-        
+
         totalRow['Billable Hour Delivered'] = totalBillable.toFixed(2);
         totalRow['Monthly Goal'] = totalGoal.toFixed(2);
         totalRow['Pending Target'] = totalPending.toFixed(2);
         totalRow['Avg. QC Score'] = avgQC;
-        
+
         exportData.push(totalRow);
       }
-      const worksheet = XLSX.utils.json_to_sheet(exportData);
-      const colWidths = [
-        { wch: 20 }, // User Name
-      ];
-      
-      if (!isAssistantManager) {
-        colWidths.push({ wch: 16 }); // Team
-      }
-      
-      colWidths.push(
-        { wch: 26 }, // Billable Hour Delivered
-        { wch: 16 }, // Monthly Goal
-        { wch: 18 }, // Pending Target
-        { wch: 16 }  // Avg. QC Score
-      );
-      
-      worksheet['!cols'] = colWidths;
-      const workbook = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(workbook, worksheet, `${monthObj.label}_${monthObj.year}`);
-      XLSX.writeFile(workbook, `Monthly_Table_${monthObj.label}_${monthObj.year}.xlsx`);
+      downloadCSV(exportData, `Monthly_Table_${monthObj.label}_${monthObj.year}.csv`);
       toast.success('Table exported!');
     } catch {
       toast.error('Failed to export table');
@@ -507,7 +474,7 @@ const BillableReport = ({ userId }) => {
           const num = Number(val);
           return isNaN(num) ? '-' : num.toFixed(2);
         };
-        
+
         return {
           'Date-Time': row.date_time ?? row.date ?? '-',
           'Assigned Hour': formatNum(row.assigned_hours ?? row.assign_hours),
@@ -529,7 +496,7 @@ const BillableReport = ({ userId }) => {
           const count = r['Tracker Count'];
           return sum + (count !== '-' ? parseInt(count) : 0);
         }, 0);
-        
+
         exportData.push({
           'Date-Time': 'TOTAL',
           'Assigned Hour': totalAssigned.toFixed(2),
@@ -539,19 +506,8 @@ const BillableReport = ({ userId }) => {
           'Daily Required Hours': totalRequired.toFixed(2)
         });
       }
-      const worksheet = XLSX.utils.json_to_sheet(exportData);
-      worksheet['!cols'] = [
-        { wch: 24 }, // Date-Time
-        { wch: 16 }, // Assigned Hour
-        { wch: 16 }, // Worked Hours
-        { wch: 12 }, // QC Score
-        { wch: 15 }, // Tracker Count
-        { wch: 20 }, // Daily Required Hours
-      ];
-      const workbook = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(workbook, worksheet, `${user.user_name || month_year}`);
-      const filename = `Daily_Report_${user.user_name || 'User'}_${month_year}.xlsx`;
-      XLSX.writeFile(workbook, filename);
+      const filename = `Daily_Report_${user.user_name || 'User'}_${month_year}.csv`;
+      downloadCSV(exportData, filename);
       toast.success(`Exported daily data for ${user.user_name || 'User'} (${month_year})!`);
     } catch {
       toast.error('Failed to export daily data for this user/month');
