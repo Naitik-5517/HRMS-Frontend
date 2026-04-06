@@ -1,73 +1,95 @@
 /**
  * CSV Export Utility
- * Converts array of objects to CSV and downloads
+ * Converts JSON data to CSV format and triggers download
  */
 
 /**
- * Escape a value for CSV (handle commas, quotes, newlines)
- */
-function escapeCsvValue(value) {
-  if (value === null || value === undefined) {
-    return '';
-  }
-  const stringValue = String(value);
-  // If the value contains comma, quote, or newline, wrap it in quotes and escape existing quotes
-  if (stringValue.includes(',') || stringValue.includes('"') || stringValue.includes('\n') || stringValue.includes('\r')) {
-    return `"${stringValue.replace(/"/g, '""')}"`;
-  }
-  return stringValue;
-}
-
-/**
- * Convert an array of objects to CSV string
+ * Converts an array of objects to CSV format
  * @param {Array} data - Array of objects to convert
- * @returns {string} - CSV formatted string
+ * @returns {string} CSV formatted string
  */
-export function convertToCSV(data) {
+export const jsonToCSV = (data) => {
   if (!data || data.length === 0) {
     return '';
   }
 
   // Get headers from the first object
   const headers = Object.keys(data[0]);
+  
+  // Escape CSV values (handle commas, quotes, newlines)
+  const escapeCSVValue = (value) => {
+    if (value === null || value === undefined) {
+      return '';
+    }
+    
+    const stringValue = String(value);
+    
+    // If value contains comma, quote, or newline, wrap in quotes and escape existing quotes
+    if (stringValue.includes(',') || stringValue.includes('"') || stringValue.includes('\n')) {
+      return `"${stringValue.replace(/"/g, '""')}"`;
+    }
+    
+    return stringValue;
+  };
 
   // Create CSV header row
-  const headerRow = headers.map(escapeCsvValue).join(',');
-
-  // Create data rows
+  const headerRow = headers.map(escapeCSVValue).join(',');
+  
+  // Create CSV data rows
   const dataRows = data.map(row => {
-    return headers.map(header => escapeCsvValue(row[header])).join(',');
+    return headers.map(header => escapeCSVValue(row[header])).join(',');
   });
 
   // Combine header and data rows
-  return [headerRow, ...dataRows].join('\r\n');
-}
+  return [headerRow, ...dataRows].join('\n');
+};
 
 /**
- * Download data as CSV file
- * @param {Array} data - Array of objects to export
- * @param {string} filename - Name of the file (without extension)
+ * Downloads a CSV file
+ * @param {string} csvContent - CSV formatted string
+ * @param {string} filename - Name of the file to download (should include .csv extension)
  */
-export function downloadCSV(data, filename) {
-  const csvContent = convertToCSV(data);
-
-  // Create blob with CSV content
+export const downloadCSV = (csvContent, filename) => {
+  // Ensure filename has .csv extension
+  const csvFilename = filename.endsWith('.csv') ? filename : `${filename}.csv`;
+  
+  // Create a Blob with CSV content
   const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-
-  // Create download link
+  
+  // Create a temporary download link
   const link = document.createElement('a');
   const url = URL.createObjectURL(blob);
-
+  
   link.setAttribute('href', url);
-  link.setAttribute('download', filename.endsWith('.csv') ? filename : `${filename}.csv`);
+  link.setAttribute('download', csvFilename);
   link.style.visibility = 'hidden';
-
+  
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
-
+  
   // Clean up the URL object
   URL.revokeObjectURL(url);
-}
+};
 
-export default { convertToCSV, downloadCSV };
+/**
+ * Exports JSON data to CSV file (combines jsonToCSV and downloadCSV)
+ * @param {Array} data - Array of objects to export
+ * @param {string} filename - Name of the file to download
+ * @returns {boolean} Success status
+ */
+export const exportToCSV = (data, filename) => {
+  try {
+    if (!data || data.length === 0) {
+      throw new Error('No data to export');
+    }
+    
+    const csvContent = jsonToCSV(data);
+    downloadCSV(csvContent, filename);
+    
+    return true;
+  } catch (error) {
+    console.error('CSV Export Error:', error);
+    return false;
+  }
+};

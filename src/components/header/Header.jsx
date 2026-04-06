@@ -22,9 +22,14 @@ import {
   X,
   FileText,
   Users,
-  Briefcase
+  Briefcase,
+  Brain,
+  UserCheck,
+  BarChart3
 } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
+import GeminiKeyModal from "../GeminiKeyModal";
+import { fetchGeminiApiKey } from "../../services/agentService";
 
 import logo from "../../assets/Transform logo.png";
 
@@ -40,7 +45,6 @@ const Header = ({
   useEffect(() => {
     // eslint-disable-next-line
     Briefcase
-    console.log('Header currentUser:', currentUser);
   }, [currentUser]);
   // Helper to get initials from user's name
   const getInitials = () => {
@@ -55,8 +59,30 @@ const Header = ({
   // Debug: Log currentUser to check available properties
   // console.log('Header currentUser:', currentUser);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [geminiKeyOpen, setGeminiKeyOpen] = useState(false);
   const navigate = useNavigate();
+
   const location = useLocation();
+
+  // Fetch Gemini API key status on mount
+  useEffect(() => {
+    const userId = currentUser?.user_id || currentUser?.id;
+    if (!userId || sessionStorage.getItem("gemini_api_key")) return;
+
+    const loadKey = async () => {
+      try {
+        const res = await fetchGeminiApiKey(userId);
+        if (res.success && res.hasKey && res.gemini_api_key) {
+          sessionStorage.setItem("gemini_api_key", res.gemini_api_key);
+          window.dispatchEvent(new CustomEvent("gemini-key-updated"));
+        }
+      } catch (error) {
+        console.error("[Header] Failed to load Gemini key:", error);
+      }
+    };
+
+    loadKey();
+  }, [currentUser]);
 
   // Get role label from role_id or role string
   const getRoleLabel = () => {
@@ -85,34 +111,40 @@ const Header = ({
     const roleId = Number(currentUser.role_id);
     const role = (currentUser?.role || currentUser?.role_name || currentUser?.user_role || '').toString().toUpperCase();
     
-    console.log('🚀 [Header goTo] view:', view, 'roleId:', roleId, 'role:', role);
-    
     // Handle Analytics tab for all roles: always go to /dashboard?tab=overview
     if (view === ViewState.DASHBOARD || view === 'DASHBOARD' || view === 'Analytics') {
-      console.log('🚀 [Header goTo] Navigating to Analytics tab /dashboard?tab=overview');
       navigate('/dashboard?tab=overview');
       setIsMobileMenuOpen(false);
       return;
     }
     // Handle QA-specific views
     if (view === 'TRACKER_REPORT') {
-      console.log('🚀 [Header goTo] Navigating to Tracker Report');
       // For Assistant Manager and QA Agent, open the tracker_report tab
       navigate('/dashboard?tab=tracker_report');
       setIsMobileMenuOpen(false);
       return;
     }
     if (view === 'AGENT_LIST') {
-      console.log('🚀 [Header goTo] Navigating to Agent File Report');
       // For Assistant Manager and QA Agent, open the agent_file_report tab
       navigate('/dashboard?tab=agent_file_report');
+      setIsMobileMenuOpen(false);
+      return;
+    }
+    if (view === 'QC_REPORT_OVERVIEW') {
+      // For Admin, Super Admin, PM, and Assistant Manager
+      navigate('/dashboard?tab=qc_report_overview');
+      setIsMobileMenuOpen(false);
+      return;
+    }
+    if (view === 'QA_AGENT_AUDIT') {
+      // For Admin, Super Admin, PM, and Assistant Manager
+      navigate('/dashboard?tab=qa_agent_audit');
       setIsMobileMenuOpen(false);
       return;
     }
     
     // Handle Manage tab for Assistant Managers - route to /dashboard with tab=manage
     if (view === ViewState.ADMIN_PANEL && roleId === 4) {
-      console.log('🚀 [Header goTo] Navigating Assistant Manager to /dashboard with tab=manage');
       navigate('/dashboard?tab=manage');
       setIsMobileMenuOpen(false);
       return;
@@ -121,27 +153,27 @@ const Header = ({
     // For agents (role_id 6 or role includes 'AGENT')
     if (roleId === 6 || role.includes('AGENT')) {
       if (view === ViewState.ENTRY || view === 'ENTRY') {
-        console.log('🚀 [Header goTo] Navigating agent to /agent');
         navigate("/agent");
       } else if (view === ViewState.DASHBOARD || view === 'DASHBOARD') {
-        console.log('🚀 [Header goTo] Navigating agent to /dashboard');
         navigate("/dashboard");
       } else if (view === 'billable_report') {
         // Set the billable_report tab for agent
         navigate('/dashboard?tab=billable_report');
+      } else if (view === 'AI_EVALUATION') {
+        navigate("/ai-evaluation");
+        setIsMobileMenuOpen(false);
+        return;
       } else if (view === 'AGENT_PROJECTS') {
         navigate("/agent-projects");
         setIsMobileMenuOpen(false);
         return;
       } else {
         const target = ROUTES[view] || "/agent";
-        console.log('🚀 [Header goTo] Navigating agent to:', target);
         navigate(target);
       }
     } else {
       // For admins and other roles
       const target = ROUTES[view] || "/dashboard";
-      console.log('🚀 [Header goTo] Navigating non-agent to:', target);
       navigate(target);
     }
     setIsMobileMenuOpen(false);
@@ -153,10 +185,6 @@ const Header = ({
 
   // Role-based tab mapping
   // Debug: Log currentUser to check available properties
-  useEffect(() => {
-    // eslint-disable-next-line
-    console.log('Header currentUser:', currentUser);
-  }, [currentUser]);
 
   const getNavItems = () => {
     const roleId = Number(currentUser?.role_id);
@@ -166,9 +194,10 @@ const Header = ({
       return [
         { view: ViewState.DASHBOARD, label: "Analytics", icon: LayoutDashboard },
         { view: "TRACKER_REPORT", label: "Tracker Report", icon: FileText },
-        { view: "AGENT_LIST", label: "Agent File Report", icon: Users },
+        { view: "AGENT_LIST", label: "Agent Files & QC Report", icon: Users },
+        { view: "QC_REPORT_OVERVIEW", label: "QC Report Overview", icon: BarChart3 },
+        { view: "QA_AGENT_AUDIT", label: "QA Agent Audit", icon: UserCheck },
         { view: ViewState.ADMIN_PANEL, label: "Manage", icon: Settings },
-        { view: ViewState.ENTRY, label: "User Permission", icon: PenTool },
       ];
     }
     // For agents (role_id 6 or role includes 'AGENT')
@@ -177,6 +206,7 @@ const Header = ({
         { view: ViewState.DASHBOARD, label: "Analytics", icon: LayoutDashboard },
         // Billable Report tab removed for agents in header
         { view: ViewState.ENTRY, label: "Tracker", icon: PenTool },
+        { view: "AI_EVALUATION", label: "AI Evaluation", icon: Brain },
         { view: "AGENT_PROJECTS", label: "Projects", icon: Database, disabled: true },
         // Roster tab temporarily removed for agents
       ];
@@ -188,32 +218,31 @@ const Header = ({
           return [
             { view: ViewState.DASHBOARD, label: "Analytics", icon: LayoutDashboard },
             { view: "TRACKER_REPORT", label: "Tracker Report", icon: FileText },
-            { view: "AGENT_LIST", label: "Agent File Report", icon: Users },
+            { view: "AGENT_LIST", label: "Agent Files & QC Report", icon: Users },
           ];
         }
         if (roleId === 3) {
           return [
             { view: ViewState.DASHBOARD, label: "Analytics", icon: LayoutDashboard },
             { view: "TRACKER_REPORT", label: "Tracker Report", icon: FileText },
-            { view: "AGENT_LIST", label: "Agent File Report", icon: Users },
+            { view: "QC_REPORT_OVERVIEW", label: "QC Report Overview", icon: BarChart3 },
+            { view: "QA_AGENT_AUDIT", label: "QA Agent Audit", icon: UserCheck },
             { view: ViewState.ADMIN_PANEL, label: "Manage", icon: Settings },
-            { view: ViewState.ENTRY, label: "User Permission", icon: PenTool },
           ];
         }
         if (roleId === 4) {
           return [
             { view: ViewState.DASHBOARD, label: "Analytics", icon: LayoutDashboard },
             { view: "TRACKER_REPORT", label: "Tracker Report", icon: FileText },
-            { view: "AGENT_LIST", label: "Agent File Report", icon: Users },
+            { view: "QC_REPORT_OVERVIEW", label: "QC Report Overview", icon: BarChart3 },
+            { view: "QA_AGENT_AUDIT", label: "QA Agent Audit", icon: UserCheck },
             { view: ViewState.ADMIN_PANEL, label: "Manage", icon: Settings },
-            { view: ViewState.ENTRY, label: "User Permission", icon: PenTool },
           ];
         }
         // All other role_ids (not admin/superadmin)
         return [
           { view: ViewState.DASHBOARD, label: "Analytics", icon: LayoutDashboard },
           { view: ViewState.ADMIN_PANEL, label: "Manage", icon: Settings },
-          { view: ViewState.ENTRY, label: "User Permission", icon: PenTool },
         ];
       }
       return [];
@@ -222,16 +251,16 @@ const Header = ({
       return [
         { view: ViewState.DASHBOARD, label: "Analytics", icon: LayoutDashboard },
         { view: "TRACKER_REPORT", label: "Tracker Report", icon: FileText },
-        { view: "AGENT_LIST", label: "Agent File Report", icon: Users },
+        { view: "AGENT_LIST", label: "Agent Files & QC Report", icon: Users },
       ];
     }
     if (role.includes('ASSISTANT') || role.includes('ASST')) {
       return [
         { view: ViewState.DASHBOARD, label: "Analytics", icon: LayoutDashboard },
         { view: "TRACKER_REPORT", label: "Tracker Report", icon: FileText },
-        { view: "AGENT_LIST", label: "Agent File Report", icon: Users },
+        { view: "QC_REPORT_OVERVIEW", label: "QC Report Overview", icon: BarChart3 },
+        { view: "QA_AGENT_AUDIT", label: "QA Agent Audit", icon: UserCheck },
         { view: ViewState.ADMIN_PANEL, label: "Manage", icon: Settings },
-        { view: ViewState.ENTRY, label: "User Permission", icon: PenTool },
       ];
     }
     // Project Manager fallback
@@ -239,9 +268,9 @@ const Header = ({
       return [
         { view: ViewState.DASHBOARD, label: "Analytics", icon: LayoutDashboard },
         { view: "TRACKER_REPORT", label: "Tracker Report", icon: FileText },
-        { view: "AGENT_LIST", label: "Agent File Report", icon: Users },
+        { view: "QC_REPORT_OVERVIEW", label: "QC Report Overview", icon: BarChart3 },
+        { view: "QA_AGENT_AUDIT", label: "QA Agent Audit", icon: UserCheck },
         { view: ViewState.ADMIN_PANEL, label: "Manage", icon: Settings },
-        { view: ViewState.ENTRY, label: "User Permission", icon: PenTool },
       ];
     }
     // Default: show nothing or fallback
@@ -250,7 +279,6 @@ const Header = ({
 
   const navItems = getNavItems();
   // DEBUG: Log navItems and currentUser for troubleshooting tab visibility
-  console.log('Header navItems:', navItems, 'currentUser:', currentUser);
 
   // Helper function to check if a tab is active
   const isTabActive = (view) => {
@@ -270,9 +298,19 @@ const Header = ({
       return currentPath === '/dashboard' && currentTab === 'tracker_report';
     }
 
-    // Check for Agent List/Agent File Report
+    // Check for Agent List/Agent's Files & QC Report
     if (view === 'AGENT_LIST') {
       return currentPath === '/dashboard' && currentTab === 'agent_file_report';
+    }
+
+    // Check for QC Report Overview
+    if (view === 'QC_REPORT_OVERVIEW') {
+      return currentPath === '/dashboard' && currentTab === 'qc_report_overview';
+    }
+
+    // Check for QA Agent Audit
+    if (view === 'QA_AGENT_AUDIT') {
+      return currentPath === '/dashboard' && currentTab === 'qa_agent_audit';
     }
 
     // Check for Manage/Admin Panel
@@ -280,13 +318,18 @@ const Header = ({
       return (currentPath === '/admin' || (currentPath === '/dashboard' && currentTab === 'manage'));
     }
 
-    // Check for Entry/User Permission/Tracker
+    // Check for Entry/Tracker (Agents only)
     if (view === ViewState.ENTRY) {
       // For agents, check if current path is /agent
       if (roleId === 6 || role.includes('AGENT')) {
         return currentPath === '/agent';
       }
-      return currentPath === '/entry';
+      return false; // Non-agents don't have this in header anymore
+    }
+
+    // Check for AI Evaluation (Agents only)
+    if (view === 'AI_EVALUATION') {
+      return currentPath === '/ai-evaluation';
     }
 
     // Check for Agent Projects
@@ -311,9 +354,9 @@ const Header = ({
       <button
         key={item.view}
         onClick={() => !item.disabled && goTo(item.view)}
-        className={`flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors whitespace-nowrap ${
-          isActive 
-            ? 'bg-blue-600 text-white hover:bg-blue-700' 
+        className={`flex items-center justify-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors whitespace-nowrap ${
+          isActive
+            ? 'bg-blue-600 text-white hover:bg-blue-700'
             : 'text-slate-600 bg-slate-50 hover:bg-slate-200'
         } ${item.disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
         disabled={item.disabled}
@@ -335,8 +378,8 @@ const Header = ({
         key={item.view}
         onClick={() => goTo(item.view)}
         className={`flex items-center gap-3 px-4 py-3 rounded-lg text-base font-medium transition-colors w-full ${
-          isActive 
-            ? 'bg-blue-600 text-white hover:bg-blue-700' 
+          isActive
+            ? 'bg-blue-600 text-white hover:bg-blue-700'
             : 'text-slate-700 bg-slate-50 hover:bg-slate-200'
         }`}
       >
@@ -360,29 +403,33 @@ const Header = ({
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             {/* LEFT: LOGO */}
-            <div className="flex items-center gap-2 flex-shrink-0">
-              <img 
-                src={logo} 
-                alt="TFS Ops Tracker Logo" 
-                className="h-10 w-auto cursor-pointer hover:opacity-80 transition-opacity" 
-                onClick={() => goTo('Analytics')}
-                title="Go to Analytics"
-              />
+            <div className="flex items-center gap-2 shrink-0">
+
+              <img src={logo} alt="TFS Ops Tracker Logo" className="h-10 w-auto" />
             </div>
 
             {/* RIGHT: NAVIGATION + USER INFO + LOGOUT */}
             <div className="flex items-center gap-6">
-              <div className="hidden lg:flex items-center space-x-3">
+              <div className="hidden lg:flex items-center space-x-2">
                 {navItems.map(renderNavButton)}
               </div>
               
-              <div className="flex items-center gap-2 border-l border-slate-200 pl-4 flex-shrink-0">
+              <div className="flex items-center gap-2 border-l border-slate-200 pl-4 shrink-0">
+
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-full bg-blue-700 flex items-center justify-center text-lg font-bold text-white">
                     {getInitials()}
                   </div>
                   <button
+                    onClick={() => setGeminiKeyOpen(true)}
+                    className="p-2 rounded-full hover:bg-purple-50 text-purple-600 transition-colors"
+                    title="Gemini AI Key"
+                  >
+                    <Brain className="w-5 h-5" />
+                  </button>
+                  <button
                     onClick={() => {
+
                       if (typeof handleLogout === 'function') {
                         handleLogout();
                       } else if (window && window.sessionStorage) {
@@ -441,9 +488,15 @@ const Header = ({
 
         </div>
       </div>
+      <GeminiKeyModal 
+        isOpen={geminiKeyOpen} 
+        onClose={() => setGeminiKeyOpen(false)} 
+        currentUser={currentUser}
+      />
     </>
   );
 };
+
 
 
 export default Header;

@@ -1,5 +1,5 @@
 // ...existing imports...
-import { downloadCSV } from "../../utils/csvExport";
+import { exportToCSV } from '../../utils/csvExport';
 import { toast } from "react-hot-toast";
 import React, { useState, useEffect, useRef } from "react";
 import { getFriendlyErrorMessage } from '../../utils/errorMessages';
@@ -10,10 +10,11 @@ dayjs.extend(customParseFormat);
 import { fetchDailyBillableReport, fetchMonthlyBillableReport } from "../../services/billableReportService";
 import axios from "axios";
 import { useAuth } from "../../context/AuthContext";
-import { Download, Calendar as CalendarIcon, FileSpreadsheet, X, RotateCcw, ChevronDown } from "lucide-react";
+import { Download, Calendar as CalendarIcon, FileSpreadsheet, X, RotateCcw, ChevronDown, FileText, BarChart3, Award } from "lucide-react";
 import { DateRangePicker } from '../common/CustomCalendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
+import AgentQCReportPage from '../../pages/AgentQCReportPage';
 
 
 
@@ -169,8 +170,8 @@ const BillableReport = () => {
           'Avg. QC Score': avgQC,
         });
 
-        const filename = `Monthly_Report.csv`;
-        downloadCSV(exportData, filename);
+        const filename = 'Monthly_Report.csv';
+        exportToCSV(exportData, filename);
         toast.success('Monthly report exported!');
       } catch (err) {
         const msg = getFriendlyErrorMessage(err);
@@ -188,7 +189,7 @@ const BillableReport = () => {
         'Avg. QC Score': row.qc != null && row.qc !== '-' ? `${row.qc}%` : '-',
       }];
       const filename = `Monthly_Summary_${row.month}.csv`;
-      downloadCSV(exportData, filename);
+      exportToCSV(exportData, filename);
       toast.success(`Exported ${row.month} summary!`);
     } catch (err) {
       const msg = getFriendlyErrorMessage(err);
@@ -252,7 +253,7 @@ const BillableReport = () => {
         'Daily Required Hours': totalRequired.toFixed(2),
       });
       const filename = `Month_Daily_Report_${monthYear}.csv`;
-      downloadCSV(exportData, filename);
+      exportToCSV(exportData, filename);
       toast.success('Month daily report exported!');
     } catch (err) {
       const msg = getFriendlyErrorMessage(err);
@@ -457,7 +458,8 @@ const BillableReport = () => {
         'Daily Required Hours': totalRequired.toFixed(2),
       });
 
-      downloadCSV(exportData, 'Daily_Report.csv');
+      const filename = 'Daily_Report.csv';
+      exportToCSV(exportData, filename);
       toast.success('Daily report exported!');
     } catch {
       toast.error('Failed to export daily report');
@@ -466,28 +468,56 @@ const BillableReport = () => {
 
   return (
     <div className="max-w-7xl mx-auto py-6 px-2 sm:px-4">
-      {/* Tabs Navigation - Match project theme */}
-      <div className="bg-white rounded-xl shadow-sm border border-blue-100 p-2 mb-6">
-        <div className="flex items-center gap-2">
+      {/* Tabs Navigation - Match QA Agent List Style */}
+      <div className="bg-white rounded-2xl shadow-lg mb-6 border border-slate-200 overflow-hidden">
+        <div className="flex border-b border-slate-200">
           <button
             onClick={() => setActiveToggle('daily')}
-            className={`flex-1 px-6 py-3 rounded-lg font-semibold transition-all duration-300 ${
+            className={`flex-1 px-6 py-4 text-sm font-bold transition-all relative ${
               activeToggle === 'daily'
-                ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-md'
-                : 'text-blue-700 hover:bg-blue-50'
+                ? 'text-blue-600 bg-blue-50'
+                : 'text-slate-600 hover:text-slate-800 hover:bg-slate-50'
             }`}
           >
-            Daily Report
+            <div className="flex items-center justify-center gap-2">
+              <FileText className="w-4 h-4" />
+              <span>Daily Billable Report</span>
+            </div>
+            {activeToggle === 'daily' && (
+              <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-600 to-indigo-600"></div>
+            )}
           </button>
           <button
             onClick={() => setActiveToggle('monthly')}
-            className={`flex-1 px-6 py-3 rounded-lg font-semibold transition-all duration-300 ${
+            className={`flex-1 px-6 py-4 text-sm font-bold transition-all relative ${
               activeToggle === 'monthly'
-                ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-md'
-                : 'text-blue-700 hover:bg-blue-50'
+                ? 'text-blue-600 bg-blue-50'
+                : 'text-slate-600 hover:text-slate-800 hover:bg-slate-50'
             }`}
           >
-            Monthly Report
+            <div className="flex items-center justify-center gap-2">
+              <BarChart3 className="w-4 h-4" />
+              <span>Monthly Billable Report</span>
+            </div>
+            {activeToggle === 'monthly' && (
+              <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-600 to-indigo-600"></div>
+            )}
+          </button>
+          <button
+            onClick={() => setActiveToggle('qc')}
+            className={`flex-1 px-6 py-4 text-sm font-bold transition-all relative ${
+              activeToggle === 'qc'
+                ? 'text-blue-600 bg-blue-50'
+                : 'text-slate-600 hover:text-slate-800 hover:bg-slate-50'
+            }`}
+          >
+            <div className="flex items-center justify-center gap-2">
+              <Award className="w-4 h-4" />
+              <span>QC Report</span>
+            </div>
+            {activeToggle === 'qc' && (
+              <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-600 to-indigo-600"></div>
+            )}
           </button>
         </div>
       </div>
@@ -538,7 +568,7 @@ const BillableReport = () => {
                   <button
                     onClick={handleExportDailyExcel}
                     className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white font-semibold text-sm shadow-md hover:shadow-lg transition-all duration-200"
-                    title="Export filtered data to Excel"
+                    title="Export filtered data to CSV"
                   >
                     <Download className="w-4 h-4" />
                     Export
@@ -758,6 +788,11 @@ const BillableReport = () => {
             )}
           </div>
         </div>
+      )}
+
+      {/* QC Report view */}
+      {activeToggle === 'qc' && (
+        <AgentQCReportPage />
       )}
     </div>
   );

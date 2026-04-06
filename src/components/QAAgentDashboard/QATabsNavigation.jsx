@@ -2,47 +2,47 @@ import React from 'react';
 import {
   LayoutGrid,
   Briefcase,
-  Users,
+  FileCheck,
   FileWarning,
-  DollarSign
+  DollarSign,
+  RotateCcw
 } from 'lucide-react';
 
 const QATabsNavigation = ({ activeTab, setActiveTab }) => {
   const tabs = [
     { id: 'overview', label: 'Overview', icon: LayoutGrid },
     { id: 'billable_report', label: 'Billable Report', icon: Briefcase },
-    { id: 'agents', label: 'Agent Performance', icon: Users, disabled: true },
+    { id: 'audit_report', label: 'Audit Report', icon: FileCheck },
     { id: 'adherence', label: 'Reporting Adherence', icon: FileWarning, disabled: true },
     { id: 'incentives', label: 'Agent Incentives', icon: DollarSign, disabled: true }
   ];
 
   return (
-    <div className="relative w-full bg-white rounded-xl shadow-sm border border-slate-200 p-3 mb-4">
-      <div
-        className="flex overflow-x-auto scroll-smooth scrollbar-hide snap-x snap-mandatory w-full gap-2"
-        style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
-      >
+    <div className="bg-white rounded-2xl shadow-lg mb-6 border border-slate-200 overflow-hidden">
+      <div className="flex border-b border-slate-200">
         {tabs.map(tab => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
           return (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
+              onClick={() => !tab.disabled && setActiveTab(tab.id)}
               disabled={tab.disabled}
-              className={
-                `flex-1 min-w-fit px-4 py-2.5 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-all duration-200 whitespace-nowrap snap-start ` +
-                (isActive
-                  ? 'bg-blue-600 text-white shadow-md transform scale-105'
+              className={`flex-1 px-6 py-4 text-sm font-bold transition-all relative ${
+                isActive
+                  ? 'text-blue-600 bg-blue-50'
                   : tab.disabled
-                  ? 'bg-slate-50 text-slate-400 cursor-not-allowed opacity-60'
-                  : 'bg-white text-slate-600 hover:bg-slate-50 hover:text-blue-600 border border-slate-200 hover:border-blue-300')
-              }
-              title={tab.label}
+                  ? 'text-slate-400 bg-slate-50 cursor-not-allowed'
+                  : 'text-slate-600 hover:text-slate-800 hover:bg-slate-50'
+              }`}
             >
-              <Icon className="w-4 h-4" />
-              <span className="hidden sm:inline">{tab.label}</span>
-              <span className="sm:hidden">{tab.label.split(' ')[0]}</span>
+              <div className="flex items-center justify-center gap-2">
+                <Icon className="w-4 h-4" />
+                <span>{tab.label}</span>
+              </div>
+              {isActive && (
+                <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-600 to-indigo-600"></div>
+              )}
             </button>
           );
         })}

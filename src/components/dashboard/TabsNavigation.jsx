@@ -47,43 +47,37 @@ const TabsNavigation = ({
 
   return (
     <div className="relative w-full">
-      {/* Horizontal draggable/scrollable + equal spacing on large screens */}
-      <div
-        ref={tabsRef}
-        className="
-          flex overflow-x-auto pb-2 px-1 scroll-smooth scrollbar-hide snap-x snap-mandatory
-          w-full gap-2
-          lg:justify-between     /* Even spacing on desktop/laptop */
-        "
-        style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
-      >
-        {visibleTabs.map(tab => {
-          const Icon = tab.icon;
-          const isActive = activeTab === tab.id;
-          return (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              disabled={tab.disabled}
-              className={`
-                flex-grow lg:flex-grow-0  /* stretch only on wide screens */
-                px-4 sm:px-4 py-3 sm:py-3 rounded-lg text-sm font-semibold 
-                flex items-center justify-center gap-1.5 sm:gap-2 
-                transition-all whitespace-nowrap snap-start
-                bg-white shadow border border-slate-200
-                ${isActive 
-                  ? 'text-blue-600 border-blue-600 shadow-md' 
-                  : 'text-slate-600 hover:text-blue-600 hover:border-slate-300'
-                }
-              `}
-              title={tab.label}
-            >
-              <Icon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-              <span className="hidden xs:inline">{tab.label}</span>
-              <span className="xs:hidden">{tab.label}</span>
-            </button>
-          );
-        })}
+      {/* Horizontal scrollable tabs with modern design */}
+      <div className="bg-white rounded-2xl shadow-lg mb-6 border border-slate-200 overflow-hidden">
+        <div className="flex overflow-x-auto border-b border-slate-200 scrollbar-hide">
+          {visibleTabs.map(tab => {
+            const Icon = tab.icon;
+            const isActive = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => !tab.disabled && setActiveTab(tab.id)}
+                disabled={tab.disabled}
+                className={`flex-1 min-w-fit px-6 py-4 text-sm font-bold transition-all relative whitespace-nowrap ${
+                  isActive
+                    ? 'text-blue-600 bg-blue-50'
+                    : tab.disabled
+                    ? 'text-slate-400 bg-slate-50 cursor-not-allowed'
+                    : 'text-slate-600 hover:text-slate-800 hover:bg-slate-50'
+                }`}
+              >
+                <div className="flex items-center justify-center gap-2">
+                  <Icon className="w-4 h-4" />
+                  <span className="hidden sm:inline">{tab.label}</span>
+                  <span className="sm:hidden">{tab.label.split(' ')[0]}</span>
+                </div>
+                {isActive && (
+                  <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-600 to-indigo-600"></div>
+                )}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {/* Render UserMonthlyReport below the tab bar when active */}

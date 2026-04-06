@@ -1,5 +1,5 @@
      import React from "react";
-     import { Settings, RefreshCw } from "lucide-react";
+     import { Settings, RefreshCw, Users, FolderKanban, File, FolderOpen, Shield } from "lucide-react";
      import { useAuth } from "../context/AuthContext";
 
      const AdminLayout = ({
@@ -9,11 +9,6 @@
           onFactoryReset,
      }) => {
           const { canManageUsers, canManageProjects, isSuperAdmin } = useAuth();
-
-          const activeTabClass =
-               "px-6 py-3 font-medium text-sm transition-colors border-b-2 border-blue-600 text-blue-700";
-          const inactiveTabClass =
-               "px-6 py-3 font-medium text-sm transition-colors border-b-2 border-transparent text-slate-500 hover:text-slate-700";
 
           const showUsersTab = canManageUsers;
           const showProjectsTab = canManageProjects;
@@ -40,30 +35,99 @@
 
                          {/* Tabs */}
                          {(showUsersTab || showProjectsTab) && (
-                              <div className="flex border-b border-slate-200 mb-6">
+                              <div className="flex overflow-x-auto border-b border-slate-200 mb-6 scrollbar-hide">
                                    {showUsersTab && (
                                         <button
                                              onClick={() => setActiveTab("users")}
-                                             className={
-                                                  activeTab === "users" ? activeTabClass : inactiveTabClass
-                                             }
+                                             className={`flex-1 px-6 py-4 text-sm font-bold transition-all relative ${
+                                                  activeTab === "users"
+                                                       ? "text-blue-600 bg-blue-50"
+                                                       : "text-slate-600 hover:text-slate-800 hover:bg-slate-50"
+                                             }`}
                                         >
-                                             User Management
+                                             <div className="flex items-center justify-center gap-2">
+                                                  <Users className="w-4 h-4" />
+                                                  <span>User Management</span>
+                                             </div>
+                                             {activeTab === "users" && (
+                                                  <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-600 to-indigo-600"></div>
+                                             )}
                                         </button>
                                    )}
 
                                    {showProjectsTab && (
                                         <button
                                              onClick={() => setActiveTab("projects")}
-                                             className={
+                                             className={`flex-1 px-6 py-4 text-sm font-bold transition-all relative ${
                                                   activeTab === "projects"
-                                                       ? activeTabClass
-                                                       : inactiveTabClass
-                                             }
+                                                       ? "text-blue-600 bg-blue-50"
+                                                       : "text-slate-600 hover:text-slate-800 hover:bg-slate-50"
+                                             }`}
                                         >
-                                             Projects & Targets
+                                             <div className="flex items-center justify-center gap-2">
+                                                  <FolderKanban className="w-4 h-4" />
+                                                  <span>Projects & Targets</span>
+                                             </div>
+                                             {activeTab === "projects" && (
+                                                  <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-600 to-indigo-600"></div>
+                                             )}
                                         </button>
                                    )}
+
+                                   {showProjectsTab && (
+                                        <button
+                                             onClick={() => setActiveTab("afd")}
+                                             className={`flex-1 px-6 py-4 text-sm font-bold transition-all relative ${
+                                                  activeTab === "afd"
+                                                       ? "text-blue-600 bg-blue-50"
+                                                       : "text-slate-600 hover:text-slate-800 hover:bg-slate-50"
+                                             }`}
+                                        >
+                                             <div className="flex items-center justify-center gap-2">
+                                                  <File className="w-4 h-4" />
+                                                  <span>AFD Management</span>
+                                             </div>
+                                             {activeTab === "afd" && (
+                                                  <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-600 to-indigo-600"></div>
+                                             )}
+                                        </button>
+                                   )}
+
+                                   {showProjectsTab && (
+                                        <button
+                                             onClick={() => setActiveTab("category")}
+                                             className={`flex-1 px-6 py-4 text-sm font-bold transition-all relative ${
+                                                  activeTab === "category"
+                                                       ? "text-blue-600 bg-blue-50"
+                                                       : "text-slate-600 hover:text-slate-800 hover:bg-slate-50"
+                                             }`}
+                                        >
+                                             <div className="flex items-center justify-center gap-2">
+                                                  <FolderOpen className="w-4 h-4" />
+                                                  <span>Project Category</span>
+                                             </div>
+                                             {activeTab === "category" && (
+                                                  <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-600 to-indigo-600"></div>
+                                             )}
+                                        </button>
+                                   )}
+
+                                   <button
+                                        onClick={() => setActiveTab("permissions")}
+                                        className={`flex-1 px-6 py-4 text-sm font-bold transition-all relative ${
+                                             activeTab === "permissions"
+                                                  ? "text-blue-600 bg-blue-50"
+                                                  : "text-slate-600 hover:text-slate-800 hover:bg-slate-50"
+                                        }`}
+                                   >
+                                        <div className="flex items-center justify-center gap-2">
+                                             <Shield className="w-4 h-4" />
+                                             <span>User Permission</span>
+                                        </div>
+                                        {activeTab === "permissions" && (
+                                             <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-600 to-indigo-600"></div>
+                                        )}
+                                   </button>
                               </div>
                          )}
 

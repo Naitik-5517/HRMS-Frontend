@@ -3,8 +3,10 @@ import { toast } from 'react-hot-toast';
 import { X, Upload, ChevronDown, ExternalLink, Users, Table } from 'lucide-react';
 import { updateTask } from '../../../../services/projectService';
 import { fetchDropdown } from '../../../../services/dropdownService';
+import { useAuth } from '../../../../context/AuthContext';
 import MultiSelectWithCheckbox from '../../../common/MultiSelectWithCheckbox';
 import * as XLSX from 'xlsx';
+import SearchableSelect from '../../../common/SearchableSelect';
 
 const EditTaskModal = ({
   open,
@@ -13,6 +15,7 @@ const EditTaskModal = ({
   projectId,
   onTaskUpdated
 }) => {
+  const { user } = useAuth();
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -21,6 +24,7 @@ const EditTaskModal = ({
     file: null,
     existingFileUrl: '',
     importantColumns: [],
+    qcPercentage: '',
   });
   const [formErrors, setFormErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -58,57 +62,78 @@ const EditTaskModal = ({
         }
       }
       
-      // Try to fetch and parse the existing Excel file to get all column headers
+      // Get file URL
       const fileUrl = task.task_file || task.file || '';
+      
+      // If there is an existing file, fetch and parse it for columns
       if (fileUrl) {
         fetch(fileUrl)
-          .then(response => {
-            // Check if response is actually an Excel file
-            const contentType = response.headers.get('content-type');
-            if (!response.ok || (contentType && !contentType.includes('spreadsheet') && !contentType.includes('excel') && !contentType.includes('octet-stream'))) {
-              throw new Error('Invalid file response');
-            }
-            return response.arrayBuffer();
-          })
+          .then(response => response.arrayBuffer())
           .then(data => {
             try {
-              const workbook = XLSX.read(data, { type: 'array' });
+              const workbook = XLSX.read(new Uint8Array(data), { type: 'array' });
               const firstSheetName = workbook.SheetNames[0];
               const worksheet = workbook.Sheets[firstSheetName];
               const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
-              
-              // Get first row (column headers)
+              let fileColumns = [];
               if (jsonData && jsonData.length > 0 && jsonData[0]) {
-                const headers = jsonData[0].filter(header => header && String(header).trim());
-                const allHeaders = headers.map(h => String(h));
-                setExcelColumnHeaders(allHeaders);
-              } else {
-                // Fallback to important columns if file parsing fails
-                setExcelColumnHeaders(importantColumns.length > 0 ? importantColumns : []);
+                fileColumns = jsonData[0].filter(header => header && String(header).trim()).map(String);
               }
-            } catch (error) {
-              // Silently fall back - file parsing failed
+              // Merge file columns and importantColumns, preselect those in importantColumns
+              setExcelColumnHeaders(fileColumns);
+              setFormData({
+                name: task.task_name || task.name || '',
+                description: task.task_description || task.description || '',
+                target: task.task_target || task.target || '',
+                teamIds,
+                file: null,
+                existingFileUrl: fileUrl,
+                importantColumns: importantColumns.filter(col => fileColumns.includes(col)),
+                qcPercentage: task.qc_percentage !== undefined && task.qc_percentage !== null ? String(task.qc_percentage) : '',
+              });
+            } catch (err) {
+              // fallback to just importantColumns
               setExcelColumnHeaders(importantColumns.length > 0 ? importantColumns : []);
+              setFormData({
+                name: task.task_name || task.name || '',
+                description: task.task_description || task.description || '',
+                target: task.task_target || task.target || '',
+                teamIds,
+                file: null,
+                existingFileUrl: fileUrl,
+                importantColumns,
+                qcPercentage: task.qc_percentage !== undefined && task.qc_percentage !== null ? String(task.qc_percentage) : '',
+              });
             }
           })
-          .catch(error => {
-            // Silently fall back - file doesn't exist or can't be accessed
+          .catch(() => {
+            // fallback to just importantColumns
             setExcelColumnHeaders(importantColumns.length > 0 ? importantColumns : []);
+            setFormData({
+              name: task.task_name || task.name || '',
+              description: task.task_description || task.description || '',
+              target: task.task_target || task.target || '',
+              teamIds,
+              file: null,
+              existingFileUrl: fileUrl,
+              importantColumns,
+              qcPercentage: task.qc_percentage !== undefined && task.qc_percentage !== null ? String(task.qc_percentage) : '',
+            });
           });
       } else {
-        // No file URL, use important columns as headers
+        // No file, fallback to just importantColumns
         setExcelColumnHeaders(importantColumns.length > 0 ? importantColumns : []);
+        setFormData({
+          name: task.task_name || task.name || '',
+          description: task.task_description || task.description || '',
+          target: task.task_target || task.target || '',
+          teamIds,
+          file: null,
+          existingFileUrl: fileUrl,
+          importantColumns,
+          qcPercentage: task.qc_percentage !== undefined && task.qc_percentage !== null ? String(task.qc_percentage) : '',
+        });
       }
-      
-      setFormData({
-        name: task.task_name || task.name || '',
-        description: task.task_description || task.description || '',
-        target: task.task_target || task.target || '',
-        teamIds,
-        file: null,
-        existingFileUrl: fileUrl,
-        importantColumns,
-      });
     } else if (!open) {
       // Reset form data when modal closes to avoid stale data
       setFormData({
@@ -119,6 +144,7 @@ const EditTaskModal = ({
         file: null,
         existingFileUrl: '',
         importantColumns: [],
+        qcPercentage: '',
       });
       setExcelColumnHeaders([]);
     }
@@ -126,25 +152,51 @@ const EditTaskModal = ({
 
   useEffect(() => {
     const loadAgents = async () => {
+      // Get user_id from context or fallback to sessionStorage
+      let userId = user?.user_id;
+      
+      if (!userId) {
+        try {
+          const storedUser = sessionStorage.getItem('user');
+          if (storedUser) {
+            const parsed = JSON.parse(storedUser);
+            userId = parsed?.user_id || parsed?.id;
+          }
+        } catch (e) {
+          console.error('[EditTaskModal] Failed to parse user from sessionStorage:', e);
+        }
+      }
+      
+      console.log('[EditTaskModal] Loading agents with userId:', userId, 'projectId:', projectId);
+      
+      // Don't proceed if we don't have required data
+      if (!userId || !projectId) {
+        console.warn('[EditTaskModal] Missing required data - userId:', userId, 'projectId:', projectId);
+        setAgents([]);
+        return;
+      }
+      
       setAgentsLoading(true);
       setAgentsError('');
       try {
-        const data = await fetchDropdown('agent', projectId);
+        const data = await fetchDropdown('agent', userId, projectId);
         const normalized = (data || []).map((item) => {
           const candidate = Array.isArray(item) ? item[0] : item;
           const id = candidate?.user_id || candidate?.team_id || candidate?.id;
           const label = candidate?.label || candidate?.name || candidate?.user_name || candidate?.team_name || '';
           return id ? { id: String(id), label } : null;
         }).filter(Boolean);
+        console.log('[EditTaskModal] Agents loaded:', normalized.length);
         setAgents(normalized);
       } catch (error) {
+        console.error('[EditTaskModal] Error loading agents:', error);
         setAgentsError('Unable to load agents');
       } finally {
         setAgentsLoading(false);
       }
     };
     loadAgents();
-  }, [projectId]);
+  }, [projectId, user?.user_id]);
 
   const handleChange = (field, value) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -155,36 +207,86 @@ const EditTaskModal = ({
   
   const handleFileChange = async (e) => {
     const file = e.target.files[0];
-    if (file) {
-      setFormData((prev) => ({ ...prev, file }));
-      
-      // Read Excel file and extract column headers
-      try {
-        const reader = new FileReader();
-        reader.onload = (event) => {
-          try {
-            const data = new Uint8Array(event.target.result);
-            const workbook = XLSX.read(data, { type: 'array' });
-            const firstSheetName = workbook.SheetNames[0];
-            const worksheet = workbook.Sheets[firstSheetName];
-            const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
-            
-            // Get first row (column headers)
-            if (jsonData && jsonData.length > 0 && jsonData[0]) {
-              const headers = jsonData[0].filter(header => header && String(header).trim());
-              setExcelColumnHeaders(headers.map(h => String(h)));
-              // Clear previously selected important columns when new file is uploaded
-              setFormData((prev) => ({ ...prev, importantColumns: [] }));
-            }
-          } catch (error) {
-            console.error('Error reading Excel file:', error);
-            toast.error('Failed to read Excel file');
+    if (!file) return;
+    
+    // Validate file type
+    const validTypes = [
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
+      'application/vnd.ms-excel', // .xls
+    ];
+    const isValidType = validTypes.includes(file.type) || file.name.endsWith('.xlsx') || file.name.endsWith('.xls');
+    
+    if (!isValidType) {
+      toast.error('Please upload a valid Excel file (.xlsx or .xls)');
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+      return;
+    }
+    
+    setFormData((prev) => ({ ...prev, file }));
+    
+    // Read Excel file and extract column headers
+    try {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        try {
+          const arrayBuffer = event.target.result;
+          if (!arrayBuffer || arrayBuffer.byteLength === 0) {
+            throw new Error('File is empty or could not be read');
           }
-        };
-        reader.readAsArrayBuffer(file);
-      } catch (error) {
-        console.error('Error processing file:', error);
-        toast.error('Failed to process Excel file');
+          
+          const data = new Uint8Array(arrayBuffer);
+          const workbook = XLSX.read(data, { type: 'array', cellDates: true });
+          
+          if (!workbook.SheetNames || workbook.SheetNames.length === 0) {
+            throw new Error('No sheets found in Excel file');
+          }
+          
+          const firstSheetName = workbook.SheetNames[0];
+          const worksheet = workbook.Sheets[firstSheetName];
+          const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+          
+          // Get first row (column headers)
+          if (jsonData && jsonData.length > 0 && jsonData[0]) {
+            const headers = jsonData[0].filter(header => header && String(header).trim());
+            if (headers.length === 0) {
+              toast.error('No column headers found in Excel file');
+              return;
+            }
+            setExcelColumnHeaders(headers.map(h => String(h)));
+            // Clear previously selected important columns when new file is uploaded
+            setFormData((prev) => ({ ...prev, importantColumns: [] }));
+            toast.success(`Found ${headers.length} columns in Excel file`);
+          } else {
+            toast.error('Excel file appears to be empty');
+          }
+        } catch (error) {
+          console.error('Error reading Excel file:', error);
+          toast.error(`Failed to read Excel file: ${error.message || 'Invalid file format'}`);
+          // Reset file input on error
+          setFormData((prev) => ({ ...prev, file: null }));
+          if (fileInputRef.current) {
+            fileInputRef.current.value = '';
+          }
+        }
+      };
+      
+      reader.onerror = () => {
+        toast.error('Failed to read file');
+        setFormData((prev) => ({ ...prev, file: null }));
+        if (fileInputRef.current) {
+          fileInputRef.current.value = '';
+        }
+      };
+      
+      reader.readAsArrayBuffer(file);
+    } catch (error) {
+      console.error('Error processing file:', error);
+      toast.error('Failed to process Excel file');
+      setFormData((prev) => ({ ...prev, file: null }));
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
       }
     }
   };
@@ -274,6 +376,7 @@ const EditTaskModal = ({
       teamIds: formData.teamIds,
       file: formData.file, // New file if uploaded
       importantColumns: formData.importantColumns,
+      qcPercentage: formData.qcPercentage, // FIX: use camelCase key
     };
     
     try {
@@ -347,64 +450,88 @@ const EditTaskModal = ({
                   disabled={isSubmitting}
                 />
               </div>
-              
-              {/* Task File Upload - Excel Only */}
+
+              {/* QC and Sample File Side by Side */}
               <div className="md:col-span-2">
-                <label className="block text-xs font-semibold text-slate-500 mb-1 text-left">Task File (Excel Only)</label>
-                <div className="space-y-2">
-                  {/* Existing file display */}
-                  {formData.existingFileUrl && !formData.file && (
-                    <div className="flex items-center gap-2 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm">
-                      <span className="text-slate-700">Current file:</span>
-                      <a
-                        href={formData.existingFileUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-1 text-blue-600 hover:text-blue-800 underline"
-                      >
-                        {formData.existingFileUrl.split('/').pop() || 'View file'}
-                        <ExternalLink className="w-3 h-3" />
-                      </a>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {/* Generate Data for QC Dropdown */}
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-500 mb-1 text-left">Generate Data for QC</label>
+                    <div className="mb-3">
+                      <SearchableSelect
+                        value={formData.qcPercentage || ''}
+                        onChange={val => handleChange('qcPercentage', val)}
+                        options={[
+                          { value: '10', label: '10%' },
+                          { value: '25', label: '25%' },
+                          { value: '50', label: '50%' },
+                          { value: '75', label: '75%' },
+                          { value: '100', label: '100%' },
+                        ]}
+                        placeholder="Please select how much % you want to generate the data for QC"
+                        className="w-full"
+                      />
                     </div>
-                  )}
-                  
-                  {/* File upload/replace */}
-                  <div className="flex items-center gap-2">
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      onChange={handleFileChange}
-                      className="hidden"
-                      id="task-file-upload-edit"
-                      accept=".xlsx,.xls"
-                      disabled={isSubmitting}
-                    />
-                    <label
-                      htmlFor="task-file-upload-edit"
-                      className={`flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 text-sm ${isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}`}
-                    >
-                      <Upload className="w-4 h-4" />
-                      {formData.existingFileUrl ? 'Replace Excel File' : 'Choose Excel File'}
-                    </label>
-                    {formData.file && (
-                      <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 border border-blue-200 rounded-lg text-sm">
-                        <span className="text-blue-800 truncate max-w-xs">{formData.file.name}</span>
-                        <button
-                          onClick={handleRemoveFile}
-                          className="text-blue-600 hover:text-blue-800"
-                          title="Remove file"
-                          disabled={isSubmitting}
-                        >
-                          <X className="w-4 h-4" />
-                        </button>
-                      </div>
-                    )}
                   </div>
-                  {excelColumnHeaders.length > 0 && (
-                    <p className="text-xs text-green-600 mt-1">
-                      ✓ {formData.file ? `Found ${excelColumnHeaders.length} columns in Excel file` : `${excelColumnHeaders.length} columns available`}
-                    </p>
-                  )}
+                  {/* Sample File Upload - Excel Only */}
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-500 mb-1 text-left">Sample File ( Excel Only )</label>
+                    <div className="space-y-2">
+                      {/* Existing file display - only show when no new file is selected */}
+                      {formData.existingFileUrl && !formData.file && (
+                        <div className="flex items-center gap-2 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm">
+                          <span className="text-slate-700">Current file:</span>
+                          <a
+                            href={formData.existingFileUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-1 text-blue-600 hover:text-blue-800 underline truncate"
+                          >
+                            {formData.existingFileUrl.split('/').pop() || 'View file'}
+                            <ExternalLink className="w-3 h-3 flex-shrink-0" />
+                          </a>
+                        </div>
+                      )}
+                      {/* New file display - only show when new file is selected */}
+                      {formData.file && (
+                        <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 border border-blue-200 rounded-lg text-sm">
+                          <span className="text-blue-800 truncate">{formData.file.name}</span>
+                          <button
+                            onClick={handleRemoveFile}
+                            className="text-blue-600 hover:text-blue-800 flex-shrink-0"
+                            title="Remove new file"
+                            disabled={isSubmitting}
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      )}
+                      {/* File upload button */}
+                      <div>
+                        <input
+                          ref={fileInputRef}
+                          type="file"
+                          onChange={handleFileChange}
+                          className="hidden"
+                          id="task-file-upload-edit"
+                          accept=".xlsx,.xls"
+                          disabled={isSubmitting}
+                        />
+                        <label
+                          htmlFor="task-file-upload-edit"
+                          className={`inline-flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 text-sm ${isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        >
+                          <Upload className="w-4 h-4" />
+                          {formData.file ? 'Choose Different File' : formData.existingFileUrl ? 'Replace Excel File' : 'Choose Excel File'}
+                        </label>
+                      </div>
+                      {excelColumnHeaders.length > 0 && (
+                        <p className="text-xs text-green-600 mt-1">
+                          ✓ {formData.file ? `Found ${excelColumnHeaders.length} columns in Excel file` : `${excelColumnHeaders.length} columns available`}
+                        </p>
+                      )}
+                    </div>
+                  </div>
                 </div>
               </div>
               

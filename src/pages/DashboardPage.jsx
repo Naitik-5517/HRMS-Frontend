@@ -1,9 +1,9 @@
 // import AgentBillableReport from '../components/AgentDashboard/AgentBillableReport';
 // import BillableReport from '../components/AgentDashboard/BillableReport';
-import AgentDashboard from '../components/AgentDashboard/AgentDashboard';
+import Tracker from '../components/AgentDashboard/Tracker';
 import React, { useMemo, useState, useCallback, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Settings, Lock } from 'lucide-react';
+import { Settings, Lock, File } from 'lucide-react';
 import { MONTHLY_GOAL, SHIFT_START_HOUR, SHIFT_HOURS_COUNT } from '../utils/constants';
 import { isWithinRange, getComparisonRange } from '../utils/dateHelpers';
 import FilterBar from '../components/dashboard/FilterBar';
@@ -11,6 +11,8 @@ import TabsNavigation from '../components/dashboard/TabsNavigation';
 import OverviewTab from '../components/dashboard/overview/OverviewTab';
 import QATrackerReport from '../components/dashboard/QATrackerReport';
 import QAAgentList from '../components/dashboard/QAAgentList';
+import QAAgentAudit from '../components/dashboard/QAAgentAudit';
+import ManagerQCReportsOverview from '../components/dashboard/ManagerQCReportsOverview';
 import QAAgentDashboard from '../components/QAAgentDashboard/QAAgentDashboard';
 import AssistantManagerDashboard from '../components/dashboard/AssistantManagerDashboard';
 import AdminDashboard from '../components/dashboard/AdminDashboard';
@@ -23,6 +25,9 @@ import AgentBillableReport from '../components/AgentDashboard/AgentBillableRepor
 // Import the split admin components
 import UsersManagement from '../components/dashboard/manage/user/UsersManagement';
 import ProjectsManagement from '../components/dashboard/manage/project/ProjectsManagement';
+import AFDManagement from '../components/dashboard/manage/afd/AFDManagement';
+import ProjectCategory from '../components/dashboard/manage/category/ProjectCategory';
+import UserTrackingView from '../components/common/UserTrackingView';
 import { fetchUsersList } from '../services/authService';
 import { fetchProjectsList } from '../services/projectService';
 import { toast } from 'react-hot-toast';
@@ -48,7 +53,7 @@ const DashboardPage = ({
     canViewSalary 
   } = useAuth();
   const { device_id, device_type } = useDeviceInfo();
-  const { dropdowns, loadDropdowns } = useUserDropdowns(currentUser?.user_id);
+  const { dropdowns, loadDropdowns } = useUserDropdowns();
   const [searchParams] = useSearchParams();
   const viewParam = searchParams.get('view');
   const [selectedAgent, setSelectedAgent] = useState(null);
@@ -261,6 +266,18 @@ const DashboardPage = ({
   if ((roleId === 1 || roleId === 2 || roleId === 3 || isQA || isAssistantManager) && activeTab === 'agent_file_report') {
     return <QAAgentList />;
   }
+  if ((roleId === 1 || roleId === 2 || roleId === 3 || roleId === 4 || roleId === 5) && activeTab === 'qa_agent_audit') {
+    // QA Agent (roleId 5) sees only the Report tab with their own data
+    if (roleId === 5) {
+      const qaAgentName = currentUser?.name || currentUser?.user_name || currentUser?.username || '';
+      return <QAAgentAudit defaultTab="audit_report" hideTabNavigation={true} filterByQAAgent={qaAgentName} />;
+    }
+    // Other roles see both tabs with all data
+    return <QAAgentAudit />;
+  }
+  if ((roleId === 1 || roleId === 2 || roleId === 3 || roleId === 4) && activeTab === 'qc_report_overview') {
+    return <ManagerQCReportsOverview />;
+  }
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-10">
@@ -358,7 +375,7 @@ const DashboardPage = ({
         </div>
       )}
 
-      {/* Agent File Report tab for Assistant Manager and QA */}
+      {/* Agent's Files & QC Report tab for Assistant Manager and QA */}
       {activeTab === 'agent_file_report' && (isAssistantManager || isQA) && (
         <div className="max-w-7xl mx-auto mt-6">
           <QAAgentList />
@@ -389,10 +406,10 @@ const DashboardPage = ({
             </div>
               
             {/* Admin Tabs Navigation - Show tabs but they'll display permission messages if no access */}
-            <div className="flex border-b border-slate-200 mb-6">
+            <div className="flex overflow-x-auto border-b border-slate-200 mb-6 scrollbar-hide">
               <button 
                 onClick={() => setAdminActiveTab('users')}
-                className={`px-6 py-3 font-medium text-sm transition-colors border-b-2 ${
+                className={`px-6 py-3 font-medium text-sm transition-colors border-b-2 whitespace-nowrap ${
                   adminActiveTab === 'users' 
                     ? 'border-blue-600 text-blue-700' 
                     : 'border-transparent text-slate-500 hover:text-slate-700'
@@ -404,7 +421,7 @@ const DashboardPage = ({
               {(isAssistantManager || canManageProjects) && (
                 <button 
                   onClick={() => setAdminActiveTab('projects')}
-                  className={`px-6 py-3 font-medium text-sm transition-colors border-b-2 ${
+                  className={`px-6 py-3 font-medium text-sm transition-colors border-b-2 whitespace-nowrap ${
                     adminActiveTab === 'projects' 
                       ? 'border-blue-600 text-blue-700' 
                       : 'border-transparent text-slate-500 hover:text-slate-700'
@@ -413,6 +430,41 @@ const DashboardPage = ({
                   Projects & Targets
                 </button>
               )}
+              {/* AFD Management tab */}
+              {(isAssistantManager || canManageProjects) && (
+                <button 
+                  onClick={() => setAdminActiveTab('afd')}
+                  className={`px-6 py-3 font-medium text-sm transition-colors border-b-2 whitespace-nowrap ${
+                    adminActiveTab === 'afd' 
+                      ? 'border-blue-600 text-blue-700' 
+                      : 'border-transparent text-slate-500 hover:text-slate-700'
+                  }`}
+                >
+                  AFD Management
+                </button>
+              )}
+              {/* Project Category tab */}
+              <button 
+                onClick={() => setAdminActiveTab('category')}
+                className={`px-6 py-3 font-medium text-sm transition-colors border-b-2 whitespace-nowrap ${
+                  adminActiveTab === 'category' 
+                    ? 'border-blue-600 text-blue-700' 
+                    : 'border-transparent text-slate-500 hover:text-slate-700'
+                }`}
+              >
+                Project Category
+              </button>
+              {/* User Permission tab */}
+              <button 
+                onClick={() => setAdminActiveTab('permissions')}
+                className={`px-6 py-3 font-medium text-sm transition-colors border-b-2 whitespace-nowrap ${
+                  adminActiveTab === 'permissions' 
+                    ? 'border-blue-600 text-blue-700' 
+                    : 'border-transparent text-slate-500 hover:text-slate-700'
+                }`}
+              >
+                User Permission
+              </button>
             </div>
 
             {/* Admin Tab Content */}
@@ -488,6 +540,18 @@ const DashboardPage = ({
                   </div>
                 </div>
               )
+            )}
+            
+            {adminActiveTab === 'afd' && (
+              <AFDManagement />
+            )}
+            
+            {adminActiveTab === 'category' && (
+              <ProjectCategory />
+            )}
+            
+            {adminActiveTab === 'permissions' && (
+              <UserTrackingView />
             )}
           </div>
         </div>

@@ -5,7 +5,7 @@ import api from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import LoadingSpinner from '../common/LoadingSpinner';
 import ErrorMessage from '../common/ErrorMessage';
-import { downloadCSV } from '../../utils/csvExport';
+import * as XLSX from 'xlsx';
 import { MonthYearPicker } from '../common/CustomCalendar';
 import DeleteConfirmationModal from '../common/DeleteConfirmationModal';
 
@@ -367,12 +367,12 @@ const ProjectMonthlyReport = () => {
     }));
   };
 
-  // Export to CSV function for a specific month
+  // Export to Excel function for a specific month
   const handleExportToExcel = async (monthYear) => {
     try {
       // Fetch fresh data directly from API for export
       const response = await api.post('/project_monthly_tracker/list', {});
-
+      
       if (!response.data?.data?.rows) {
         toast.error('No data available to export');
         return;
@@ -380,10 +380,10 @@ const ProjectMonthlyReport = () => {
 
       // Filter data for the specific month
       let monthData = response.data.data.rows.filter(record => record.month_year === monthYear);
-
+      
       // Apply search filter if search term exists
       if (searchTerm) {
-        monthData = monthData.filter(record =>
+        monthData = monthData.filter(record => 
           record.project_name.toLowerCase().includes(searchTerm.toLowerCase())
         );
       }
@@ -416,15 +416,12 @@ const ProjectMonthlyReport = () => {
       };
       exportData.push(totals);
 
-      // Generate filename
       const filename = `Project_Monthly_Report_${monthYear}.csv`;
-
-      // Download CSV file
-      downloadCSV(exportData, filename);
+      exportToCSV(exportData, filename);
 
       toast.success(`Exported ${monthData.length} projects successfully!`);
     } catch (err) {
-      console.error('CSV export error:', err);
+      console.error('Excel export error:', err);
       toast.error('Failed to export data');
     }
   };

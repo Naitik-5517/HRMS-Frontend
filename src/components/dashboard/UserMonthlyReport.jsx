@@ -5,7 +5,7 @@ import api from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import LoadingSpinner from '../common/LoadingSpinner';
 import ErrorMessage from '../common/ErrorMessage';
-import { downloadCSV } from "../../utils/csvExport";
+import { exportToCSV } from '../../utils/csvExport';
 import { MonthYearPicker } from '../common/CustomCalendar';
 import SearchableSelect from '../common/SearchableSelect';
 import DeleteConfirmationModal from '../common/DeleteConfirmationModal';
@@ -591,12 +591,12 @@ const UserMonthlyReport = () => {
       // Generate filename
       const filename = `User_Monthly_Report_${monthYear}.csv`;
 
-      // Download CSV file
-      downloadCSV(exportData, filename);
+      // Export to CSV
+      exportToCSV(exportData, filename);
 
       toast.success(`Exported ${submittedRecords.length} records successfully!`);
     } catch (err) {
-      console.error('CSV export error:', err);
+      console.error('Excel export error:', err);
       toast.error('Failed to export data');
     }
   };
@@ -779,12 +779,12 @@ const UserMonthlyReport = () => {
                           />
                         </div>
                       )}
-                      {/* Export to CSV Button */}
+                      {/* Export to Excel Button */}
                       <button
                         onClick={() => handleExportToExcel(monthYear)}
                         disabled={loading || filteredMonthData.length === 0}
                         className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 disabled:from-gray-400 disabled:to-gray-400 disabled:cursor-not-allowed text-white font-semibold text-sm shadow-md hover:shadow-lg transition-all duration-200"
-                        title="Export this month's data to CSV"
+                        title="Export this month's data to Excel"
                       >
                         <Download className="w-4 h-4" />
                         Export

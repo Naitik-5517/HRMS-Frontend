@@ -190,7 +190,9 @@ export const useProjectManagement = (initialProjects, onUpdateProjects, loadProj
           assistantManagerIds: [],
           qaManagerIds: [],
           teamIds: [],
-          // projectCategoryId: '',
+          projectCategoryId: '',
+          requires_ai_evaluation: false,
+          requires_duplicate_check: false,
      });
 
      const [projectFiles, setProjectFiles] = useState([]);
@@ -245,14 +247,18 @@ export const useProjectManagement = (initialProjects, onUpdateProjects, loadProj
                formData.append('project_manager_id', Number(newProject.projectManagerId));
                
                // Append project category if selected
-               // if (newProject.projectCategoryId) {
-               //      formData.append('project_category_id', Number(newProject.projectCategoryId));
-               // }
+               if (newProject.projectCategoryId) {
+                    formData.append('project_category_id', Number(newProject.projectCategoryId));
+               }
                
                // Append array fields as JSON strings (backend expects this format)
                formData.append('asst_project_manager_id', JSON.stringify(newProject.assistantManagerIds.map(id => Number(id))));
                formData.append('project_qa_id', JSON.stringify(newProject.qaManagerIds.map(id => Number(id))));
                formData.append('project_team_id', JSON.stringify(newProject.teamIds.map(id => Number(id))));
+               
+               // Append validation requirement fields
+               formData.append('requires_ai_evaluation', newProject.requires_ai_evaluation ? 'true' : 'false');
+               formData.append('requires_duplicate_check', newProject.requires_duplicate_check ? 'true' : 'false');
                
                // Append all files
                if (projectFiles && projectFiles.length > 0) {
@@ -324,7 +330,9 @@ export const useProjectManagement = (initialProjects, onUpdateProjects, loadProj
                               ...project,
                               project_category_name: fullProject.project_category_name,
                               project_category_id: fullProject.project_category_id,
-                              project_files: fullProject.project_files
+                              project_files: fullProject.project_files,
+                              requires_ai_evaluation: fullProject.requires_ai_evaluation,
+                              requires_duplicate_check: fullProject.requires_duplicate_check
                          };
                     }
                }
@@ -348,8 +356,9 @@ export const useProjectManagement = (initialProjects, onUpdateProjects, loadProj
                teamIds: (project.teamIds
                     ? project.teamIds.map(String)
                     : project.project_team?.map(u => String(u.user_id)) || project.project_team_id?.map(String) || []),
-               // projectCategoryId: String(project.projectCategoryId || project.project_category_id || ''),
-               // projectCategoryName: project.project_category_name || '',
+               projectCategoryId: String(project.projectCategoryId || project.project_category_id || ''),
+               requires_ai_evaluation: project.requires_ai_evaluation ?? false,
+               requires_duplicate_check: project.requires_duplicate_check ?? false,
           });
           
           // Set projectFiles from project.project_files array (URLs)
@@ -437,14 +446,18 @@ export const useProjectManagement = (initialProjects, onUpdateProjects, loadProj
                formData.append('project_manager_id', Number(projectData.projectManagerId));
                
                // Append project category if provided
-               // if (projectData.projectCategoryId) {
-               //      formData.append('project_category_id', Number(projectData.projectCategoryId));
-               // }
+               if (projectData.projectCategoryId) {
+                    formData.append('project_category_id', Number(projectData.projectCategoryId));
+               }
                
                // Append array fields as JSON strings (backend expects this format)
                formData.append('asst_project_manager_id', JSON.stringify(projectData.assistantManagerIds.map(id => Number(id))));
                formData.append('project_qa_id', JSON.stringify(projectData.qaManagerIds.map(id => Number(id))));
                formData.append('project_team_id', JSON.stringify(projectData.teamIds.map(id => Number(id))));
+               
+               // Append validation requirement fields
+               formData.append('requires_ai_evaluation', projectData.requires_ai_evaluation ? 'true' : 'false');
+               formData.append('requires_duplicate_check', projectData.requires_duplicate_check ? 'true' : 'false');
                
                // Process ALL files - both existing (to keep) and new (to upload)
                const existingFileUrls = [];
@@ -660,6 +673,10 @@ export const useProjectManagement = (initialProjects, onUpdateProjects, loadProj
           // Append team IDs as JSON array
           formData.append('task_team_id', JSON.stringify(teamIds.map(id => Number(id))));
           
+          // Append QC percentage
+          const qcValue = taskPayload?.qcPercentage && taskPayload.qcPercentage !== '' ? taskPayload.qcPercentage : '0';
+          formData.append('qc_percentage', qcValue);
+          
           // Append important columns if provided
           if (taskPayload?.importantColumns && taskPayload.importantColumns.length > 0) {
                formData.append('important_columns', JSON.stringify(taskPayload.importantColumns));
@@ -703,35 +720,48 @@ export const useProjectManagement = (initialProjects, onUpdateProjects, loadProj
                return false;
           }
 
-          const name = taskPayload?.name?.trim();
-          const target = taskPayload?.target;
-          const teamIds = taskPayload?.teamIds || [];
-
-          if (!name || !target || teamIds.length === 0) {
-               toast.error("Please fill task name, target, and select at least one agent");
+          // Validate only if fields are present (since we're sending only changed fields)
+          if (taskPayload?.name !== undefined && !taskPayload.name?.trim()) {
+               toast.error("Task name cannot be empty");
+               return false;
+          }
+          if (taskPayload?.target !== undefined && (!taskPayload.target || Number(taskPayload.target) <= 0)) {
+               toast.error("Target must be greater than 0");
+               return false;
+          }
+          if (taskPayload?.teamIds !== undefined && (!taskPayload.teamIds || taskPayload.teamIds.length === 0)) {
+               toast.error("Select at least one agent");
                return false;
           }
 
-          // Create FormData for file upload support
+          // Create FormData with only changed fields
           const formData = new FormData();
           formData.append('project_id', Number(projectId));
           formData.append('task_id', Number(taskId));
-          formData.append('task_name', name);
-          formData.append('task_description', taskPayload?.description?.trim() || "");
-          formData.append('task_target', String(target));
           formData.append('device_id', deviceInfo.device_id);
           formData.append('device_type', deviceInfo.device_type);
           
-          // Append team IDs as JSON array
-          formData.append('task_team_id', JSON.stringify(teamIds.map(id => Number(id))));
-          
-          // Append important columns if provided
-          if (taskPayload?.importantColumns && taskPayload.importantColumns.length > 0) {
+          // Append only fields that are present in taskPayload (changed fields)
+          if (taskPayload?.name !== undefined) {
+               formData.append('task_name', taskPayload.name.trim());
+          }
+          if (taskPayload?.description !== undefined) {
+               formData.append('task_description', taskPayload.description?.trim() || "");
+          }
+          if (taskPayload?.target !== undefined) {
+               formData.append('task_target', String(taskPayload.target));
+          }
+          if (taskPayload?.teamIds !== undefined) {
+               formData.append('task_team_id', JSON.stringify(taskPayload.teamIds.map(id => Number(id))));
+          }
+          if (taskPayload?.qcPercentage !== undefined) {
+               const qcValue = taskPayload.qcPercentage && taskPayload.qcPercentage !== '' ? taskPayload.qcPercentage : '0';
+               formData.append('qc_percentage', qcValue);
+          }
+          if (taskPayload?.importantColumns !== undefined && taskPayload.importantColumns.length > 0) {
                formData.append('important_columns', JSON.stringify(taskPayload.importantColumns));
           }
-          
-          // Append file if provided (new file to replace existing)
-          if (taskPayload?.file) {
+          if (taskPayload?.file !== undefined) {
                formData.append('task_file', taskPayload.file);
           }
 
@@ -806,7 +836,9 @@ export const useProjectManagement = (initialProjects, onUpdateProjects, loadProj
                assistantManagerIds: [],
                qaManagerIds: [],
                teamIds: [],
-               // projectCategoryId: '',
+               projectCategoryId: '',
+               requires_ai_evaluation: false,
+               requires_duplicate_check: false,
           });
           setProjectFiles([]);
           setFormErrors({});

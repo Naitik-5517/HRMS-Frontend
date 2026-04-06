@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { Lock, FolderKanban, Plus, Search, Filter, Briefcase } from 'lucide-react';
 import { useAuth } from "../../../../context/AuthContext";
 import { useProjectManagement } from "../../../../hooks/useProjectManagement";
@@ -48,7 +48,19 @@ const ProjectsManagement = ({
     dropdowns,
     loading: dropdownLoading,
     loadDropdowns
-  } = useUserDropdowns(user?.user_id);
+  } = useUserDropdowns();
+
+  // Wrapper to load dropdowns with user ID
+  const loadDropdownsWithUser = useCallback(async () => {
+    await loadDropdowns(user?.user_id);
+  }, [loadDropdowns, user?.user_id]);
+
+  // Load dropdowns on component mount
+  useEffect(() => {
+    if (user?.user_id) {
+      loadDropdownsWithUser();
+    }
+  }, [user?.user_id, loadDropdownsWithUser]);
 
   const {
     newProject,
@@ -118,7 +130,8 @@ const ProjectsManagement = ({
     console.log('[ProjectsManagement] Opening edit for project:', project);
     console.log('[ProjectsManagement] Current dropdowns before loading:', dropdowns);
     
-    await loadDropdowns();
+    // Load dropdowns with user ID to ensure fresh data
+    await loadDropdownsWithUser();
     
     console.log('[ProjectsManagement] Dropdowns after loading:', dropdowns);
     console.log('[ProjectsManagement] Dropdowns.projectManagers:', dropdowns.projectManagers);
@@ -181,19 +194,23 @@ const ProjectsManagement = ({
       assistantManagers: normalizeDropdown(dropdowns.assistantManagers),
       qaManagers: normalizeDropdown(dropdowns.qas),
       teams: normalizeDropdown(dropdowns.agents, 'team'),
-      projectManagers: normalizeDropdown(dropdowns.projectManagers)
+      projectManagers: normalizeDropdown(dropdowns.projectManagers),
+      requires_ai_evaluation: fullProject.requires_ai_evaluation ?? false,
+      requires_duplicate_check: fullProject.requires_duplicate_check ?? false,
     };
     
     console.log('[ProjectsManagement] Final project with mapped arrays:', fullProject);
+    console.log('[ProjectsManagement] requires_ai_evaluation:', fullProject.requires_ai_evaluation);
+    console.log('[ProjectsManagement] requires_duplicate_check:', fullProject.requires_duplicate_check);
     openEditModal(fullProject);
   };
 
-  // Normalize dropdowns for AddProjectForm and EditProjectModal
-  const normalizedProjectManagers = normalizeDropdown(dropdowns.projectManagers);
-  const normalizedAssistantManagers = normalizeDropdown(dropdowns.assistantManagers);
-  const normalizedQaManagers = normalizeDropdown(dropdowns.qas);
-  const normalizedTeams = normalizeDropdown(dropdowns.agents, 'team');
-  const normalizedProjectCategories = normalizeDropdown(dropdowns.projectCategories);
+  // Normalize dropdowns for AddProjectForm and EditProjectModal (memoized to update when dropdowns change)
+  const normalizedProjectManagers = useMemo(() => normalizeDropdown(dropdowns.projectManagers), [dropdowns.projectManagers]);
+  const normalizedAssistantManagers = useMemo(() => normalizeDropdown(dropdowns.assistantManagers), [dropdowns.assistantManagers]);
+  const normalizedQaManagers = useMemo(() => normalizeDropdown(dropdowns.qas), [dropdowns.qas]);
+  const normalizedTeams = useMemo(() => normalizeDropdown(dropdowns.agents, 'team'), [dropdowns.agents]);
+  const normalizedProjectCategories = useMemo(() => normalizeDropdown(dropdowns.projectCategories), [dropdowns.projectCategories]);
   
   console.log('[ProjectsManagement] ===== NORMALIZED DROPDOWNS =====');
   console.log('[ProjectsManagement] Raw dropdowns.projectManagers:', dropdowns.projectManagers);
@@ -209,17 +226,17 @@ const ProjectsManagement = ({
   console.log('  - projectCategories:', normalizedProjectCategories);
 
   // Expanded state for each project card
-  const [expandedCards, setExpandedCards] = React.useState({});
+  const [expandedCards, setExpandedCards] = useState({});
 
   const handleExpandCard = (projectId, value) => {
     setExpandedCards(prev => ({ ...prev, [projectId]: value }));
   };
 
   // Project Name filter state
-  const [projectNameSearch, setProjectNameSearch] = React.useState("");
+  const [projectNameSearch, setProjectNameSearch] = useState("");
 
   // Filtered projects by project name
-  const filteredProjects = React.useMemo(() => {
+  const filteredProjects = useMemo(() => {
     if (!projectNameSearch.trim()) return projects;
     return projects.filter(p => (p.name || p.project_name || "").toLowerCase().includes(projectNameSearch.trim().toLowerCase()));
   }, [projects, projectNameSearch]);
@@ -279,7 +296,7 @@ const ProjectsManagement = ({
                 qaManagers={normalizedQaManagers}
                 teams={normalizedTeams}
                 projectCategories={normalizedProjectCategories}
-                loadDropdowns={loadDropdowns}
+                loadDropdowns={loadDropdownsWithUser}
                 dropdownLoading={dropdownLoading}
                 isSubmitting={isSubmitting}
                 formErrors={formErrors}
@@ -296,24 +313,28 @@ const ProjectsManagement = ({
         </div>
       )}
 
-      {showEditModal && isEditMode && (
-        <EditProjectModal
-          project={newProject}
-          onClose={closeEditModal}
-          onUpdate={handleUpdateProject}
-          projectManagers={normalizedProjectManagers}
-          assistantManagers={normalizedAssistantManagers}
-          qaManagers={normalizedQaManagers}
-          teams={normalizedTeams}
-          projectCategories={normalizedProjectCategories}
-          formErrors={formErrors}
-          isSubmitting={isSubmitting}
-          handleProjectFilesChange={handleProjectFilesChange}
-          handleRemoveProjectFile={handleRemoveProjectFile}
-          projectFiles={projectFiles}
-          onFieldChange={updateNewProjectField}
-          clearFieldError={clearFieldError}
-        />
+      {showEditModal && isEditMode && newProject && (
+        <>
+          {console.log('[ProjectsManagement] Rendering EditProjectModal with newProject:', newProject)}
+          <EditProjectModal
+            key={`edit-${editingProjectId}-${Date.now()}`}
+            project={newProject}
+            onClose={closeEditModal}
+            onUpdate={handleUpdateProject}
+            projectManagers={normalizedProjectManagers}
+            assistantManagers={normalizedAssistantManagers}
+            qaManagers={normalizedQaManagers}
+            teams={normalizedTeams}
+            projectCategories={normalizedProjectCategories}
+            formErrors={formErrors}
+            isSubmitting={isSubmitting}
+            handleProjectFilesChange={handleProjectFilesChange}
+            handleRemoveProjectFile={handleRemoveProjectFile}
+            projectFiles={projectFiles}
+            onFieldChange={updateNewProjectField}
+            clearFieldError={clearFieldError}
+          />
+        </>
       )}
 
       {/* Projects Content Area */}

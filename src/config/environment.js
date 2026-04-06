@@ -6,6 +6,7 @@
 const config = {
   // API Configuration
   apiBaseUrl: import.meta.env.VITE_API_BASE_URL,
+  apiNodeBaseUrl: import.meta.env.VITE_API_NODE_BASE_URL,
   apiTimeout: parseInt(import.meta.env.VITE_API_TIMEOUT) || 30000,
 
   // App Configuration

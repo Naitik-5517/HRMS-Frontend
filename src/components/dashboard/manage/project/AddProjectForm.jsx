@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Plus } from 'lucide-react';
 import AddProjectFormModal from './AddProjectFormModal';
+import { useAuth } from '../../../../context/AuthContext';
 
 const AddProjectForm = ({
      newProject,
@@ -30,13 +31,30 @@ const AddProjectForm = ({
      projectNameSearch = "",
      setProjectNameSearch
 }) => {
+     const { user } = useAuth();
      const [showModal, setShowModal] = useState(false);
+     
+     // Get user_id from context or sessionStorage
+     const getUserId = () => {
+          if (user?.user_id) return user.user_id;
+          
+          try {
+               const storedUser = sessionStorage.getItem('user');
+               if (storedUser) {
+                    const parsed = JSON.parse(storedUser);
+                    return parsed?.user_id || parsed?.id;
+               }
+          } catch (e) {
+               console.error('[AddProjectForm] Failed to parse user from sessionStorage:', e);
+          }
+          return null;
+     };
 
      // Open edit modal when edit mode changes, only if dropdowns are loaded and not empty
      useEffect(() => {
           const openEditModalWithData = async () => {
                if (showEditModal) {
-                    await loadDropdowns();
+                    await loadDropdowns(getUserId());
                     setShowModal(true);
                }
           };
@@ -44,7 +62,18 @@ const AddProjectForm = ({
      }, [showEditModal, loadDropdowns]);
 
      const openModal = async () => {
-          await loadDropdowns(); // 🔥 API CALL HERE
+          console.log('[AddProjectForm] ========== OPENING MODAL ==========');
+          console.log('[AddProjectForm] User ID:', getUserId());
+          console.log('[AddProjectForm] BEFORE loadDropdowns - Current props:');
+          console.log('  - projectManagers:', projectManagers, 'length:', projectManagers?.length);
+          console.log('  - assistantManagers:', assistantManagers, 'length:', assistantManagers?.length);
+          console.log('  - qaManagers:', qaManagers, 'length:', qaManagers?.length);
+          console.log('  - teams:', teams, 'length:', teams?.length);
+          console.log('  - projectCategories:', projectCategories, 'length:', projectCategories?.length);
+          
+          await loadDropdowns(getUserId()); // 🔥 API CALL HERE - Now with userId
+          
+          console.log('[AddProjectForm] AFTER loadDropdowns - Updated props should be reflected soon');
           setShowModal(true);
      };
 
@@ -84,24 +113,33 @@ const AddProjectForm = ({
                               </div>
                          </div>
                     ) : (
-                         <AddProjectFormModal
-                              newProject={newProject}
-                              onFieldChange={onFieldChange}
-                              onSubmit={handleSubmit}
-                              onClose={handleCloseModal}
-                              projectManagers={projectManagers || []}
-                              assistantManagers={assistantManagers || []}
-                              qaManagers={qaManagers || []}
-                              teams={teams || []}
-                              projectCategories={projectCategories || []}
-                              formErrors={formErrors}
-                              clearFieldError={clearFieldError}
-                              isSubmitting={isSubmitting}
-                              projectFiles={projectFiles}
-                              handleProjectFilesChange={handleProjectFilesChange}
-                              handleRemoveProjectFile={handleRemoveProjectFile}
-                              isEditMode={isEditMode}
-                         />
+                         <>
+                              {console.log('[AddProjectForm] ========== RENDERING MODAL ==========')}
+                              {console.log('[AddProjectForm] Passing props to AddProjectFormModal:')}
+                              {console.log('  - projectManagers:', projectManagers, 'length:', projectManagers?.length)}
+                              {console.log('  - assistantManagers:', assistantManagers, 'length:', assistantManagers?.length)}
+                              {console.log('  - qaManagers:', qaManagers, 'length:', qaManagers?.length)}
+                              {console.log('  - teams:', teams, 'length:', teams?.length)}
+                              {console.log('  - projectCategories:', projectCategories, 'length:', projectCategories?.length)}
+                              <AddProjectFormModal
+                                   newProject={newProject}
+                                   onFieldChange={onFieldChange}
+                                   onSubmit={handleSubmit}
+                                   onClose={handleCloseModal}
+                                   projectManagers={projectManagers || []}
+                                   assistantManagers={assistantManagers || []}
+                                   qaManagers={qaManagers || []}
+                                   teams={teams || []}
+                                   projectCategories={projectCategories || []}
+                                   formErrors={formErrors}
+                                   clearFieldError={clearFieldError}
+                                   isSubmitting={isSubmitting}
+                                   projectFiles={projectFiles}
+                                   handleProjectFilesChange={handleProjectFilesChange}
+                                   handleRemoveProjectFile={handleRemoveProjectFile}
+                                   isEditMode={isEditMode}
+                              />
+                         </>
                     )
                )}
           </>

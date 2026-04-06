@@ -28,6 +28,7 @@ const SearchableSelect = ({
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [showTooltip, setShowTooltip] = useState(false);
   const dropdownRef = useRef(null);
   const searchInputRef = useRef(null);
 
@@ -39,9 +40,38 @@ const SearchableSelect = ({
         setSearchTerm('');
       }
     };
+    
+    const handleScroll = (event) => {
+      if (isOpen) {
+        // Check if scroll is happening within the dropdown
+        const scrollingElement = event.target;
+        const isDropdownScroll = dropdownRef.current?.contains(scrollingElement);
+        
+        // Only close if scrolling outside the dropdown
+        if (!isDropdownScroll) {
+          setIsOpen(false);
+          setSearchTerm('');
+        }
+      }
+    };
+    
+    const handleResize = () => {
+      if (isOpen) {
+        setIsOpen(false);
+        setSearchTerm('');
+      }
+    };
+    
     document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+    window.addEventListener('scroll', handleScroll, true);
+    window.addEventListener('resize', handleResize);
+    
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      window.removeEventListener('scroll', handleScroll, true);
+      window.removeEventListener('resize', handleResize);
+    };
+  }, [isOpen]);
 
   // Focus search input when dropdown opens
   useEffect(() => {
@@ -72,6 +102,13 @@ const SearchableSelect = ({
     setSearchTerm('');
   };
 
+  // Truncate display text to first 7 characters
+  const getTruncatedText = (text) => {
+    if (!text) return placeholder;
+    if (text.length <= 7) return text;
+    return text.substring(0, 7) + '...';
+  };
+
   return (
     <div className={`relative w-full ${className}`} ref={dropdownRef}>
       {/* Main Button */}
@@ -83,6 +120,8 @@ const SearchableSelect = ({
             setIsOpen(prev => !prev);
           }
         }}
+        onMouseEnter={() => selectedOption?.label && setShowTooltip(true)}
+        onMouseLeave={() => setShowTooltip(false)}
         disabled={disabled}
         className={`
           relative flex items-center bg-slate-50 rounded-lg border transition-all w-full px-3 py-2.5 outline-none shadow-sm hover:bg-white
@@ -95,10 +134,10 @@ const SearchableSelect = ({
         `}
       >
         {Icon && <Icon className="w-4 h-4 text-blue-600 mr-2.5 shrink-0" />}
-        <span className={`text-sm font-medium flex-1 text-left truncate ${
+        <span className={`text-sm font-medium flex-1 text-left ${
           selectedOption?.label ? 'text-slate-800' : 'text-slate-400'
         }`}>
-          {selectedOption?.label || placeholder}
+          {getTruncatedText(selectedOption?.label)}
         </span>
         {isClearable && value && !disabled && (
           <span
@@ -122,7 +161,18 @@ const SearchableSelect = ({
           }`} 
         />
       </button>
-
+      {/* Tooltip with Selected Item */}
+      {showTooltip && selectedOption?.label && !isOpen && (
+        <div 
+          className="absolute z-[9999] left-0 top-full mt-0.5 bg-white rounded-lg shadow-xl border-2 border-blue-200 p-3 min-w-full max-w-md max-h-96 overflow-y-auto"
+          onMouseEnter={() => setShowTooltip(true)}
+          onMouseLeave={() => setShowTooltip(false)}
+        >
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-blue-100 text-blue-700 rounded-md text-xs font-medium border border-blue-200">
+            {selectedOption.label}
+          </span>
+        </div>
+      )}
       {/* Error Message */}
       {error && errorMessage && (
         <p className="text-xs text-red-600 font-medium flex items-center gap-1 mt-1">
@@ -137,7 +187,15 @@ const SearchableSelect = ({
 
       {/* Dropdown Menu */}
       {isOpen && !disabled && (
-        <div className="absolute z-50 mt-2 w-full bg-white rounded-lg shadow-xl border border-slate-300 py-1 max-h-72 overflow-hidden flex flex-col">
+        <div 
+          className="fixed bg-white rounded-lg shadow-2xl border-2 border-blue-400 py-1 max-h-80 overflow-hidden flex flex-col min-w-[250px]"
+          style={{
+            zIndex: 9999,
+            top: dropdownRef.current?.getBoundingClientRect().bottom + 8 + 'px',
+            left: dropdownRef.current?.getBoundingClientRect().left + 'px',
+            width: dropdownRef.current?.getBoundingClientRect().width + 'px'
+          }}
+        >
           {/* Search Input */}
           <div className="px-3 py-2 border-b border-slate-200">
             <div className="relative">
@@ -155,7 +213,7 @@ const SearchableSelect = ({
           </div>
 
           {/* Options List */}
-          <div className="overflow-y-auto">
+          <div className="overflow-y-auto max-h-60">
             {filteredOptions.length === 0 ? (
               <div className="px-4 py-3 text-sm text-slate-400 text-center">
                 No options found

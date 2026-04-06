@@ -67,13 +67,14 @@ const UsersManagement = ({
           const fetchDropdowns = async () => {
                setDropdownLoading(true);
                try {
+                    const userId = authUser?.user_id;
                     const [rolesRes, asstMgrRes, projectMgrRes, qaRes, teamRes, designationRes] = await Promise.all([
-                         fetchDropdownOptions("user roles"),
-                         fetchDropdownOptions("assistant manager"),
-                         fetchDropdownOptions("project manager"),
-                         fetchDropdownOptions("qa"),
-                         fetchDropdownOptions("teams"),
-                         fetchDropdownOptions("designations")
+                         fetchDropdownOptions("user roles", userId),
+                         fetchDropdownOptions("assistant manager", userId),
+                         fetchDropdownOptions("project manager", userId),
+                         fetchDropdownOptions("qa", userId),
+                         fetchDropdownOptions("teams", userId),
+                         fetchDropdownOptions("designations", userId)
                     ]);
                     setRoleOptions(rolesRes?.data || []);
                     setAsstManagerOptions(asstMgrRes?.data || []);

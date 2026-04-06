@@ -11,6 +11,7 @@ import { useDeviceInfo } from '../../hooks/useDeviceInfo';
 import BillableReport from "../common/BillableReport";
 import QATrackerReport from './QATrackerReport';
 import QAAgentList from './QAAgentList';
+import QAAgentAudit from './QAAgentAudit';
 import { DateRangePicker } from '../common/CustomCalendar';
 
 const AdminDashboard = () => {
@@ -400,6 +401,11 @@ const AdminDashboard = () => {
       {activeTab === 'agent_file_report' && (
         <div className="max-w-7xl mx-auto mt-6">
           <QAAgentList />
+        </div>
+      )}
+      {activeTab === 'qa_agent_audit' && (
+        <div className="max-w-7xl mx-auto mt-6">
+          <QAAgentAudit />
         </div>
       )}
     </div>

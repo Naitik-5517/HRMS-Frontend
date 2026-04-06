@@ -42,9 +42,38 @@ const MultiSelectWithCheckbox = ({
         setSearchTerm('');
       }
     };
+    
+    const handleScroll = (event) => {
+      if (isOpen) {
+        // Check if scroll is happening within the dropdown
+        const scrollingElement = event.target;
+        const isDropdownScroll = dropdownRef.current?.contains(scrollingElement);
+        
+        // Only close if scrolling outside the dropdown
+        if (!isDropdownScroll) {
+          setIsOpen(false);
+          setSearchTerm('');
+        }
+      }
+    };
+    
+    const handleResize = () => {
+      if (isOpen) {
+        setIsOpen(false);
+        setSearchTerm('');
+      }
+    };
+    
     document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+    window.addEventListener('scroll', handleScroll, true);
+    window.addEventListener('resize', handleResize);
+    
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      window.removeEventListener('scroll', handleScroll, true);
+      window.removeEventListener('resize', handleResize);
+    };
+  }, [isOpen]);
 
   // Focus search input when dropdown opens
   useEffect(() => {
@@ -91,10 +120,12 @@ const MultiSelectWithCheckbox = ({
     setSearchTerm('');
   };
 
-  // Display text
+  // Display text - truncate to first 7 characters
   const getDisplayText = () => {
     if (selectedOptions.length === 0) return placeholder;
-    return selectedOptions.map(opt => opt.label).join(', ');
+    const fullText = selectedOptions.map(opt => opt.label).join(', ');
+    if (fullText.length <= 7) return fullText;
+    return fullText.substring(0, 7) + '...';
   };
 
   return (
@@ -122,19 +153,18 @@ const MultiSelectWithCheckbox = ({
         `}
       >
         {Icon && <Icon className="w-4 h-4 text-blue-600 mr-2.5 shrink-0" />}
-        <span className={`text-sm font-medium flex-1 text-left truncate ${
+        <span className={`text-sm font-medium flex-1 text-left ${
           selectedOptions.length > 0 ? 'text-slate-800' : 'text-slate-400'
         }`}>
           {getDisplayText()}
         </span>
         {value.length > 0 && !disabled && (
-          <button
-            type="button"
+          <span
             onClick={handleClear}
-            className="p-0.5 hover:bg-slate-200 rounded-full transition-colors mr-1"
+            className="p-0.5 hover:bg-slate-200 rounded-full transition-colors mr-1 cursor-pointer"
           >
             <X className="w-3.5 h-3.5 text-slate-500" />
-          </button>
+          </span>
         )}
         <ChevronDown 
           className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${
@@ -146,7 +176,7 @@ const MultiSelectWithCheckbox = ({
       {/* Tooltip with Selected Items as Badges */}
       {showTooltip && selectedOptions.length > 0 && !isOpen && (
         <div 
-          className="absolute z-50 left-0 top-full mt-0.5 bg-white rounded-lg shadow-xl border-2 border-blue-200 p-3 min-w-full max-w-4xl max-h-96 overflow-y-auto"
+          className="absolute z-[9999] left-0 top-full mt-0.5 bg-white rounded-lg shadow-xl border-2 border-blue-200 p-3 min-w-full max-w-4xl max-h-96 overflow-y-auto"
           onMouseEnter={() => setShowTooltip(true)}
           onMouseLeave={() => setShowTooltip(false)}
         >
@@ -177,7 +207,15 @@ const MultiSelectWithCheckbox = ({
 
       {/* Dropdown Menu */}
       {isOpen && !disabled && (
-        <div className="absolute z-50 mt-2 w-full bg-white rounded-lg shadow-xl border-2 border-blue-200 py-1 max-h-96 overflow-hidden flex flex-col">
+        <div 
+          className="fixed bg-white rounded-lg shadow-2xl border-2 border-blue-400 py-1 max-h-80 overflow-hidden flex flex-col min-w-[250px]"
+          style={{
+            zIndex: 9999,
+            top: dropdownRef.current?.getBoundingClientRect().bottom + 8 + 'px',
+            left: dropdownRef.current?.getBoundingClientRect().left + 'px',
+            width: dropdownRef.current?.getBoundingClientRect().width + 'px'
+          }}
+        >
           {/* Search Input */}
           <div className="px-3 py-2 border-b border-slate-200">
             <div className="relative">
@@ -216,7 +254,7 @@ const MultiSelectWithCheckbox = ({
           )}
 
           {/* Options List */}
-          <div className="overflow-y-auto">
+          <div className="overflow-y-auto max-h-60">
             {filteredOptions.length === 0 ? (
               <div className="px-4 py-3 text-sm text-slate-400 text-center">
                 No options found

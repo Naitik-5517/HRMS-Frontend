@@ -24,9 +24,23 @@ const EditProjectModal = ({
 	const fileInputRef = useRef(null);
 	const [editProject, setEditProject] = useState(null);
 
+	// Debug incoming props at component level
+	console.log('[EditProjectModal] ========== COMPONENT RENDER ==========');
+	console.log('[EditProjectModal] Props received:');
+	console.log('  - projectManagers:', projectManagers);
+	console.log('  - assistantManagers:', assistantManagers);
+	console.log('  - qaManagers:', qaManagers);
+	console.log('  - teams:', teams);
+	console.log('  - projectCategories:', projectCategories);
+
 	// Initialize editProject from project prop
 	useEffect(() => {
-		if (project) {
+		console.log('[EditProjectModal] useEffect triggered');
+		console.log('[EditProjectModal] project prop:', project);
+		console.log('[EditProjectModal] project.name:', project?.name);
+		console.log('[EditProjectModal] project.project_name:', project?.project_name);
+		
+		if (project && Object.keys(project).length > 0) {
 			console.log('[EditProjectModal] ========== INITIALIZING EDIT PROJECT ==========');
 			console.log('[EditProjectModal][DEBUG] Incoming project prop:', project);
 			console.log('[EditProjectModal][DEBUG] Incoming projectManagers prop:', projectManagers);
@@ -143,30 +157,52 @@ const EditProjectModal = ({
 				qaManagerIds,
 				teamIds,
 				projectManagerId: String(project.projectManagerId || project.project_manager_id || ""),
-				// projectCategoryId: String(project.projectCategoryId || project.project_category_id || ""),
+				projectCategoryId: String(project.projectCategoryId || project.project_category_id || ""),
 				name: project.name || project.project_name || "",
 				code: project.code || project.project_code || "",
 				description: project.description || project.project_description || "",
-			};
+			requires_ai_evaluation: project.requires_ai_evaluation ?? false,
+			requires_duplicate_check: project.requires_duplicate_check ?? false,
+		};
 
-			console.log('[EditProjectModal][DEBUG] newProject state to set:', newProject);
-
-			setTimeout(() => {
-				setEditProject(newProject);
-			}, 0);
+		console.log('[EditProjectModal][DEBUG] newProject state to set:', newProject);
+		console.log('[EditProjectModal][DEBUG] requires_ai_evaluation:', newProject.requires_ai_evaluation);
+		console.log('[EditProjectModal][DEBUG] requires_duplicate_check:', newProject.requires_duplicate_check);
+		
+		setEditProject(newProject);
+		console.log('[EditProjectModal] setEditProject called with:', newProject);
+		} else {
+			console.log('[EditProjectModal] project prop is empty or invalid, not initializing');
 		}
-	}, [project, assistantManagers, qaManagers, teams]);
+	}, [project, projectManagers, assistantManagers, qaManagers, teams, projectCategories]);
 
-	// Helper to normalize dropdown data for lookup by id
+	// Helper function to normalize dropdown lists
 	const normalizeList = (items, idKey = 'user_id', labelKey = 'user_name') => {
-		if (!Array.isArray(items)) return [];
+		if (!items || !Array.isArray(items)) return [];
 		return items
 			.map(item => {
-				const id = String(item.project_category_id ?? item[idKey] ?? item.team_id ?? item.id ?? '');
-				const label = item[labelKey] || item.label || item.user_name || item.team_name || item.name || id;
-				return { id, label };
+				// Preserve specific ID fields for proper matching
+				const user_id = item.user_id || item[idKey];
+				const team_id = item.team_id;
+				const project_category_id = item.project_category_id;
+				const afd_id = item.afd_id;
+				
+				// Generate generic id for fallback
+				const id = String(project_category_id ?? user_id ?? team_id ?? afd_id ?? item.id ?? '');
+				
+				// Handle various label field names - prioritize 'label' and 'name' which come from ProjectsManagement
+				const label = item.label || item.name || item[labelKey] || item.user_name || item.team_name || id;
+				
+				return { 
+					id, 
+					label,
+					user_id: user_id ? String(user_id) : undefined,
+					team_id: team_id ? String(team_id) : undefined,
+					project_category_id: project_category_id ? String(project_category_id) : undefined,
+					afd_id: afd_id ? String(afd_id) : undefined
+				};
 			})
-			.filter(item => item.id !== null && item.id !== undefined && String(item.id) !== 'undefined');
+			.filter(item => item.id !== null && item.id !== undefined && String(item.id) !== 'undefined' && item.id !== '');
 	};
 
 	const processedAssistantManagers = normalizeList(assistantManagers, 'user_id', 'user_name');
@@ -175,20 +211,22 @@ const EditProjectModal = ({
 	const processedProjectManagers = normalizeList(projectManagers, 'user_id', 'user_name');
 	const processedProjectCategories = normalizeList(projectCategories, 'project_category_id', 'label');
 	
-	// console.log('[EditProjectModal] Project Categories:', {
-	// 	raw: projectCategories,
-	// 	processed: processedProjectCategories
-	// });
+	console.log('[EditProjectModal] After normalizeList:');
+	console.log('  - processedProjectManagers:', processedProjectManagers);
+	console.log('  - processedAssistantManagers:', processedAssistantManagers);
+	console.log('  - processedQaManagers:', processedQaManagers);
+	console.log('  - processedTeams:', processedTeams);
+	console.log('  - processedProjectCategories:', processedProjectCategories);
 	
-	// Build options for project category
-	// const projectCategoryOptions = [
-	// 	{ value: "", label: "Select Category" },
-	// 	...processedProjectCategories
-	// 		.filter((cat) => cat.id !== null && cat.id !== undefined && String(cat.id) !== 'undefined')
-	// 		.map((cat) => ({ value: cat.id, label: cat.label }))
-	// ];
+	// Build options for project category (ensure all values are strings)
+	const projectCategoryOptions = [
+		{ value: "", label: "Select Category" },
+		...processedProjectCategories
+			.filter((cat) => cat.id !== null && cat.id !== undefined && String(cat.id) !== 'undefined')
+			.map((cat) => ({ value: String(cat.project_category_id || cat.id), label: cat.label }))
+	];
 	
-	// console.log('[EditProjectModal] Final category options:', projectCategoryOptions);
+	console.log('[EditProjectModal] Final category options:', projectCategoryOptions);
 
 	const handleFileChange = (e) => {
 		const files = e.target.files;
@@ -209,30 +247,47 @@ const EditProjectModal = ({
 	};
 
 	if (!editProject) {
+		console.log('[EditProjectModal] editProject is null, showing loading...');
+		console.log('[EditProjectModal] project prop:', project);
 		return (
 			<div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50">
 				<div className="bg-white rounded-xl shadow-2xl p-8">Loading...</div>
 			</div>
 		);
 	}
+	
+	console.log('[EditProjectModal] ===== RENDERING FORM =====');
+	console.log('[EditProjectModal] editProject state:', editProject);
+	console.log('[EditProjectModal] editProject.name:', editProject.name);
+	console.log('[EditProjectModal] editProject.code:', editProject.code);
+	console.log('[EditProjectModal] editProject.projectManagerId:', editProject.projectManagerId, 'type:', typeof editProject.projectManagerId);
+	console.log('[EditProjectModal] editProject.projectCategoryId:', editProject.projectCategoryId, 'type:', typeof editProject.projectCategoryId);
+	console.log('[EditProjectModal] editProject.assistantManagerIds:', editProject.assistantManagerIds, 'types:', editProject.assistantManagerIds?.map(id => typeof id));
+	console.log('[EditProjectModal] editProject.qaManagerIds:', editProject.qaManagerIds, 'types:', editProject.qaManagerIds?.map(id => typeof id));
+	console.log('[EditProjectModal] editProject.teamIds:', editProject.teamIds, 'types:', editProject.teamIds?.map(id => typeof id));
+	console.log('[EditProjectModal] processedProjectManagers:', processedProjectManagers.map(pm => ({ id: pm.id, type: typeof pm.id, label: pm.label })));
+	console.log('[EditProjectModal] processedAssistantManagers:', processedAssistantManagers.map(am => ({ id: am.id, type: typeof am.id, label: am.label })));
+	console.log('[EditProjectModal] processedQaManagers:', processedQaManagers.map(qa => ({ id: qa.id, type: typeof qa.id, label: qa.label })));
+	console.log('[EditProjectModal] processedTeams:', processedTeams.map(team => ({ id: team.id, type: typeof team.id, label: team.label })));
+	console.log('[EditProjectModal] projectCategoryOptions:', projectCategoryOptions.map(opt => ({ value: opt.value, type: typeof opt.value, label: opt.label })));
 
 	return (
 		<div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
 			<div className="bg-white rounded-xl shadow-2xl w-full max-w-6xl max-h-[98vh] flex flex-col overflow-hidden animate-fade-in-up">
-			<div className="p-3 bg-blue-800 text-white flex justify-between items-center shrink-0">
-				<div>
-					<h2 className="text-lg font-bold flex items-center gap-2">
-						<Briefcase className="w-5 h-5 text-blue-300" />
-						Edit Project
-					</h2>
-					<p className="text-blue-200 text-xs">Update project details as needed</p>
+				<div className="p-3 bg-blue-800 text-white flex justify-between items-center shrink-0">
+					<div>
+						<h2 className="text-lg font-bold flex items-center gap-2">
+							<Briefcase className="w-5 h-5 text-blue-300" />
+							Edit Project
+						</h2>
+						<p className="text-blue-200 text-xs">Update project details as needed</p>
+					</div>
+					<button onClick={onClose} className="p-1 hover:bg-white/10 rounded-full transition-colors">
+						<X className="w-5 h-5 text-white" />
+					</button>
 				</div>
-				<button onClick={onClose} className="p-1 hover:bg-white/10 rounded-full transition-colors">
-					<X className="w-5 h-5 text-white" />
-				</button>
-			</div>
-			<div className="flex-1 overflow-y-auto p-3 md:p-4 bg-white">
-				<div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+				<div className="flex-1 overflow-y-auto p-3 md:p-4 bg-white">
+					<div className="grid grid-cols-1 md:grid-cols-3 gap-8">
 						{/* Project Name */}
 						<div>
 							<label className="block text-sm font-semibold text-gray-700 mb-2">Project Name <span className="text-red-600">*</span></label>
@@ -277,8 +332,10 @@ const EditProjectModal = ({
 								value={editProject.description}
 								onChange={e => setEditProject(prev => ({ ...prev, description: e.target.value }))}
 							/>
-						</div>					{/* Project Category */}
-					{/* <div>
+						</div>
+					
+					{/* Project Category */}
+					<div>
 						<label className="block text-sm font-semibold text-gray-700 mb-2">
 							Project Category
 						</label>
@@ -293,23 +350,25 @@ const EditProjectModal = ({
 									onFieldChange('projectCategoryId', val);
 								}
 							}}
-						options={projectCategoryOptions}
+							options={projectCategoryOptions}
 							icon={Briefcase}
 							placeholder="Select Category"
 							error={!!formErrors.projectCategoryId}
 							errorMessage={formErrors.projectCategoryId}
 						/>
-					</div> */}						{/* Project Manager */}
+					</div>
+					
+					{/* Project Manager */}
 						<div>
 							<label className="block text-sm font-semibold text-gray-700 mb-2">
 								Project Manager <span className="text-red-600">*</span>
 							</label>
 							<SearchableSelect
-								value={editProject.projectManagerId}
-								onChange={(val) => setEditProject(prev => ({ ...prev, projectManagerId: val }))}
-								options={[
-									{ value: "", label: "Select Project Manager" },
-									...processedProjectManagers.map((pm) => ({ value: pm.id, label: pm.label }))
+							value={editProject.projectManagerId || ""}
+							onChange={(val) => setEditProject(prev => ({ ...prev, projectManagerId: val }))}
+							options={[
+								{ value: "", label: "Select Project Manager" },
+								...processedProjectManagers.map((pm) => ({ value: String(pm.user_id || pm.id), label: pm.label }))
 								]}
 								icon={User}
 								placeholder="Select Project Manager"
@@ -323,13 +382,13 @@ const EditProjectModal = ({
 								Assistant Project Manager(s) <span className="text-red-600">*</span>
 							</label>
 							<MultiSelectWithCheckbox
-								value={editProject.assistantManagerIds || []}
-								onChange={(val) => {
-									setEditProject(prev => ({ ...prev, assistantManagerIds: val }));
-									if (onFieldChange) onFieldChange('assistantManagerIds', val);
-									if (clearFieldError) clearFieldError('assistantManagerIds');
-								}}
-								options={processedAssistantManagers.map((am) => ({ value: am.id, label: am.label }))}
+							value={Array.isArray(editProject.assistantManagerIds) ? editProject.assistantManagerIds.map(String) : []}
+							onChange={(val) => {
+								setEditProject(prev => ({ ...prev, assistantManagerIds: val }));
+								if (onFieldChange) onFieldChange('assistantManagerIds', val);
+								if (clearFieldError) clearFieldError('assistantManagerIds');
+							}}
+						options={processedAssistantManagers.map((am) => ({ value: String(am.user_id || am.id), label: am.label }))}
 								icon={Users}
 								placeholder="Select Assistant Project Managers"
 								error={!!formErrors.assistantManagerIds}
@@ -343,13 +402,13 @@ const EditProjectModal = ({
 								Quality Analyst(s) <span className="text-red-600">*</span>
 							</label>
 							<MultiSelectWithCheckbox
-								value={editProject.qaManagerIds || []}
-								onChange={(val) => {
-									setEditProject(prev => ({ ...prev, qaManagerIds: val }));
-									if (onFieldChange) onFieldChange('qaManagerIds', val);
-									if (clearFieldError) clearFieldError('qaManagerIds');
-								}}
-								options={processedQaManagers.map((qa) => ({ value: qa.id, label: qa.label }))}
+							value={Array.isArray(editProject.qaManagerIds) ? editProject.qaManagerIds.map(String) : []}
+							onChange={(val) => {
+								setEditProject(prev => ({ ...prev, qaManagerIds: val }));
+								if (onFieldChange) onFieldChange('qaManagerIds', val);
+								if (clearFieldError) clearFieldError('qaManagerIds');
+							}}
+						options={processedQaManagers.map((qa) => ({ value: String(qa.user_id || qa.id), label: qa.label }))}
 								icon={Users}
 								placeholder="Select Quality Analysts"
 								error={!!formErrors.qaManagerIds}
@@ -363,13 +422,13 @@ const EditProjectModal = ({
 								Agent(s) <span className="text-red-600">*</span>
 							</label>
 							<MultiSelectWithCheckbox
-								value={editProject.teamIds || []}
-								onChange={(val) => {
-									setEditProject(prev => ({ ...prev, teamIds: val }));
-									if (onFieldChange) onFieldChange('teamIds', val);
-									if (clearFieldError) clearFieldError('teamIds');
-								}}
-								options={processedTeams.map((team) => ({ value: team.id, label: team.label }))}
+							value={Array.isArray(editProject.teamIds) ? editProject.teamIds.map(String) : []}
+							onChange={(val) => {
+								setEditProject(prev => ({ ...prev, teamIds: val }));
+								if (onFieldChange) onFieldChange('teamIds', val);
+								if (clearFieldError) clearFieldError('teamIds');
+							}}
+							options={processedTeams.map((team) => ({ value: String(team.user_id || team.team_id || team.id), label: team.label }))}
 								icon={Users}
 								placeholder="Select Agents"
 								error={!!formErrors.teamIds}
@@ -377,77 +436,163 @@ const EditProjectModal = ({
 								maxDisplayCount={2}
 							/>
 						</div>
-						{/* Project Files Upload */}
-						<div className="md:col-span-1">
-							<label className="block text-sm font-semibold text-gray-700 mb-2">Project Files</label>
-							<input type="file" ref={fileInputRef} className="hidden" onChange={handleFileChange} multiple />
-							<div className="flex items-center gap-3">
-								<div onClick={triggerFileInput} className="flex items-center justify-between w-full px-3 py-2.5 text-sm bg-gray-50 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-100 focus-within:ring-2 focus-within:ring-blue-500">
-									<div className="flex items-center gap-2 text-gray-600">
-										<Upload className="w-4 h-4" />
-										{projectFiles && projectFiles.length > 0 ? (
-											<span>{projectFiles.length} file(s) selected</span>
-										) : (
-											<span>Select project files</span>
-										)}
-									</div>
-									<span className="text-blue-600 text-xs font-medium">Browse</span>
-								</div>
-							</div>
-							{projectFiles && projectFiles.length > 0 && (
-								<div className="mt-1 space-y-1">
-									{projectFiles.map((file, index) => {
-										const isExistingFile = file.isExisting || !(file instanceof File);
-										return (
-											<div key={`${file.name}-${index}`} className="flex items-center justify-between px-3 py-1 border border-gray-200 rounded-md text-sm bg-white gap-2">
-												{isExistingFile && file.url ? (
-													<a
-														href={file.url}
-														target="_blank"
-														rel="noopener noreferrer"
-														className="truncate text-xs max-w-[70%] text-blue-600 hover:underline"
-														title="Click to view file"
-													>
-														{file.name}
-													</a>
-												) : (
-													<span className="truncate text-xs max-w-[70%] text-gray-700">
-														{file.name}
-													</span>
-												)}
-												<div className="flex items-center gap-2">
-													{isExistingFile && (
-														<span className="text-green-600 text-xs font-medium whitespace-nowrap">Existing</span>
-													)}
-													{!isExistingFile && (
-														<span className="text-orange-600 text-xs font-medium whitespace-nowrap">New</span>
-													)}
-													<button
-														type="button"
-														onClick={(e) => {
-															e.stopPropagation();
-															handleRemoveFile(index);
-														}}
-														className="text-gray-400 hover:text-red-500 flex-shrink-0"
-														title="Remove file"
-													>
-														<XCircle className="w-4 h-4" />
-													</button>
-												</div>
-											</div>
-										);
-									})}
-								</div>
-							)}
+					{/* AI Evaluation Requirement Toggle */}
+					<div className="md:col-span-1">
+						<label className="block text-sm font-semibold text-gray-700 mb-2">
+							Requires AI Evaluation
+						</label>
+						<div className="flex items-center gap-3">
+							<button
+								type="button"
+								onClick={() => {
+									const newValue = !editProject.requires_ai_evaluation;
+									setEditProject(prev => ({ ...prev, requires_ai_evaluation: newValue }));
+									if (onFieldChange) onFieldChange('requires_ai_evaluation', newValue);
+								}}
+								className={`
+									relative inline-flex h-7 w-12 items-center rounded-full transition-colors
+									focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2
+									${
+										editProject.requires_ai_evaluation
+											? 'bg-purple-600'
+											: 'bg-gray-300'
+									}
+								`}
+							>
+								<span
+									className={`
+										inline-block h-5 w-5 transform rounded-full bg-white transition-transform
+										${
+											editProject.requires_ai_evaluation
+												? 'translate-x-6'
+												: 'translate-x-1'
+										}
+									`}
+								/>
+							</button>
+							<span className="text-sm text-gray-600">
+								{editProject.requires_ai_evaluation ? 'Yes' : 'No'}
+							</span>
 						</div>
+						<p className="mt-1 text-xs text-gray-500">
+							Enable if this project requires AI evaluation checks for tracker submissions
+						</p>
+					</div>
+
+					{/* Duplicate Check Requirement Toggle */}
+					<div className="md:col-span-1">
+						<label className="block text-sm font-semibold text-gray-700 mb-2">
+							Requires Duplicate Check
+						</label>
+						<div className="flex items-center gap-3">
+							<button
+								type="button"
+								onClick={() => {
+									const newValue = !editProject.requires_duplicate_check;
+									setEditProject(prev => ({ ...prev, requires_duplicate_check: newValue }));
+									if (onFieldChange) onFieldChange('requires_duplicate_check', newValue);
+								}}
+								className={`
+									relative inline-flex h-7 w-12 items-center rounded-full transition-colors
+									focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2
+									${
+										editProject.requires_duplicate_check
+											? 'bg-orange-600'
+											: 'bg-gray-300'
+									}
+								`}
+							>
+								<span
+									className={`
+										inline-block h-5 w-5 transform rounded-full bg-white transition-transform
+										${
+											editProject.requires_duplicate_check
+												? 'translate-x-6'
+												: 'translate-x-1'
+										}
+									`}
+								/>
+							</button>
+							<span className="text-sm text-gray-600">
+								{editProject.requires_duplicate_check ? 'Yes' : 'No'}
+							</span>
+						</div>
+						<p className="mt-1 text-xs text-gray-500">
+							Enable if this project requires duplicate check validation for tracker submissions
+						</p>
+					</div>
+
+					{/* Project Files Upload */}
+					<div className="md:col-span-1">
+						<label className="block text-sm font-semibold text-gray-700 mb-2">Project Files</label>
+						<input type="file" ref={fileInputRef} className="hidden" onChange={handleFileChange} multiple />
+						<div className="flex items-center gap-3">
+							<div onClick={triggerFileInput} className="flex items-center justify-between w-full px-3 py-2.5 text-sm bg-gray-50 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-100 focus-within:ring-2 focus-within:ring-blue-500">
+								<div className="flex items-center gap-2 text-gray-600">
+									<Upload className="w-4 h-4" />
+									{projectFiles && projectFiles.length > 0 ? (
+										<span>{projectFiles.length} file(s) selected</span>
+									) : (
+										<span>Select project files</span>
+									)}
+								</div>
+								<span className="text-blue-600 text-xs font-medium">Browse</span>
+							</div>
+						</div>
+						{projectFiles && projectFiles.length > 0 && (
+							<div className="mt-1 space-y-1">
+								{projectFiles.map((file, index) => {
+									const isExistingFile = file.isExisting || !(file instanceof File);
+									return (
+										<div key={`${file.name}-${index}`} className="flex items-center justify-between px-3 py-1 border border-gray-200 rounded-md text-sm bg-white gap-2">
+											{isExistingFile && file.url ? (
+												<a
+													href={file.url}
+													target="_blank"
+													rel="noopener noreferrer"
+													className="truncate text-xs max-w-[70%] text-blue-600 hover:underline"
+													title="Click to view file"
+												>
+													{file.name}
+												</a>
+											) : (
+												<span className="truncate text-xs max-w-[70%] text-gray-700">
+													{file.name}
+												</span>
+											)}
+											<div className="flex items-center gap-2">
+												{isExistingFile && (
+													<span className="text-green-600 text-xs font-medium whitespace-nowrap">Existing</span>
+												)}
+												{!isExistingFile && (
+													<span className="text-orange-600 text-xs font-medium whitespace-nowrap">New</span>
+												)}
+												<button
+													type="button"
+													onClick={(e) => {
+														e.stopPropagation();
+														handleRemoveFile(index);
+													}}
+													className="text-gray-400 hover:text-red-500 shrink-0"
+													title="Remove file"
+												>
+													<XCircle className="w-4 h-4" />
+												</button>
+											</div>
+										</div>
+									);
+								})}
+							</div>
+						)}
 					</div>
 				</div>
-				<div className="p-4 border-t border-slate-200 bg-white flex justify-end gap-3">
-					<button
-						onClick={() => onUpdate(editProject)}
-						disabled={isSubmitting}
-						className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-bold text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-					>
+			</div>
+			<div className="p-4 border-t border-slate-200 bg-white flex justify-end gap-3">
+				<button
+					onClick={() => onUpdate(editProject)}
+					disabled={isSubmitting}
+					className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-bold text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+				>
 						{isSubmitting ? (
 							<>
 								<svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">

@@ -21,6 +21,16 @@ const AddProjectFormModal = ({
      projectFiles,
      isEditMode = false,
 }) => {
+     console.log('[AddProjectFormModal] ========== COMPONENT RENDER ==========');
+     console.log('[AddProjectFormModal] Props received:');
+     console.log('  - projectManagers:', projectManagers, 'length:', projectManagers?.length);
+     console.log('  - assistantManagers:', assistantManagers, 'length:', assistantManagers?.length);
+     console.log('  - qaManagers:', qaManagers, 'length:', qaManagers?.length);
+     console.log('  - teams:', teams, 'length:', teams?.length);
+     console.log('  - projectCategories:', projectCategories, 'length:', projectCategories?.length);
+     console.log('  - isEditMode:', isEditMode);
+     console.log('  - newProject:', newProject);
+     
      const fileInputRef = useRef(null);
      const dropdownRefs = {
           assistantManagers: useRef(null),
@@ -153,26 +163,64 @@ const AddProjectFormModal = ({
      const processedProjectManagers = getItemsWithConsistentStructure(projectManagers);
      const processedProjectCategories = getItemsWithConsistentStructure(projectCategories);
      
-     // console.log('[AddProjectFormModal] Project Categories:', {
-     //      raw: projectCategories,
-     //      processed: processedProjectCategories
-     // });
+     console.log('[AddProjectFormModal] ===== PROCESSED ITEMS =====');
+     console.log('  - processedProjectManagers:', processedProjectManagers);
+     console.log('  - processedAssistantManagers:', processedAssistantManagers);
+     console.log('  - processedQaManagers:', processedQaManagers);
+     console.log('  - processedTeams:', processedTeams);
+     console.log('  - processedProjectCategories:', processedProjectCategories);
+     
+     console.log('[AddProjectFormModal] Project Categories:', {
+          raw: projectCategories,
+          processed: processedProjectCategories
+     });
      
      // Build options for project category
-     // const projectCategoryOptions = [
-     //      { value: "", label: "Select Category" },
-     //      ...processedProjectCategories
-     //           .filter((cat) => {
-     //                const id = cat.project_category_id ?? cat.afd_id ?? cat.id;
-     //                return id !== null && id !== undefined && String(id) !== 'undefined';
-     //           })
-     //           .map((cat) => ({ 
-     //                value: String(cat.project_category_id ?? cat.afd_id ?? cat.id), 
-     //                label: cat.label 
-     //           }))
-     // ];
+     const projectCategoryOptions = [
+          { value: "", label: "Select Category" },
+          ...processedProjectCategories
+               .filter((cat) => {
+                    const id = cat.project_category_id ?? cat.afd_id ?? cat.id;
+                    return id !== null && id !== undefined && String(id) !== 'undefined';
+               })
+               .map((cat) => ({ 
+                    value: String(cat.project_category_id ?? cat.afd_id ?? cat.id), 
+                    label: cat.label 
+               }))
+     ];
      
-     // console.log('[AddProjectFormModal] Final category options:', projectCategoryOptions);
+     // Build options for project managers
+     const projectManagerOptions = [
+          { value: "", label: "Select Project Manager" },
+          ...processedProjectManagers.map((pm) => ({ 
+               value: String(pm.user_id), 
+               label: pm.label 
+          }))
+     ];
+     
+     // Build options for dropdowns
+     const assistantManagerOptions = processedAssistantManagers.map((am) => ({ 
+          value: String(am.user_id), 
+          label: am.label 
+     }));
+     
+     const qaManagerOptions = processedQaManagers.map((qa) => ({ 
+          value: String(qa.user_id), 
+          label: qa.label 
+     }));
+     
+     const teamOptions = processedTeams.map((team) => ({ 
+          value: String(team.user_id), 
+          label: team.label 
+     }));
+     
+     console.log('[AddProjectFormModal] ===== FINAL DROPDOWN OPTIONS =====');
+     console.log('  - projectCategoryOptions:', projectCategoryOptions);
+     console.log('  - projectManagerOptions:', projectManagerOptions);
+     console.log('  - assistantManagerOptions:', assistantManagerOptions);
+     console.log('  - qaManagerOptions:', qaManagerOptions);
+     console.log('  - teamOptions:', teamOptions);
+     console.log('[AddProjectFormModal] Final category options:', projectCategoryOptions);
 
      const toggleDropdown = (dropdown) => {
           setDropdownOpen(prev => ({
@@ -312,7 +360,7 @@ const AddProjectFormModal = ({
                               </div>
 
                               {/* Project Category */}
-                              {/* <div>
+                              <div>
                                    <label className="block text-sm font-semibold text-gray-700 mb-2">
                                         Project Category
                                    </label>
@@ -328,7 +376,7 @@ const AddProjectFormModal = ({
                                         error={!!formErrors.projectCategoryId}
                                         errorMessage={formErrors.projectCategoryId}
                                    />
-                              </div> */}
+                              </div>
 
                               {/* Project Manager */}
                               <div>
@@ -341,10 +389,7 @@ const AddProjectFormModal = ({
                                              onFieldChange("projectManagerId", val);
                                              clearFieldError?.("projectManagerId");
                                         }}
-                                        options={[
-                                             { value: "", label: "Select Project Manager" },
-                                             ...processedProjectManagers.map((pm) => ({ value: String(pm.user_id), label: pm.label }))
-                                        ]}
+                                        options={projectManagerOptions}
                                         icon={User}
                                         placeholder="Select Project Manager"
                                         error={!!formErrors.projectManagerId}
@@ -363,7 +408,7 @@ const AddProjectFormModal = ({
                                              onFieldChange("assistantManagerIds", val);
                                              clearFieldError?.("assistantManagerIds");
                                         }}
-                                        options={processedAssistantManagers.map((am) => ({ value: String(am.user_id), label: am.label }))}
+                                        options={assistantManagerOptions}
                                         icon={Users}
                                         placeholder="Select Assistant Project Managers"
                                         error={!!formErrors.assistantManagerIds}
@@ -383,7 +428,7 @@ const AddProjectFormModal = ({
                                              onFieldChange("qaManagerIds", val);
                                              clearFieldError?.("qaManagerIds");
                                         }}
-                                        options={processedQaManagers.map((qa) => ({ value: String(qa.user_id), label: qa.label }))}
+                                        options={qaManagerOptions}
                                         icon={Users}
                                         placeholder="Select Quality Analysts"
                                         error={!!formErrors.qaManagerIds}
@@ -403,13 +448,97 @@ const AddProjectFormModal = ({
                                              onFieldChange("teamIds", val);
                                              clearFieldError?.("teamIds");
                                         }}
-                                        options={processedTeams.map((team) => ({ value: String(team.user_id), label: team.label }))}
+                                        options={teamOptions}
                                         icon={Users}
                                         placeholder="Select Agents"
                                         error={!!formErrors.teamIds}
                                         errorMessage={formErrors.teamIds}
                                         maxDisplayCount={2}
                                    />
+                              </div>
+
+                              {/* AI Evaluation Requirement Toggle */}
+                              <div className="md:col-span-1">
+                                   <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                        Requires AI Evaluation
+                                   </label>
+                                   <div className="flex items-center gap-3">
+                                        <button
+                                             type="button"
+                                             onClick={() => {
+                                                  const newValue = !newProject.requires_ai_evaluation;
+                                                  onFieldChange("requires_ai_evaluation", newValue);
+                                             }}
+                                             className={`
+                                                  relative inline-flex h-7 w-12 items-center rounded-full transition-colors
+                                                  focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2
+                                                  ${
+                                                       newProject.requires_ai_evaluation
+                                                            ? 'bg-purple-600'
+                                                            : 'bg-gray-300'
+                                                  }
+                                             `}
+                                        >
+                                             <span
+                                                  className={`
+                                                       inline-block h-5 w-5 transform rounded-full bg-white transition-transform
+                                                       ${
+                                                            newProject.requires_ai_evaluation
+                                                                 ? 'translate-x-6'
+                                                                 : 'translate-x-1'
+                                                       }
+                                                  `}
+                                             />
+                                        </button>
+                                        <span className="text-sm text-gray-600">
+                                             {newProject.requires_ai_evaluation ? 'Yes' : 'No'}
+                                        </span>
+                                   </div>
+                                   <p className="mt-1 text-xs text-gray-500">
+                                        Enable if this project requires AI evaluation checks for tracker submissions
+                                   </p>
+                              </div>
+
+                              {/* Duplicate Check Requirement Toggle */}
+                              <div className="md:col-span-1">
+                                   <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                        Requires Duplicate Check
+                                   </label>
+                                   <div className="flex items-center gap-3">
+                                        <button
+                                             type="button"
+                                             onClick={() => {
+                                                  const newValue = !newProject.requires_duplicate_check;
+                                                  onFieldChange("requires_duplicate_check", newValue);
+                                             }}
+                                             className={`
+                                                  relative inline-flex h-7 w-12 items-center rounded-full transition-colors
+                                                  focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2
+                                                  ${
+                                                       newProject.requires_duplicate_check
+                                                            ? 'bg-orange-600'
+                                                            : 'bg-gray-300'
+                                                  }
+                                             `}
+                                        >
+                                             <span
+                                                  className={`
+                                                       inline-block h-5 w-5 transform rounded-full bg-white transition-transform
+                                                       ${
+                                                            newProject.requires_duplicate_check
+                                                                 ? 'translate-x-6'
+                                                                 : 'translate-x-1'
+                                                       }
+                                                  `}
+                                             />
+                                        </button>
+                                        <span className="text-sm text-gray-600">
+                                             {newProject.requires_duplicate_check ? 'Yes' : 'No'}
+                                        </span>
+                                   </div>
+                                   <p className="mt-1 text-xs text-gray-500">
+                                        Enable if this project requires duplicate check validation for tracker submissions
+                                   </p>
                               </div>
 
                               {/* Project Files Upload */}

@@ -7,27 +7,39 @@ import api from "./api";
  */
 export const addTask = async (payload) => {
   // If payload is FormData, set Content-Type to undefined to let browser set boundary
-  const headers = payload instanceof FormData ? { 'Content-Type': undefined } : {};
-  const res = await api.post("/task/add", payload, { headers });
-  return res.data;
+  if (payload instanceof FormData) {
+    if (payload.get('qcPercentage')) {
+      payload.append('qc_percentage', payload.get('qcPercentage'));
+      payload.delete('qcPercentage');
+    }
+    const headers = { 'Content-Type': undefined };
+    const res = await api.post("/task/add", payload, { headers });
+    return res.data;
+  } else {
+    let finalPayload = { ...payload };
+    if (payload.qcPercentage) {
+      finalPayload.qc_percentage = payload.qcPercentage;
+      delete finalPayload.qcPercentage;
+    }
+    const headers = {};
+    const res = await api.post("/task/add", finalPayload, { headers });
+    return res.data;
+  }
 };
 
 /**
  * Fetch project tasks API
- * @param {number} projectId
+ * @param {number} projectId - Used for filtering on client side (not sent to API)
  * @param {number} userId - Logged in user ID
  * @param {string} deviceId - Device ID
  * @param {string} deviceType - Device type (e.g., LAPTOP)
  */
 export const fetchProjectTasks = async (projectId, userId, deviceId, deviceType) => {
-  const payload = {
-    project_id: projectId
-  };
-  
-  // Add optional user and device info if provided
+  const payload = {};
+  // API expects user_id, device_id, and device_type (NOT project_id)
   if (userId) payload.user_id = userId;
-  if (deviceId) payload.device_id = deviceId;
-  if (deviceType) payload.device_type = deviceType;
+  if (deviceId) payload.device_id = deviceId || 'web';
+  if (deviceType) payload.device_type = deviceType || 'Laptop';
   
   const res = await api.post("/task/list", payload);
   return res.data;
@@ -39,16 +51,36 @@ export const fetchProjectTasks = async (projectId, userId, deviceId, deviceType)
  */
 export const updateTask = async (payload) => {
   // If payload is FormData, set Content-Type to undefined to let browser set boundary
-  const headers = payload instanceof FormData ? { 'Content-Type': undefined } : {};
-  const res = await api.post("/task/update", payload, { headers });
-  return res.data;
+  if (payload instanceof FormData) {
+    if (payload.get('qcPercentage')) {
+      payload.append('qc_percentage', payload.get('qcPercentage'));
+      payload.delete('qcPercentage');
+    }
+    const headers = { 'Content-Type': undefined };
+    const res = await api.post("/task/update", payload, { headers });
+    return res.data;
+  } else {
+    let finalPayload = { ...payload };
+    if (payload.qcPercentage) {
+      finalPayload.qc_percentage = payload.qcPercentage;
+      delete finalPayload.qcPercentage;
+    }
+    const headers = {};
+    const res = await api.post("/task/update", finalPayload, { headers });
+    return res.data;
+  }
 };
 
 /**
  * Delete task API
  * @param {Object} payload
  */
-export const deleteTask = async (payload) => {
+export const deleteTask = async (projectId, taskId, qcPercentage) => {
+  const payload = {
+    project_id: projectId,
+    task_id: taskId,
+  };
+  if (qcPercentage) payload.qc_percentage = qcPercentage;
   const res = await api.put("/task/delete", payload);
   return res.data;
 };
