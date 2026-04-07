@@ -27,7 +27,8 @@ export const DateRangePicker = ({
   disabled = false,
   compact = false,
   fieldWidth = null,
-  noWrapper = false // New prop to remove the card wrapper
+  noWrapper = false, // New prop to remove the card wrapper
+  disabledMonths = null // New prop to restrict calendar to specific months
 }) => {
   const [showStartPicker, setShowStartPicker] = useState(false);
   const [showEndPicker, setShowEndPicker] = useState(false);
@@ -75,6 +76,34 @@ export const DateRangePicker = ({
       onStartDateChange(today);
       onEndDateChange(today);
     }
+  };
+
+  // Function to check if a date is in the allowed month(s)
+  const isDateInAllowedMonth = (date) => {
+    if (!disabledMonths || !Array.isArray(disabledMonths) || disabledMonths.length === 0) {
+      return true;
+    }
+    const dateMonth = date.getMonth();
+    const dateYear = date.getFullYear();
+    
+    // Check if the date's month/year is in the allowed list
+    return disabledMonths.some(allowed => {
+      if (typeof allowed === 'string' && allowed.includes('-')) {
+        const [year, month] = allowed.split('-');
+        return dateYear === parseInt(year) && dateMonth === parseInt(month) - 1;
+      }
+      return false;
+    });
+  };
+
+  // Disable dates that are not in the allowed month(s)
+  const isDateDisabled = (date) => {
+    // First check if date is in the future
+    if (date > new Date()) {
+      return true;
+    }
+    // Then check if date is in the allowed month
+    return !isDateInAllowedMonth(date);
   };
 
   // Content without wrapper
@@ -125,7 +154,7 @@ export const DateRangePicker = ({
                 mode="single"
                 selected={parseDate(startDate)}
                 onSelect={handleStartDateSelect}
-                disabled={(date) => date > new Date()}
+                disabled={isDateDisabled}
                 initialFocus
                 captionLayout="dropdown"
                 fromYear={2020}
@@ -179,7 +208,7 @@ export const DateRangePicker = ({
                 mode="single"
                 selected={parseDate(endDate)}
                 onSelect={handleEndDateSelect}
-                disabled={(date) => date > new Date()}
+                disabled={isDateDisabled}
                 initialFocus
                 captionLayout="dropdown"
                 fromYear={2020}
