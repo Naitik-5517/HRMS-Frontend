@@ -1162,8 +1162,8 @@ const QAAgentAudit = () => {
                             </td>
                             <td className="px-6 py-4 text-gray-900 font-medium whitespace-nowrap">
                               <div className="flex flex-col">
-                                <span className="text-sm font-semibold">{formatDateTime(row.updated_at || row.timestamp || row.audit_datetime).date}</span>
-                                <span className="text-xs text-gray-600">{formatDateTime(row.updated_at || row.timestamp || row.audit_datetime).time}</span>
+                                <span className="text-sm font-semibold">{formatDateTime(row.timestamp || row.audit_datetime).date}</span>
+                                <span className="text-xs text-gray-600">{formatDateTime(row.timestamp || row.audit_datetime).time}</span>
                               </div>
                             </td>
                             <td className="px-6 py-4 text-center">
