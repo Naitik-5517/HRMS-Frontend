@@ -63,18 +63,34 @@ const QAAgentAudit = () => {
     if (!dateTimeString || dateTimeString === '-') return { date: '-', time: '-' };
     
     try {
-      const date = new Date(dateTimeString);
+      let date;
+      
+      // Check if it's MySQL datetime format (YYYY-MM-DD HH:MM:SS) or GMT format
+      if (dateTimeString.includes('T') || dateTimeString.includes('GMT')) {
+        // GMT format like "Tue, 07 Apr 2026 11:30:30 GMT"
+        date = new Date(dateTimeString);
+        // Use UTC methods for GMT format
+        var day = date.getUTCDate();
+        var month = date.getUTCMonth();
+        var year = date.getUTCFullYear();
+        var hours = date.getUTCHours();
+        var minutes = date.getUTCMinutes();
+      } else {
+        // MySQL datetime format like "2026-04-07 12:17:14"
+        date = new Date(dateTimeString);
+        // Use local methods for MySQL format (assuming it's already in correct timezone)
+        var day = date.getDate();
+        var month = date.getMonth();
+        var year = date.getFullYear();
+        var hours = date.getHours();
+        var minutes = date.getMinutes();
+      }
       
       // Format date as "7/Apr/2026"
-      const day = date.getDate();
       const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-      const month = monthNames[date.getMonth()];
-      const year = date.getFullYear();
-      const formattedDate = `${day}/${month}/${year}`;
+      const formattedDate = `${day}/${monthNames[month]}/${year}`;
       
-      // Format time as "8:55 AM"
-      const hours = date.getHours();
-      const minutes = date.getMinutes();
+      // Format time as "12:17 PM"
       const ampm = hours >= 12 ? 'PM' : 'AM';
       const displayHours = hours % 12 || 12;
       const formattedTime = `${displayHours}:${minutes.toString().padStart(2, '0')} ${ampm}`;
