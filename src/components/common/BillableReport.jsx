@@ -906,6 +906,7 @@ const BillableReport = ({ userId }) => {
                   selectedMonth={dailyMonth}
                   formatDateTime={formatDateTime}
                   onRefresh={handleRefreshData}
+                  showOnlySelectedMonth={true}
                 />
                 ));
               })()

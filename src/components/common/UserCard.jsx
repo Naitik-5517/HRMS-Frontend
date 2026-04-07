@@ -30,7 +30,8 @@ export default function UserCard({
   selectedMonth = '',
   onRefresh = () => {},
   team_name = '',
-  showTeam = false
+  showTeam = false,
+  showOnlySelectedMonth = false
 }) {
   const role = useCurrentUserRole();
   const { user: currentUser } = useAuth();
@@ -341,6 +342,7 @@ export default function UserCard({
                     fieldWidth="220px"
                     noWrapper={true}
                     disabledMonths={selectedMonth ? [selectedMonth] : null}
+                    showOnlySelectedMonth={showOnlySelectedMonth}
                   />
                 </div>
                 

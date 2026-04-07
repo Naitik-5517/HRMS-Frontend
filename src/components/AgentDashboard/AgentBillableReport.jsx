@@ -539,6 +539,7 @@ const BillableReport = () => {
                     noWrapper={true}
                     showClearButton={false}
                     disabledMonths={monthFilter ? [monthFilter] : null}
+                    showOnlySelectedMonth={true}
                   />
                 </div>
                 

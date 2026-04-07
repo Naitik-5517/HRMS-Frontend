@@ -28,7 +28,8 @@ export const DateRangePicker = ({
   compact = false,
   fieldWidth = null,
   noWrapper = false, // New prop to remove the card wrapper
-  disabledMonths = null // New prop to restrict calendar to specific months
+  disabledMonths = null, // New prop to restrict calendar to specific months
+  showOnlySelectedMonth = false // New prop to show only the selected month without dropdown
 }) => {
   const [showStartPicker, setShowStartPicker] = useState(false);
   const [showEndPicker, setShowEndPicker] = useState(false);
@@ -156,9 +157,15 @@ export const DateRangePicker = ({
                 onSelect={handleStartDateSelect}
                 disabled={isDateDisabled}
                 initialFocus
-                captionLayout="dropdown"
-                fromYear={2020}
-                toYear={new Date().getFullYear()}
+                captionLayout={showOnlySelectedMonth ? "label" : "dropdown"}
+                fromYear={showOnlySelectedMonth ? undefined : 2020}
+                toYear={showOnlySelectedMonth ? undefined : new Date().getFullYear()}
+                month={showOnlySelectedMonth && disabledMonths && disabledMonths[0] ? 
+                  (() => {
+                    const [year, month] = disabledMonths[0].split('-');
+                    return new Date(parseInt(year), parseInt(month) - 1);
+                  })() : undefined
+                }
                 className="rounded-md bg-white"
               />
               <div className="p-3 border-t-2 border-blue-100 bg-blue-50">
@@ -210,9 +217,15 @@ export const DateRangePicker = ({
                 onSelect={handleEndDateSelect}
                 disabled={isDateDisabled}
                 initialFocus
-                captionLayout="dropdown"
-                fromYear={2020}
-                toYear={new Date().getFullYear()}
+                captionLayout={showOnlySelectedMonth ? "label" : "dropdown"}
+                fromYear={showOnlySelectedMonth ? undefined : 2020}
+                toYear={showOnlySelectedMonth ? undefined : new Date().getFullYear()}
+                month={showOnlySelectedMonth && disabledMonths && disabledMonths[0] ? 
+                  (() => {
+                    const [year, month] = disabledMonths[0].split('-');
+                    return new Date(parseInt(year), parseInt(month) - 1);
+                  })() : undefined
+                }
                 className="rounded-md bg-white"
               />
               <div className="p-3 border-t-2 border-blue-100 bg-blue-50">
