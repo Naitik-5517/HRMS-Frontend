@@ -420,13 +420,23 @@ const Header = ({
                   <div className="w-10 h-10 rounded-full bg-blue-700 flex items-center justify-center text-lg font-bold text-white">
                     {getInitials()}
                   </div>
-                  <button
-                    onClick={() => setGeminiKeyOpen(true)}
-                    className="p-2 rounded-full hover:bg-purple-50 text-purple-600 transition-colors"
-                    title="Gemini AI Key"
-                  >
-                    <Brain className="w-5 h-5" />
-                  </button>
+                  {/* Show Gemini Key button only for Agent role */}
+                  {(() => {
+                    const roleId = Number(currentUser?.role_id);
+                    const role = (currentUser?.role || currentUser?.role_name || currentUser?.user_role || '').toString().toUpperCase();
+                    if (roleId === 6 || role.includes('AGENT')) {
+                      return (
+                        <button
+                          onClick={() => setGeminiKeyOpen(true)}
+                          className="p-2 rounded-full hover:bg-purple-50 text-purple-600 transition-colors"
+                          title="Gemini AI Key"
+                        >
+                          <Brain className="w-5 h-5" />
+                        </button>
+                      );
+                    }
+                    return null;
+                  })()}
                   <button
                     onClick={() => {
 
