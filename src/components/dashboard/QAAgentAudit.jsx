@@ -634,7 +634,6 @@ const QAAgentAudit = () => {
           file_record_count: record.file_record_count || 0,
           // Store original file paths for download functionality
           file_path: record.file_path,
-          qc_file_path: record['10%_file_path'],
           error_list: (() => {
             // Parse error_list if it's a JSON string, otherwise use as-is
             try {
