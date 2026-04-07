@@ -64,7 +64,7 @@ const QAIndividualAuditReport = () => {
       const minutes = String(gmtDate.getUTCMinutes()).padStart(2, '0');
       const ampm = hours >= 12 ? 'PM' : 'AM';
       hours = hours % 12 || 12;
-      const formattedTime = `${hours}:${minutes} ${ampm} GMT`;
+      const formattedTime = `${hours}:${minutes} ${ampm}`;
       
       return { date: formattedDate, time: formattedTime };
     } catch (e) {

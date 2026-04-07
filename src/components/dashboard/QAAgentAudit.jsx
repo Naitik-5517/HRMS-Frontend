@@ -82,7 +82,7 @@ const QAAgentAudit = () => {
         timeZone: 'UTC'
       });
       
-      return { date: formattedDate, time: formattedTime + ' GMT' };
+      return { date: formattedDate, time: formattedTime };
     } catch (_error) {
       return { date: '-', time: '-' };
     }
@@ -1120,9 +1120,7 @@ const QAAgentAudit = () => {
                                   className="inline-flex items-center gap-1.5 text-blue-600 hover:text-blue-800 text-sm font-bold transition-colors group/link"
                                 >
                                   <Download className="w-4 h-4 group-hover/link:animate-bounce" aria-hidden="true" />
-                                  <span className="truncate max-w-[120px]" title={row.qc_file_path.split('/').pop()}>
-                                    {row.qc_file_path.split('/').pop()}
-                                  </span>
+                                  Download
                                 </a>
                               ) : (
                                 <span className="text-gray-400">-</span>
