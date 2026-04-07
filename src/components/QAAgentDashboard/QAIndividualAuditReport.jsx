@@ -300,7 +300,8 @@ const QAIndividualAuditReport = () => {
               </thead>
               <tbody className="divide-y divide-slate-200">
                 {filteredRecords.map((record, index) => {
-                  const { date, time } = formatDateTime(record.audit_datetime);
+                  const date = record.audit_datetime || '-';
+const time = record.audit_datetime || '-';
                   return (
                     <tr key={record.audit_id || index} className="hover:bg-blue-50 transition-colors">
                       <td className="px-4 py-3">
