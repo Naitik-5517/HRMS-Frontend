@@ -65,19 +65,19 @@ const QAAgentAudit = () => {
     try {
       const date = new Date(dateTimeString);
       
-      // Format date as "6/Mar/2026"
+      // Format date as "7/Apr/2026"
       const day = date.getDate();
       const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
       const month = monthNames[date.getMonth()];
       const year = date.getFullYear();
       const formattedDate = `${day}/${month}/${year}`;
       
-      // Format time as "12:13 AM"
-      const formattedTime = date.toLocaleString('en-US', { 
-        hour: 'numeric', 
-        minute: '2-digit', 
-        hour12: true
-      });
+      // Format time as "8:55 AM"
+      const hours = date.getHours();
+      const minutes = date.getMinutes();
+      const ampm = hours >= 12 ? 'PM' : 'AM';
+      const displayHours = hours % 12 || 12;
+      const formattedTime = `${displayHours}:${minutes.toString().padStart(2, '0')} ${ampm}`;
       
       return { date: formattedDate, time: formattedTime };
     } catch (_error) {
@@ -1159,8 +1159,8 @@ const QAAgentAudit = () => {
                             </td>
                             <td className="px-6 py-4 text-gray-900 font-medium whitespace-nowrap">
                               <div className="flex flex-col">
-                                <span className="text-sm font-semibold">{row.updated_at || '-'}</span>
-                                <span className="text-xs text-gray-600">{row.updated_at || '-'}</span>
+                                <span className="text-sm font-semibold">{formatDateTime(row.updated_at).date}</span>
+                                <span className="text-xs text-gray-600">{formatDateTime(row.updated_at).time}</span>
                               </div>
                             </td>
                             <td className="px-6 py-4 text-center">
@@ -1428,8 +1428,8 @@ const QAAgentAudit = () => {
                           <tr key={idx} className="hover:bg-blue-50/50 transition-colors duration-150">
                             <td className="px-6 py-4 text-gray-900 font-medium whitespace-nowrap">
                               <div className="flex flex-col">
-                                <span className="text-sm font-semibold">{row.audit_datetime || '-'}</span>
-                                <span className="text-xs text-gray-600">{row.audit_datetime || '-'}</span>
+                                <span className="text-sm font-semibold">{formatDateTime(row.audit_datetime).date}</span>
+                                <span className="text-xs text-gray-600">{formatDateTime(row.audit_datetime).time}</span>
                               </div>
                             </td>
                             <td className="px-6 py-4 text-gray-900">{row.agent_name || '-'}</td>

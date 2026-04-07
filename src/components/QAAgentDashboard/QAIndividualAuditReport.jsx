@@ -49,19 +49,19 @@ const QAIndividualAuditReport = () => {
     try {
       const date = new Date(dateTimeString);
       
-      // Format date as "6/Mar/2026"
+      // Format date as "7/Apr/2026"
       const day = date.getDate();
       const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
       const month = monthNames[date.getMonth()];
       const year = date.getFullYear();
       const formattedDate = `${day}/${month}/${year}`;
       
-      // Format time as "12:13 AM"
-      const formattedTime = date.toLocaleString('en-US', { 
-        hour: 'numeric', 
-        minute: '2-digit', 
-        hour12: true
-      });
+      // Format time as "8:55 AM"
+      const hours = date.getHours();
+      const minutes = date.getMinutes();
+      const ampm = hours >= 12 ? 'PM' : 'AM';
+      const displayHours = hours % 12 || 12;
+      const formattedTime = `${displayHours}:${minutes.toString().padStart(2, '0')} ${ampm}`;
       
       return { date: formattedDate, time: formattedTime };
     } catch (e) {
@@ -300,8 +300,7 @@ const QAIndividualAuditReport = () => {
               </thead>
               <tbody className="divide-y divide-slate-200">
                 {filteredRecords.map((record, index) => {
-                  const date = record.audit_datetime || '-';
-const time = record.audit_datetime || '-';
+                  const { date, time } = formatDateTime(record.audit_datetime);
                   return (
                     <tr key={record.audit_id || index} className="hover:bg-blue-50 transition-colors">
                       <td className="px-4 py-3">
