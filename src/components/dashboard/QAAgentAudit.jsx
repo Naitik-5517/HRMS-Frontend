@@ -65,21 +65,18 @@ const QAAgentAudit = () => {
     try {
       const date = new Date(dateTimeString);
       
-      // Convert to GMT/UTC
-      const gmtDate = new Date(date.toUTCString());
-      
-      // Format date as "6/Mar/2026" (using GMT date)
-      const day = gmtDate.getUTCDate();
-      const month = gmtDate.toLocaleString('en-US', { month: 'short', timeZone: 'UTC' });
-      const year = gmtDate.getUTCFullYear();
+      // Format date as "6/Mar/2026"
+      const day = date.getDate();
+      const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      const month = monthNames[date.getMonth()];
+      const year = date.getFullYear();
       const formattedDate = `${day}/${month}/${year}`;
       
-      // Format time as "12:13 AM" (using GMT time)
-      const formattedTime = gmtDate.toLocaleString('en-US', { 
+      // Format time as "12:13 AM"
+      const formattedTime = date.toLocaleString('en-US', { 
         hour: 'numeric', 
         minute: '2-digit', 
-        hour12: true,
-        timeZone: 'UTC'
+        hour12: true
       });
       
       return { date: formattedDate, time: formattedTime };
@@ -1162,8 +1159,8 @@ const QAAgentAudit = () => {
                             </td>
                             <td className="px-6 py-4 text-gray-900 font-medium whitespace-nowrap">
                               <div className="flex flex-col">
-                                <span className="text-sm font-semibold">{formatDateTime(row.timestamp || row.audit_datetime).date}</span>
-                                <span className="text-xs text-gray-600">{formatDateTime(row.timestamp || row.audit_datetime).time}</span>
+                                <span className="text-sm font-semibold">{formatDateTime(row.updated_at).date}</span>
+                                <span className="text-xs text-gray-600">{formatDateTime(row.updated_at).time}</span>
                               </div>
                             </td>
                             <td className="px-6 py-4 text-center">

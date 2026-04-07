@@ -49,22 +49,19 @@ const QAIndividualAuditReport = () => {
     try {
       const date = new Date(dateTimeString);
       
-      // Convert to GMT/UTC
-      const gmtDate = new Date(date.toUTCString());
-      
-      // Format date as "6/Mar/2026" (using GMT date)
-      const day = gmtDate.getUTCDate();
+      // Format date as "6/Mar/2026"
+      const day = date.getDate();
       const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-      const month = monthNames[gmtDate.getUTCMonth()];
-      const year = gmtDate.getUTCFullYear();
+      const month = monthNames[date.getMonth()];
+      const year = date.getFullYear();
       const formattedDate = `${day}/${month}/${year}`;
       
-      // Format time as "12:13 AM" (using GMT time)
-      let hours = gmtDate.getUTCHours();
-      const minutes = String(gmtDate.getUTCMinutes()).padStart(2, '0');
-      const ampm = hours >= 12 ? 'PM' : 'AM';
-      hours = hours % 12 || 12;
-      const formattedTime = `${hours}:${minutes} ${ampm}`;
+      // Format time as "12:13 AM"
+      const formattedTime = date.toLocaleString('en-US', { 
+        hour: 'numeric', 
+        minute: '2-digit', 
+        hour12: true
+      });
       
       return { date: formattedDate, time: formattedTime };
     } catch (e) {
