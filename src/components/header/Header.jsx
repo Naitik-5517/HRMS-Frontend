@@ -25,7 +25,8 @@ import {
   Briefcase,
   Brain,
   UserCheck,
-  BarChart3
+  BarChart3,
+  CheckCircle2
 } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import GeminiKeyModal from "../GeminiKeyModal";

@@ -41,8 +41,8 @@ const QAAgentAudit = () => {
   const getQCScoreColorClass = (score) => {
     if (score === null || score === undefined || score === '-' || isNaN(Number(score))) return 'text-slate-700';
     const numScore = Number(score);
-    if (numScore >= 95) return 'text-green-800 bg-green-100 font-bold';
-    if (numScore >= 80) return 'text-yellow-700 bg-yellow-100 font-bold';
+    if (numScore > 98) return 'text-green-800 bg-green-100 font-bold';
+    if (numScore >= 95 && numScore <= 98) return 'text-yellow-700 bg-yellow-100 font-bold';
     return 'text-red-700 bg-red-200 font-bold';
   };
 
@@ -50,9 +50,11 @@ const QAAgentAudit = () => {
   const getAuditStatusBadgeClass = (status) => {
     if (!status) return 'bg-slate-100 text-slate-700';
     const statusLower = status.toLowerCase();
-    if (statusLower === 'approved' || statusLower === 'verified') return 'bg-green-100 text-green-800';
-    if (statusLower === 'pending') return 'bg-yellow-100 text-yellow-800';
+    if (statusLower === 'rework') return 'bg-green-100 text-green-800';
+    if (statusLower === 'correction') return 'bg-yellow-100 text-yellow-800';
     if (statusLower === 'rejected') return 'bg-red-100 text-red-800';
+    if (statusLower === 'pending') return 'bg-yellow-100 text-yellow-800';
+    if (statusLower === 'approved' || statusLower === 'verified') return 'bg-green-100 text-green-800';
     return 'bg-slate-100 text-slate-700';
   };
 
@@ -616,8 +618,9 @@ const QAAgentAudit = () => {
           agent_name: record.agent_name,
           project_name: record.project_name,
           task_name: record.task_name,
-          file_name: record['10%_file_path'] ? record['10%_file_path'].split('/').pop() : (record.file_path ? record.file_path.split('/').pop() : 'N/A'),
-          file_url: record['10%_file_path'] || record.file_path || '', // URL for downloading
+          qc_file_path: record.qc_file_path || record['10%_file_path'] || record.file_path || 'N/A',
+          file_name: record.qc_file_path ? record.qc_file_path.split('/').pop() : (record['10%_file_path'] ? record['10%_file_path'].split('/').pop() : (record.file_path ? record.file_path.split('/').pop() : 'N/A')),
+          file_url: record.qc_file_path || record['10%_file_path'] || record.file_path || '', // URL for downloading
           total_qc_performed: record['10%_data_generated_count'] || record.file_record_count || 0,
           '10%_data_generated_count': record['10%_data_generated_count'] || 0, // Keep original field
           '10%_qc_file_records': record['10%_data_generated_count'] || 0, // Alternative field name
@@ -1080,8 +1083,6 @@ const QAAgentAudit = () => {
                           <th className="px-6 py-4 text-left text-xs font-bold text-blue-700 uppercase tracking-wider">Task Name</th>
                           <th className="px-6 py-4 text-left text-xs font-bold text-blue-700 uppercase tracking-wider">QC File</th>
                           <th className="px-6 py-4 text-center text-xs font-bold text-blue-700 uppercase tracking-wider">File Record Count</th>
-                          <th className="px-6 py-4 text-center text-xs font-bold text-blue-700 uppercase tracking-wider">10% QC Record Count</th>
-                          <th className="px-6 py-4 text-center text-xs font-bold text-blue-700 uppercase tracking-wider">Error Score</th>
                           <th className="px-6 py-4 text-center text-xs font-bold text-blue-700 uppercase tracking-wider">Error List</th>
                           <th className="px-6 py-4 text-center text-xs font-bold text-blue-700 uppercase tracking-wider">Status</th>
                           <th className="px-6 py-4 text-center text-xs font-bold text-blue-700 uppercase tracking-wider">QC Score</th>
@@ -1092,7 +1093,7 @@ const QAAgentAudit = () => {
                       <tbody className="bg-white divide-y divide-blue-50">
                         {filteredRecords.length === 0 ? (
                           <tr>
-                            <td colSpan="12" className="px-6 py-12 text-center">
+                            <td colSpan="10" className="px-6 py-12 text-center">
                               <div className="w-20 h-20 bg-gradient-to-br from-slate-100 to-slate-200 rounded-2xl flex items-center justify-center mx-auto mb-4">
                                 <Users className="w-10 h-10 text-slate-400" />
                               </div>
@@ -1108,16 +1109,18 @@ const QAAgentAudit = () => {
                             <td className="px-6 py-4 text-gray-900">{row.project_name || '-'}</td>
                             <td className="px-6 py-4 text-gray-900">{row.task_name || '-'}</td>
                             <td className="px-6 py-4 text-center">
-                              {row.file_name && row.file_name !== '-' ? (
+                              {row.qc_file_path && row.qc_file_path !== 'N/A' ? (
                                 <a
-                                  href={row.file_url || '#'}
-                                  download={row.file_name}
+                                  href={row.qc_file_path || '#'}
+                                  download={row.qc_file_path.split('/').pop()}
                                   target="_blank"
                                   rel="noopener noreferrer"
                                   className="inline-flex items-center gap-1.5 text-blue-600 hover:text-blue-800 text-sm font-bold transition-colors group/link"
                                 >
                                   <Download className="w-4 h-4 group-hover/link:animate-bounce" aria-hidden="true" />
-                                  Download
+                                  <span className="truncate max-w-[120px]" title={row.qc_file_path.split('/').pop()}>
+                                    {row.qc_file_path.split('/').pop()}
+                                  </span>
                                 </a>
                               ) : (
                                 <span className="text-gray-400">-</span>
@@ -1129,34 +1132,28 @@ const QAAgentAudit = () => {
                               </span>
                             </td>
                             <td className="px-6 py-4 text-center">
-                              <span className="font-semibold text-blue-600">
-                                {row['10%_qc_file_records'] || row['10%_data_generated_count'] || 0}
-                              </span>
-                            </td>
-                            <td className="px-6 py-4 text-center">
-                              <span className="font-semibold text-red-600">
-                                {Array.isArray(row.error_list) ? row.error_list.length : 0}
-                              </span>
-                            </td>
-                            <td className="px-6 py-4 text-center">
-                              <button
-                                onClick={() => handleOpenErrorListModal(row.error_list, {
-                                  agent_name: row.agent_name,
-                                  project_name: row.project_name,
-                                  task_name: row.task_name,
-                                  qc_score: row.qc_score,
-                                  error_score: row.error_score,
-                                  timestamp: row.timestamp
-                                })}
-                                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-blue-100 border border-slate-200 hover:border-blue-300 rounded-lg text-slate-700 hover:text-blue-700 text-xs font-bold transition-all"
-                              >
-                                <FileSpreadsheet className="w-3 h-3" />
-                                View {row.error_list && row.error_list.length > 0 && (
-                                  <span className="ml-1 px-1.5 py-0.5 bg-red-500 text-white rounded-full text-[10px]">
-                                    {row.error_list.length}
-                                  </span>
-                                )}
-                              </button>
+                              {row.error_list && row.error_list.length > 0 ? (
+                                <button
+                                  onClick={() => handleOpenErrorListModal(row.error_list, {
+                                    agent_name: row.agent_name,
+                                    project_name: row.project_name,
+                                    task_name: row.task_name,
+                                    qc_score: row.qc_score,
+                                    error_score: row.error_score,
+                                    timestamp: row.timestamp
+                                  })}
+                                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-blue-100 border border-slate-200 hover:border-blue-300 rounded-lg text-slate-700 hover:text-blue-700 text-xs font-bold transition-all"
+                                >
+                                  <FileSpreadsheet className="w-3 h-3" />
+                                  View {row.error_list && row.error_list.length > 0 && (
+                                    <span className="ml-1 px-1.5 py-0.5 bg-red-500 text-white rounded-full text-[10px]">
+                                      {row.error_list.length}
+                                    </span>
+                                  )}
+                                </button>
+                              ) : (
+                                <span className="text-slate-400 font-medium">-</span>
+                              )}
                             </td>
                             <td className="px-6 py-4 text-center">
                               <span className={`px-3 py-1 rounded-lg font-semibold text-sm inline-block ${getAuditStatusBadgeClass(row.status || row.audit_status)}`}>
@@ -1170,8 +1167,8 @@ const QAAgentAudit = () => {
                             </td>
                             <td className="px-6 py-4 text-gray-900 font-medium whitespace-nowrap">
                               <div className="flex flex-col">
-                                <span className="text-sm font-semibold">{formatDateTime(row.timestamp || row.audit_datetime).date}</span>
-                                <span className="text-xs text-gray-600">{formatDateTime(row.timestamp || row.audit_datetime).time}</span>
+                                <span className="text-sm font-semibold">{formatDateTime(row.updated_at || row.timestamp || row.audit_datetime).date}</span>
+                                <span className="text-xs text-gray-600">{formatDateTime(row.updated_at || row.timestamp || row.audit_datetime).time}</span>
                               </div>
                             </td>
                             <td className="px-6 py-4 text-center">
