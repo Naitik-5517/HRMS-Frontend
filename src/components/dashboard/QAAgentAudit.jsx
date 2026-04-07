@@ -669,6 +669,7 @@ const QAAgentAudit = () => {
           // Audit-related fields (from QC audit submissions)
           qc_checked_file: record.qc_checked_file || null,
           error_notes: record.error_notes || null,
+          updated_at: record.updated_at || record.timestamp || record.audit_datetime, // Add updated_at field
           audit_performed: !!(record.qc_checked_file || record.error_notes) // Boolean flag to check if audit was done
         }));
 
