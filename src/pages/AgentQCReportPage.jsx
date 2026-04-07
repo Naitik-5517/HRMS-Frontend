@@ -434,7 +434,6 @@ const AgentQCReportPage = () => {
                 <th className="px-4 py-3 text-center font-semibold">Status</th>
                 <th className="px-4 py-3 text-center font-semibold">QC Status</th>
                 <th className="px-4 py-3 text-center font-semibold">Errors</th>
-                <th className="px-4 py-3 text-center font-semibold">QC File</th>
                 <th className="px-4 py-3 text-center font-semibold">History</th>
               </tr>
             </thead>
@@ -485,20 +484,6 @@ const AgentQCReportPage = () => {
                         )}
                       </td>
                       <td className="px-4 py-3 text-center">
-                        {record.qc_file_path ? (
-                          <a
-                            href={record.qc_file_path}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 px-2 py-1.5 rounded bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium transition-colors"
-                          >
-                            <Download className="w-3 h-3" />
-                          </a>
-                        ) : (
-                          <span className="text-xs text-slate-400">—</span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3 text-center">
                         {((record.qc_rework && record.qc_rework.length > 0) || (record.qc_correction && record.qc_correction.length > 0)) ? (
                           <button
                             onClick={() => setExpandedRow(isExpanded ? null : record.id)}
@@ -515,7 +500,7 @@ const AgentQCReportPage = () => {
                     {/* Expanded Row - History + Message */}
                     {isExpanded && (
                       <tr>
-                        <td colSpan="8" className="p-0">
+                        <td colSpan="7" className="p-0">
                           <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-t-2 border-blue-200">
                             {/* History */}
                             <div className="p-4">
