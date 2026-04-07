@@ -591,10 +591,7 @@ const Tracker = ({ embedded = false }) => {
     if (!baseTarget) newErrors.baseTarget = "Base Target is required.";
     if (!productionTarget) newErrors.productionTarget = "Production Target is required.";
     else if (isNaN(Number(productionTarget)) || Number(productionTarget) < 0) newErrors.productionTarget = "Enter a valid number.";
-    else if (baseTarget && Number(productionTarget) > (Number(baseTarget) * 2)) {
-      newErrors.productionTarget = `Production cannot exceed double the Base Target (Max: ${Number(baseTarget) * 2})`;
-    }
-    if (fileError) newErrors.file = fileError;
+        if (fileError) newErrors.file = fileError;
     return newErrors;
   };
 
@@ -607,10 +604,7 @@ const Tracker = ({ embedded = false }) => {
     if (!baseTarget) newErrors.baseTarget = "Base Target is required.";
     if (!productionTarget) newErrors.productionTarget = "Production Target is required.";
     else if (isNaN(Number(productionTarget)) || Number(productionTarget) < 0) newErrors.productionTarget = "Enter a valid number.";
-    else if (baseTarget && Number(productionTarget) > (Number(baseTarget) * 2)) {
-      newErrors.productionTarget = `Production cannot exceed double the Base Target (Max: ${Number(baseTarget) * 2})`;
-    }
-    if (fileError) newErrors.file = fileError;
+        if (fileError) newErrors.file = fileError;
     setErrors(newErrors);
   }, [selectedProject, selectedTask, shiftType, baseTarget, productionTarget, fileError]);
 
