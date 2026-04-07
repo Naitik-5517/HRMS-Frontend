@@ -136,7 +136,7 @@ const AgentQCReportPage = () => {
           : <span className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-semibold bg-yellow-100 text-yellow-700"><AlertCircle className="w-3 h-3" /> Correction</span>,
         message: hasCorrectionInProgress
           ? 'Your correction file is under review by QA team.'
-          : 'Please correct the errors and upload the corrected file (One attempt only).',
+          : '',
         canUpload: !hasCorrectionInProgress,
         uploadType: 'correction'
       };
@@ -517,11 +517,6 @@ const AgentQCReportPage = () => {
                       <tr>
                         <td colSpan="8" className="p-0">
                           <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-t-2 border-blue-200">
-                            {/* Status Message */}
-                            <div className="px-4 py-3 border-b border-blue-200">
-                              <p className="text-sm font-medium bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">{statusInfo.message}</p>
-                            </div>
-
                             {/* History */}
                             <div className="p-4">
                               <h4 className="text-sm font-semibold text-indigo-700 mb-3 flex items-center gap-2">
@@ -615,7 +610,7 @@ const AgentQCReportPage = () => {
                                                 </span>
                                               </td>
                                               <td className="px-3 py-2 text-center">
-                                                {item.type === 'rework' ? getStatusBadge(item.status) : '—'}
+                                                {item.type === 'rework' ? getStatusBadge(item.status) : getStatusBadge(item.status)}
                                               </td>
                                               <td className={`px-3 py-2 text-center ${getScoreClass(item.score)}`}>
                                                 {item.type === 'rework' && item.score !== null && item.score !== undefined ? `${item.score}%` : '—'}
