@@ -1428,8 +1428,8 @@ const QAAgentAudit = () => {
                           <tr key={idx} className="hover:bg-blue-50/50 transition-colors duration-150">
                             <td className="px-6 py-4 text-gray-900 font-medium whitespace-nowrap">
                               <div className="flex flex-col">
-                                <span className="text-sm font-semibold">{formatDateTime(row.audit_datetime).date}</span>
-                                <span className="text-xs text-gray-600">{formatDateTime(row.audit_datetime).time}</span>
+                                <span className="text-sm font-semibold">{row.audit_datetime || '-'}</span>
+                                <span className="text-xs text-gray-600">{row.audit_datetime || '-'}</span>
                               </div>
                             </td>
                             <td className="px-6 py-4 text-gray-900">{row.agent_name || '-'}</td>
