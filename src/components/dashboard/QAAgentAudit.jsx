@@ -65,20 +65,24 @@ const QAAgentAudit = () => {
     try {
       const date = new Date(dateTimeString);
       
-      // Format date as "6/Mar/2026"
-      const day = date.getDate();
-      const month = date.toLocaleString('en-US', { month: 'short' });
-      const year = date.getFullYear();
+      // Convert to GMT/UTC
+      const gmtDate = new Date(date.toUTCString());
+      
+      // Format date as "6/Mar/2026" (using GMT date)
+      const day = gmtDate.getUTCDate();
+      const month = gmtDate.toLocaleString('en-US', { month: 'short', timeZone: 'UTC' });
+      const year = gmtDate.getUTCFullYear();
       const formattedDate = `${day}/${month}/${year}`;
       
-      // Format time as "12:13 AM"
-      const formattedTime = date.toLocaleString('en-US', { 
+      // Format time as "12:13 AM" (using GMT time)
+      const formattedTime = gmtDate.toLocaleString('en-US', { 
         hour: 'numeric', 
         minute: '2-digit', 
-        hour12: true 
+        hour12: true,
+        timeZone: 'UTC'
       });
       
-      return { date: formattedDate, time: formattedTime };
+      return { date: formattedDate, time: formattedTime + ' GMT' };
     } catch (_error) {
       return { date: '-', time: '-' };
     }
@@ -1083,7 +1087,6 @@ const QAAgentAudit = () => {
                           <th className="px-6 py-4 text-left text-xs font-bold text-blue-700 uppercase tracking-wider">QC File</th>
                           <th className="px-6 py-4 text-center text-xs font-bold text-blue-700 uppercase tracking-wider">File Record Count</th>
                           <th className="px-6 py-4 text-center text-xs font-bold text-blue-700 uppercase tracking-wider">Error List</th>
-                          <th className="px-6 py-4 text-center text-xs font-bold text-blue-700 uppercase tracking-wider">Status</th>
                           <th className="px-6 py-4 text-center text-xs font-bold text-blue-700 uppercase tracking-wider">QC Score</th>
                           <th className="px-6 py-4 text-left text-xs font-bold text-blue-700 uppercase tracking-wider">Date and Time</th>
                           <th className="px-6 py-4 text-center text-xs font-bold text-blue-700 uppercase tracking-wider">Actions</th>
@@ -1092,7 +1095,7 @@ const QAAgentAudit = () => {
                       <tbody className="bg-white divide-y divide-blue-50">
                         {filteredRecords.length === 0 ? (
                           <tr>
-                            <td colSpan="10" className="px-6 py-12 text-center">
+                            <td colSpan="9" className="px-6 py-12 text-center">
                               <div className="w-20 h-20 bg-gradient-to-br from-slate-100 to-slate-200 rounded-2xl flex items-center justify-center mx-auto mb-4">
                                 <Users className="w-10 h-10 text-slate-400" />
                               </div>
@@ -1153,11 +1156,6 @@ const QAAgentAudit = () => {
                               ) : (
                                 <span className="text-slate-400 font-medium">-</span>
                               )}
-                            </td>
-                            <td className="px-6 py-4 text-center">
-                              <span className={`px-3 py-1 rounded-lg font-semibold text-sm inline-block ${getAuditStatusBadgeClass(row.status || row.audit_status)}`}>
-                                {row.status || row.audit_status || '-'}
-                              </span>
                             </td>
                             <td className="px-6 py-4 text-center">
                               <span className={`px-3 py-1 rounded-lg inline-block ${getQCScoreColorClass(row.qc_score || row.average_qc_score)}`}>
@@ -1413,17 +1411,15 @@ const QAAgentAudit = () => {
                           <th className="px-6 py-4 text-left text-xs font-bold text-blue-700 uppercase tracking-wider">Agent Name</th>
                           <th className="px-6 py-4 text-left text-xs font-bold text-blue-700 uppercase tracking-wider">Project</th>
                           <th className="px-6 py-4 text-left text-xs font-bold text-blue-700 uppercase tracking-wider">Task</th>
-                          <th className="px-6 py-4 text-center text-xs font-bold text-blue-700 uppercase tracking-wider">Total QCs</th>
                           <th className="px-6 py-4 text-center text-xs font-bold text-blue-700 uppercase tracking-wider">QC Score</th>
                           <th className="px-6 py-4 text-center text-xs font-bold text-blue-700 uppercase tracking-wider">QC Checked File</th>
-                          <th className="px-6 py-4 text-center text-xs font-bold text-blue-700 uppercase tracking-wider">Status</th>
                           <th className="px-6 py-4 text-left text-xs font-bold text-blue-700 uppercase tracking-wider">Error Notes</th>
                         </tr>
                       </thead>
                       <tbody className="bg-white divide-y divide-blue-50">
                         {filteredRecords.length === 0 ? (
                           <tr>
-                            <td colSpan="9" className="px-6 py-12 text-center">
+                            <td colSpan="7" className="px-6 py-12 text-center">
                               <div className="w-20 h-20 bg-gradient-to-br from-slate-100 to-slate-200 rounded-2xl flex items-center justify-center mx-auto mb-4">
                                 <Users className="w-10 h-10 text-slate-400" />
                               </div>
@@ -1437,18 +1433,13 @@ const QAAgentAudit = () => {
                           <tr key={idx} className="hover:bg-blue-50/50 transition-colors duration-150">
                             <td className="px-6 py-4 text-gray-900 font-medium whitespace-nowrap">
                               <div className="flex flex-col">
-                                <span className="text-sm font-semibold">{formatDateTime(row.timestamp || row.audit_datetime).date}</span>
-                                <span className="text-xs text-gray-600">{formatDateTime(row.timestamp || row.audit_datetime).time}</span>
+                                <span className="text-sm font-semibold">{formatDateTime(row.audit_datetime).date}</span>
+                                <span className="text-xs text-gray-600">{formatDateTime(row.audit_datetime).time}</span>
                               </div>
                             </td>
                             <td className="px-6 py-4 text-gray-900">{row.agent_name || '-'}</td>
                             <td className="px-6 py-4 text-gray-900">{row.project_name || '-'}</td>
                             <td className="px-6 py-4 text-gray-900">{row.task_name || '-'}</td>
-                            <td className="px-6 py-4 text-center">
-                              <span className="font-semibold text-blue-600">
-                                {row.total_qc_performed || 0}
-                              </span>
-                            </td>
                             <td className="px-6 py-4 text-center">
                               <span className={`px-3 py-1 rounded-lg inline-block ${getQCScoreColorClass(row.average_qc_score)}`}>
                                 {row.average_qc_score != null ? `${Number(row.average_qc_score).toFixed(2)}%` : '-'}
@@ -1469,11 +1460,6 @@ const QAAgentAudit = () => {
                               ) : (
                                 <span className="text-gray-400 text-sm">-</span>
                               )}
-                            </td>
-                            <td className="px-6 py-4 text-center">
-                              <span className={`px-3 py-1 rounded-lg font-semibold text-sm inline-block ${getAuditStatusBadgeClass(row.audit_status)}`}>
-                                {row.audit_status || '-'}
-                              </span>
                             </td>
                             <td className="px-6 py-4 text-gray-600 text-sm">{row.notes || '-'}</td>
                           </tr>

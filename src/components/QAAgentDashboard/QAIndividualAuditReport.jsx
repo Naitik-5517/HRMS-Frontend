@@ -48,17 +48,23 @@ const QAIndividualAuditReport = () => {
     
     try {
       const date = new Date(dateTimeString);
-      const day = date.getDate();
+      
+      // Convert to GMT/UTC
+      const gmtDate = new Date(date.toUTCString());
+      
+      // Format date as "6/Mar/2026" (using GMT date)
+      const day = gmtDate.getUTCDate();
       const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-      const month = monthNames[date.getMonth()];
-      const year = date.getFullYear();
+      const month = monthNames[gmtDate.getUTCMonth()];
+      const year = gmtDate.getUTCFullYear();
       const formattedDate = `${day}/${month}/${year}`;
       
-      let hours = date.getHours();
-      const minutes = String(date.getMinutes()).padStart(2, '0');
+      // Format time as "12:13 AM" (using GMT time)
+      let hours = gmtDate.getUTCHours();
+      const minutes = String(gmtDate.getUTCMinutes()).padStart(2, '0');
       const ampm = hours >= 12 ? 'PM' : 'AM';
       hours = hours % 12 || 12;
-      const formattedTime = `${hours}:${minutes} ${ampm}`;
+      const formattedTime = `${hours}:${minutes} ${ampm} GMT`;
       
       return { date: formattedDate, time: formattedTime };
     } catch (e) {
@@ -290,10 +296,8 @@ const QAIndividualAuditReport = () => {
                   <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider">Agent Name</th>
                   <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider">Project</th>
                   <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider">Task</th>
-                  <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider">Total QCs</th>
                   <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider">QC Score</th>
                   <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider">QC Checked File</th>
-                  <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider">Status</th>
                   <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider">Error Notes</th>
                 </tr>
               </thead>
@@ -318,9 +322,6 @@ const QAIndividualAuditReport = () => {
                         <span className="text-sm font-medium text-slate-700">{record.task_name || '-'}</span>
                       </td>
                       <td className="px-4 py-3">
-                        <span className="text-sm font-bold text-slate-800">{record.total_qcs || '-'}</span>
-                      </td>
-                      <td className="px-4 py-3">
                         <span className={`inline-block px-3 py-1 rounded-lg text-sm font-bold ${getQCScoreColorClass(record.avg_qc_score)}`}>
                           {record.avg_qc_score !== null && record.avg_qc_score !== undefined ? `${record.avg_qc_score}%` : '-'}
                         </span>
@@ -341,11 +342,6 @@ const QAIndividualAuditReport = () => {
                         ) : (
                           <span className="text-slate-400 text-sm">-</span>
                         )}
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className={`inline-block px-3 py-1 rounded-lg text-xs font-semibold uppercase ${getAuditStatusBadgeClass(record.status)}`}>
-                          {record.status || '-'}
-                        </span>
                       </td>
                       <td className="px-4 py-3">
                         <span className="text-sm text-slate-600">{record.error_notes || '-'}</span>
