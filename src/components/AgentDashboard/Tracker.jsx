@@ -127,59 +127,6 @@ const Tracker = ({ embedded = false }) => {
   const [showProjectDropdown, setShowProjectDropdown] = useState(false);
   const [showTaskDropdown, setShowTaskDropdown] = useState(false);
 
-  // Time window validation states (15-minute submission window)
-  const [isSubmissionWindowOpen, setIsSubmissionWindowOpen] = useState(false);
-  const [nextWindowTime, setNextWindowTime] = useState('');
-  const [timeRemaining, setTimeRemaining] = useState('');
-  const [currentTime, setCurrentTime] = useState(new Date());
-
-  // Helper function to check if current time is within 15-minute submission window
-  const checkSubmissionWindow = () => {
-    const now = new Date();
-    const minutes = now.getMinutes();
-    return minutes < 15;
-  };
-
-  // Helper function to calculate next window opening time
-  const getNextWindowTime = () => {
-    const now = new Date();
-    const minutes = now.getMinutes();
-    
-    if (minutes < 15) {
-      // Window is open, next window is next hour
-      const nextWindow = new Date(now);
-      nextWindow.setHours(now.getHours() + 1);
-      nextWindow.setMinutes(0);
-      nextWindow.setSeconds(0);
-      return nextWindow;
-    } else {
-      // Window is closed, show current hour's window
-      const nextWindow = new Date(now);
-      nextWindow.setHours(now.getHours() + 1);
-      nextWindow.setMinutes(0);
-      nextWindow.setSeconds(0);
-      return nextWindow;
-    }
-  };
-
-  // Helper function to format time remaining
-  const formatTimeRemaining = () => {
-    const now = new Date();
-    const minutes = now.getMinutes();
-    const seconds = now.getSeconds();
-    
-    if (minutes < 15) {
-      // Window is open - show time until it closes
-      const remainingMinutes = 14 - minutes;
-      const remainingSeconds = 60 - seconds;
-      return `${remainingMinutes}m ${remainingSeconds}s`;
-    } else {
-      // Window is closed - show time until next window opens
-      const remainingMinutes = 59 - minutes;
-      const remainingSeconds = 60 - seconds;
-      return `${remainingMinutes}m ${remainingSeconds}s`;
-    }
-  };
 
   // Function to reset modal form and all file upload states
   const resetModalForm = () => {
@@ -226,23 +173,6 @@ const Tracker = ({ embedded = false }) => {
     setTouched({});
   };
 
-  // Time window validation - update every second
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setCurrentTime(new Date());
-      setIsSubmissionWindowOpen(checkSubmissionWindow());
-      setNextWindowTime(getNextWindowTime().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }));
-      setTimeRemaining(formatTimeRemaining());
-    }, 1000);
-
-    // Initial check
-    setIsSubmissionWindowOpen(checkSubmissionWindow());
-    setNextWindowTime(getNextWindowTime().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }));
-    setTimeRemaining(formatTimeRemaining());
-
-    return () => clearInterval(interval);
-    // eslint-disable-next-line
-  }, []);
 
   // Fetch projects with tasks for form (fetch only once on mount or user change)
   useEffect(() => {
@@ -618,14 +548,6 @@ const Tracker = ({ embedded = false }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    // Check submission window first
-    // if (!isSubmissionWindowOpen) {
-    //   toast.error(`Tracker submissions are only allowed in the first 15 minutes of each hour. Next window opens at ${nextWindowTime}`, {
-    //     duration: 5000,
-    //     icon: '⏰'
-    //   });
-    //   return;
-    // }
     
     setTouched({ 
       selectedProject: true, 
@@ -1162,44 +1084,11 @@ const Tracker = ({ embedded = false }) => {
                 </div>
               </div>
               <div className="flex items-center gap-3">
-                {/* Submission Window Status Indicator */}
-                <div className={`flex flex-col items-end gap-1 px-4 py-2 rounded-lg border-2 ${
-                  isSubmissionWindowOpen 
-                    ? 'bg-green-50 border-green-300' 
-                    : 'bg-red-50 border-red-300'
-                }`}>
-                  <div className="flex items-center gap-2">
-                    <div className={`w-2.5 h-2.5 rounded-full ${
-                      isSubmissionWindowOpen ? 'bg-green-500 animate-pulse' : 'bg-red-500'
-                    }`}></div>
-                    <span className={`text-xs font-bold uppercase tracking-wide ${
-                      isSubmissionWindowOpen ? 'text-green-700' : 'text-red-700'
-                    }`}>
-                      {isSubmissionWindowOpen ? 'Window Open' : 'Window Closed'}
-                    </span>
-                  </div>
-                  <div className="text-xs font-semibold text-slate-600">
-                    {isSubmissionWindowOpen ? (
-                      <>Closes in: <span className="text-red-600">{timeRemaining}</span></>
-                    ) : (
-                      <>Opens at: <span className="text-green-600">{nextWindowTime}</span></>
-                    )}
-                  </div>
-                </div>
 
                 <button
                   onClick={() => {
-                    // Timer validation commented out - modal is now always accessible
-                    // if (isSubmissionWindowOpen) {
-                      setShowModal(true);
-                    // } else {
-                    //   toast.error(`Tracker submissions are only allowed in the first 15 minutes of each hour. Next window opens at ${nextWindowTime}`, {
-                    //     duration: 5000,
-                    //     icon: '⏰'
-                    //   });
-                    // }
+                    setShowModal(true);
                   }}
-                  // disabled={!isSubmissionWindowOpen}
                   className="inline-flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-sm shadow-lg hover:shadow-xl transition-all duration-200 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white transform hover:scale-105 cursor-pointer"
                   title="Add new tracker"
                 >
@@ -2227,15 +2116,8 @@ const Tracker = ({ embedded = false }) => {
                   )) && (
                     <button
                       type="submit"
-                      // disabled={submitting || isUploading || !isSubmissionWindowOpen}
                       disabled={submitting || isUploading}
-                      // className={`px-8 py-3 font-bold text-sm rounded-lg shadow-lg transition-all duration-200 flex items-center gap-2 ${
-                      //   !isSubmissionWindowOpen
-                      //     ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
-                      //     : 'bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed'
-                      // }`}
                       className="px-8 py-3 font-bold text-sm rounded-lg shadow-lg transition-all duration-200 flex items-center gap-2 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
-                      // title={!isSubmissionWindowOpen ? `Submissions only allowed in first 15 minutes of each hour. Next window: ${nextWindowTime}` : ''}
                       title="Submit tracker entry"
                     >
                       {submitting ? (
