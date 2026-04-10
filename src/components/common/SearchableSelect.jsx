@@ -191,8 +191,8 @@ const SearchableSelect = ({
           className="fixed bg-white rounded-lg shadow-2xl border-2 border-blue-400 py-1 max-h-80 overflow-hidden flex flex-col min-w-[250px]"
           style={{
             zIndex: 9999,
-            top: dropdownRef.current?.getBoundingClientRect().bottom + 8 + 'px',
-            left: dropdownRef.current?.getBoundingClientRect().left + 'px',
+            top: dropdownRef.current?.getBoundingClientRect().bottom + window.scrollY + 8 + 'px',
+            left: dropdownRef.current?.getBoundingClientRect().left + window.scrollX + 'px',
             width: dropdownRef.current?.getBoundingClientRect().width + 'px'
           }}
         >
