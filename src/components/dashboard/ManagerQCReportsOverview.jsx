@@ -516,7 +516,8 @@ const ManagerQCReportsOverview = () => {
                   <th className="px-4 py-4 text-center text-xs font-bold text-white uppercase">Score</th>
                   <th className="px-4 py-4 text-center text-xs font-bold text-white uppercase">QC Status</th>
                   <th className="px-4 py-4 text-center text-xs font-bold text-white uppercase">Status</th>
-                  <th className="px-4 py-4 text-left text-xs font-bold text-white uppercase">Submission Date</th>
+                  <th className="px-4 py-4 text-left text-xs font-bold text-white uppercase">Work Date</th>
+                  <th className="px-4 py-4 text-left text-xs font-bold text-white uppercase">Evaluation Date</th>
                   <th className="px-4 py-4 text-center text-xs font-bold text-white uppercase">File</th>
                   <th className="px-4 py-4 text-center text-xs font-bold text-white uppercase">History</th>
                 </tr>
@@ -524,7 +525,7 @@ const ManagerQCReportsOverview = () => {
               <tbody className="divide-y divide-slate-200">
                 {filteredRecords.length === 0 ? (
                   <tr>
-                    <td colSpan={isAssistantManager ? "9" : "10"} className="px-4 py-12 text-center text-slate-500">
+                    <td colSpan={isAssistantManager ? "10" : "11"} className="px-4 py-12 text-center text-slate-500">
                       <FileCheck className="w-12 h-12 text-slate-300 mx-auto mb-3" />
                       <p className="font-bold">No QC records found</p>
                       <p className="text-sm">Try adjusting your filters</p>
@@ -582,7 +583,21 @@ const ManagerQCReportsOverview = () => {
                             const dt = formatDate(record.date_of_file_submission);
                             return (
                               <div className="flex items-center gap-2 text-xs text-slate-600">
-                                <Calendar className="w-3.5 h-3.5" />
+                                <Calendar className="w-3.5 h-3.5 text-blue-500" />
+                                <div>
+                                  <p className="font-medium">{dt.date}</p>
+                                  {dt.time && <p className="text-slate-500">{dt.time}</p>}
+                                </div>
+                              </div>
+                            );
+                          })()}
+                        </td>
+                        <td className="px-4 py-4">
+                          {(() => {
+                            const dt = formatDate(record.created_at);
+                            return (
+                              <div className="flex items-center gap-2 text-xs text-slate-600">
+                                <Calendar className="w-3.5 h-3.5 text-indigo-500" />
                                 <div>
                                   <p className="font-medium">{dt.date}</p>
                                   {dt.time && <p className="text-slate-500">{dt.time}</p>}
@@ -618,7 +633,7 @@ const ManagerQCReportsOverview = () => {
                       </tr>
                       {selectedRecord?.id === record.id && (
                         <tr>
-                          <td colSpan={isAssistantManager ? "9" : "10"} className="p-0">
+                          <td colSpan={isAssistantManager ? "10" : "11"} className="p-0">
                             <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-t-2 border-blue-200">
                               <div className="p-6">
                                 <h4 className="text-sm font-bold text-indigo-900 mb-4 flex items-center gap-2">
