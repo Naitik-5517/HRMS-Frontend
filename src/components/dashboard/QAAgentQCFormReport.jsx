@@ -10,7 +10,6 @@ import {
   XCircle,
   AlertCircle,
   User,
-  Calendar,
   Search,
   Filter,
   Download,
@@ -299,7 +298,8 @@ const QAAgentQCFormReport = () => {
                 <th className="px-4 py-3 text-center font-semibold">QC Score</th>
                 <th className="px-4 py-3 text-center font-semibold">Status</th>
                 <th className="px-4 py-3 text-center font-semibold">QC Status</th>
-                <th className="px-4 py-3 text-left font-semibold">Date & Time</th>
+                <th className="px-4 py-3 text-left font-semibold">Work Date</th>
+                <th className="px-4 py-3 text-left font-semibold">Evaluation Date</th>
                 <th className="px-4 py-3 text-center font-semibold">Tracker File</th>
                 <th className="px-4 py-3 text-center font-semibold">QC File</th>
                 <th className="px-4 py-3 text-center font-semibold">History</th>
@@ -308,7 +308,7 @@ const QAAgentQCFormReport = () => {
             <tbody className="divide-y divide-slate-100">
               {filteredRecords.length === 0 ? (
                 <tr>
-                  <td colSpan="10" className="px-4 py-8 text-center text-slate-500">
+                  <td colSpan="11" className="px-4 py-8 text-center text-slate-500">
                     <FileCheck className="w-12 h-12 mx-auto mb-3 text-slate-300" />
                     <p className="font-medium">No QC records found</p>
                   </td>
@@ -336,7 +336,13 @@ const QAAgentQCFormReport = () => {
                         <td className="px-4 py-3 text-center">{getQCStatusBadge(record.qc_status)}</td>
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-2 text-slate-600">
-                            <Calendar className="w-4 h-4" />
+                            
+                            <span>{formatDateTime(record.date_of_file_submission)}</span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2 text-slate-600">
+                            
                             <span>{formatDateTime(record.created_at)}</span>
                           </div>
                         </td>
@@ -385,7 +391,7 @@ const QAAgentQCFormReport = () => {
                       {/* Expanded Row - History */}
                       {isExpanded && historyItems.length > 0 && (
                         <tr>
-                          <td colSpan="10" className="p-0">
+                          <td colSpan="11" className="p-0">
                             <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-t-2 border-blue-200 p-4">
                               <h4 className="text-sm font-semibold text-indigo-700 mb-3 flex items-center gap-2">
                                 <Clock className="w-4 h-4" />
