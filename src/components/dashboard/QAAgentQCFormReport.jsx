@@ -335,14 +335,12 @@ const QAAgentQCFormReport = () => {
                         <td className="px-4 py-3 text-center">{getStatusBadge(record.status)}</td>
                         <td className="px-4 py-3 text-center">{getQCStatusBadge(record.qc_status)}</td>
                         <td className="px-4 py-3">
-                          <div className="flex items-center gap-2 text-slate-600">
-                            
+                          <div className="flex items-center gap-2 text-slate-600 text-xs">
                             <span>{formatDateTime(record.date_of_file_submission)}</span>
                           </div>
                         </td>
                         <td className="px-4 py-3">
-                          <div className="flex items-center gap-2 text-slate-600">
-                            
+                          <div className="flex items-center gap-2 text-xs text-slate-600">
                             <span>{formatDateTime(record.created_at)}</span>
                           </div>
                         </td>

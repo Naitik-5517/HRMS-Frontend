@@ -583,7 +583,6 @@ const ManagerQCReportsOverview = () => {
                             const dt = formatDate(record.date_of_file_submission);
                             return (
                               <div className="flex items-center gap-2 text-xs text-slate-600">
-                                <Calendar className="w-3.5 h-3.5 text-blue-500" />
                                 <div>
                                   <p className="font-medium">{dt.date}</p>
                                   {dt.time && <p className="text-slate-500">{dt.time}</p>}
@@ -597,7 +596,6 @@ const ManagerQCReportsOverview = () => {
                             const dt = formatDate(record.created_at);
                             return (
                               <div className="flex items-center gap-2 text-xs text-slate-600">
-                                <Calendar className="w-3.5 h-3.5 text-indigo-500" />
                                 <div>
                                   <p className="font-medium">{dt.date}</p>
                                   {dt.time && <p className="text-slate-500">{dt.time}</p>}
