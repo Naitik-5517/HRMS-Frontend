@@ -296,7 +296,13 @@ const QCFormPage = () => {
 
     } catch (err) {
       console.error('[QCFormPage] Error fetching form data:', err);
-      setError(err.message || 'Failed to load QC form data');
+      // Extract string message from various formats including {text, hyperlink} objects
+      const msg = typeof err.message === 'object' && err.message?.text 
+        ? err.message.text 
+        : typeof err.message === 'string' 
+          ? err.message 
+          : 'Failed to load QC form data';
+      setError(msg);
       toast.error('Failed to load form data');
     } finally {
       setLoading(false);
