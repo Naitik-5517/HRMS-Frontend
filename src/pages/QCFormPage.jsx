@@ -709,6 +709,11 @@ const QCFormPage = () => {
 
       console.log('[QCFormPage] API Response:', response);
 
+      // Handle case where entire response is an object with {text, hyperlink} structure
+      if (response && typeof response === 'object' && response.text && !response.success && !response.status) {
+        throw new Error(response.text);
+      }
+
       if (response.success || response.status === 200) {
         const successMessage = submissionType === 'regular' 
           ? 'QC Form submitted & email notification sent!' 
@@ -724,7 +729,11 @@ const QCFormPage = () => {
           navigate('/dashboard?tab=agent_file_report&subtab=qc_report');
         }, 500);
       } else {
-        throw new Error(response.message || 'Failed to save QC record');
+        // Handle case where response.message is an object {text, hyperlink}
+        const msg = typeof response.message === 'object' && response.message?.text 
+          ? response.message.text 
+          : response.message || 'Failed to save QC record';
+        throw new Error(msg);
       }
 
     } catch (err) {
