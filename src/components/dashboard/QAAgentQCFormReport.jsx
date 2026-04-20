@@ -23,6 +23,7 @@ import {
 import LoadingSpinner from '../common/LoadingSpinner';
 import CustomSelect from '../common/CustomSelect';
 import api from '../../services/api';
+import { exportToCSV } from '../../utils/csvExport';
 
 const QAAgentQCFormReport = () => {
   const [loading, setLoading] = useState(true);
@@ -192,6 +193,121 @@ const QAAgentQCFormReport = () => {
     setErrorModal({ open: true, errors: parseErrors(errors), title });
   };
 
+  const getErrorTypes = (errorString) => {
+    const errors = parseErrors(errorString);
+    if (errors.length === 0) return { types: [], count: 0 };
+    const types = errors.map(err => err.subcategory || err.category).filter(Boolean);
+    const uniqueTypes = [...new Set(types)];
+    return { types: uniqueTypes, count: errors.length };
+  };
+
+  // Export Main Table Data
+  const handleExportExcel = () => {
+    try {
+      if (filteredRecords.length === 0) {
+        toast.error('No data to export');
+        return;
+      }
+
+      const exportData = filteredRecords.map(record => {
+        return {
+          'Agent Name': record.agent_name || 'N/A',
+          'Project Name': record.project_name || 'N/A',
+          'Task Name': record.task_name || 'N/A',
+          'QC Score': record.qc_score ? `${record.qc_score}%` : '-',
+          'Status': record.status || '-',
+          'QC Status': record.qc_status || '-',
+          'Work Date': formatDateTime(record.date_of_file_submission),
+          'Evaluation Date': formatDateTime(record.created_at)
+        };
+      });
+
+      const filename = `QA_Agent_QC_Reports_${new Date().toISOString().split('T')[0]}.csv`;
+      exportToCSV(exportData, filename);
+      toast.success(`Exported ${filteredRecords.length} QC records!`);
+    } catch (err) {
+      console.error('Export error:', err);
+      toast.error('Failed to export data');
+    }
+  };
+
+  // Export History Data (Rework & Correction only)
+  const handleExportHistory = () => {
+    try {
+      const historyData = [];
+      
+      filteredRecords.forEach(record => {
+        // Add Rework history
+        if (record.qc_rework && record.qc_rework.length > 0) {
+          record.qc_rework.forEach(rework => {
+            const { types, count } = getErrorTypes(rework.rework_error_list);
+            historyData.push({
+              'Type': 'Rework',
+              'Agent Name': record.agent_name || 'N/A',
+              'Project Name': record.project_name || 'N/A',
+              'Task Name': record.task_name || 'N/A',
+              'Count': rework.rework_count || '-',
+              'Status': rework.rework_status || '-',
+              'Score': rework.rework_qc_score ? `${rework.rework_qc_score}%` : '-',
+              'No. of Errors': count,
+              'Error Type': types.length > 0 ? types.join(', ') : '-',
+              'Created At': formatDateTime(rework.created_at),
+              'Updated At': formatDateTime(rework.updated_at)
+            });
+          });
+        }
+        
+        // Add Correction history
+        if (record.qc_correction && record.qc_correction.length > 0) {
+          record.qc_correction.forEach(correction => {
+            historyData.push({
+              'Type': 'Correction',
+              'Agent Name': record.agent_name || 'N/A',
+              'Project Name': record.project_name || 'N/A',
+              'Task Name': record.task_name || 'N/A',
+              'Count': correction.correction_count || '-',
+              'Status': correction.correction_status || '-',
+              'Score': '-',
+              'No. of Errors': '-',
+              'Error Type': '-',
+              'Created At': formatDateTime(correction.created_at),
+              'Updated At': formatDateTime(correction.updated_at)
+            });
+          });
+        }
+      });
+
+      if (historyData.length === 0) {
+        toast.error('No history data (rework/correction) to export');
+        return;
+      }
+
+      const totalRework = historyData.filter(h => h.Type === 'Rework').length;
+      const totalCorrection = historyData.filter(h => h.Type === 'Correction').length;
+
+      historyData.push({
+        'Type': 'SUMMARY',
+        'Agent Name': '',
+        'Project Name': `Total Rework: ${totalRework}`,
+        'Task Name': `Total Correction: ${totalCorrection}`,
+        'Count': '',
+        'Status': '',
+        'Score': '',
+        'No. of Errors': '',
+        'Error Type': '',
+        'Created At': '',
+        'Updated At': ''
+      });
+
+      const filename = `QA_Agent_QC_History_${new Date().toISOString().split('T')[0]}.csv`;
+      exportToCSV(historyData, filename);
+      toast.success(`Exported ${historyData.length - 1} history records!`);
+    } catch (err) {
+      console.error('History export error:', err);
+      toast.error('Failed to export history data');
+    }
+  };
+
   // Build history items from rework and correction data
   const buildHistoryItems = (record) => {
     const items = [];
@@ -240,9 +356,9 @@ const QAAgentQCFormReport = () => {
     <div className="space-y-4">
       {/* Filters */}
       <div className="bg-white rounded-xl shadow-md p-4 border-2 border-slate-200">
-        <div className="flex flex-col md:flex-row gap-4">
+        <div className="flex flex-col lg:flex-row gap-4">
           {/* Search */}
-          <div className="flex-1">
+          <div className="flex-1 min-w-0">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
               <input
@@ -255,8 +371,9 @@ const QAAgentQCFormReport = () => {
             </div>
           </div>
 
-          {/* Status Filter */}
-          <div className="flex items-center gap-2">
+          {/* Actions Row */}
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Status Filter */}
             <CustomSelect
               value={statusFilter}
               onChange={(value) => setStatusFilter(value)}
@@ -268,21 +385,39 @@ const QAAgentQCFormReport = () => {
               ]}
               icon={Filter}
               placeholder="Filter by status"
-              className="w-48"
+              className="w-40"
             />
-          </div>
 
-          {/* Clear Filter Button */}
-          <button
-            onClick={() => {
-              setSearchTerm('');
-              setStatusFilter('all');
-            }}
-            className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors flex items-center gap-2"
-          >
-            <X className="w-4 h-4" />
-            Clear Filter
-          </button>
+            {/* Clear Filter Button */}
+            <button
+              onClick={() => {
+                setSearchTerm('');
+                setStatusFilter('all');
+              }}
+              className="px-3 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors flex items-center gap-2 whitespace-nowrap"
+            >
+              <X className="w-4 h-4" />
+              <span className="hidden sm:inline">Clear</span>
+            </button>
+
+            {/* Export Main Table */}
+            <button
+              onClick={handleExportExcel}
+              className="px-3 py-2.5 bg-green-500 hover:bg-green-600 text-white font-medium rounded-lg transition-colors flex items-center gap-2 whitespace-nowrap"
+            >
+              <Download className="w-4 h-4" />
+              <span className="hidden sm:inline">Export</span>
+            </button>
+
+            {/* Export History */}
+            <button
+              onClick={handleExportHistory}
+              className="px-3 py-2.5 bg-orange-500 hover:bg-orange-600 text-white font-medium rounded-lg transition-colors flex items-center gap-2 whitespace-nowrap"
+            >
+              <Download className="w-4 h-4" />
+              <span className="hidden sm:inline">History</span>
+            </button>
+          </div>
         </div>
       </div>
 

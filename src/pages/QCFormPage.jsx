@@ -735,8 +735,22 @@ const QCFormPage = () => {
         status: err.response?.status
       });
       
-      const errorMessage = err.response?.data?.message 
-        || err.response?.data?.error 
+      // Helper to extract string message from various formats
+      const extractMessage = (data) => {
+        if (!data) return null;
+        if (typeof data === 'string') return data;
+        if (typeof data === 'object') {
+          // Handle {text, hyperlink} structure
+          if (data.text) return data.text;
+          if (data.message) return extractMessage(data.message);
+          if (data.error) return extractMessage(data.error);
+        }
+        return null;
+      };
+      
+      const errorMessage = extractMessage(err.response?.data?.message) 
+        || extractMessage(err.response?.data?.error)
+        || extractMessage(err.response?.data)
         || err.message 
         || 'Failed to submit QC form';
       
