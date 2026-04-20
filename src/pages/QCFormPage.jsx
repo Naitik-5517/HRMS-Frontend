@@ -524,80 +524,87 @@ const QCFormPage = () => {
       // This allows QA to override the auto-calculated status if needed
       const status = submissionType || errorMetrics.status;
 
-      // Extract date from tracker data and format to YYYY-MM-DD
+      // Extract date and time from tracker data and format to YYYY-MM-DD HH:mm:ss
       let formattedDate = '';
-      
+
       // Try different date fields from tracker data
       const possibleDates = [
         trackerData.tracker_date,
         trackerData.date_time,
         trackerData.created_at,
         trackerData.submission_date,
-        trackerData.date
+        trackerData.date,
+        trackerData.date_of_file_submission
       ];
-      
+
       // Find first valid date
       const dateSource = possibleDates.find(date => date && date.trim() !== '');
-      
+
       if (dateSource) {
-        // Remove time and GMT parts if present
         let cleanDate = dateSource.trim();
-        
+
         // Handle formats like "Wed, 05 Mar 2026 14:30:23 GMT"
         if (cleanDate.includes(',')) {
           const parts = cleanDate.split(',')[1].trim(); // Get "05 Mar 2026 14:30:23 GMT"
-          const dateParts = parts.split(' '); // ["05", "Mar", "2026", ...]
-          
+          const dateParts = parts.split(' '); // ["05", "Mar", "2026", "14:30:23", "GMT"]
+
           if (dateParts.length >= 3) {
             const day = dateParts[0];
             const month = dateParts[1];
             const year = dateParts[2];
-            
+            const time = dateParts[3] || '00:00:00';
+
             // Convert month name to number
             const monthMap = {
               'Jan': '01', 'Feb': '02', 'Mar': '03', 'Apr': '04',
               'May': '05', 'Jun': '06', 'Jul': '07', 'Aug': '08',
               'Sep': '09', 'Oct': '10', 'Nov': '11', 'Dec': '12'
             };
-            
+
             const monthNum = monthMap[month] || '01';
-            formattedDate = `${year}-${monthNum}-${day.padStart(2, '0')}`;
+            formattedDate = `${year}-${monthNum}-${day.padStart(2, '0')} ${time}`;
           }
         }
-        // Handle ISO format "2026-03-05T14:30:23Z"
+        // Handle ISO format "2026-03-05T14:30:23Z" or "2026-03-05T14:30:23.000Z"
         else if (cleanDate.includes('T')) {
-          formattedDate = cleanDate.split('T')[0];
+          const [datePart, timePart] = cleanDate.split('T');
+          const time = timePart ? timePart.replace('Z', '').split('.')[0] : '00:00:00';
+          formattedDate = `${datePart} ${time}`;
         }
         // Handle format "2026-03-05 14:30:23"
         else if (cleanDate.includes(' ')) {
-          formattedDate = cleanDate.split(' ')[0];
-        }
-        // Handle format "2026-03-05"
-        else if (cleanDate.match(/^\d{4}-\d{2}-\d{2}$/)) {
           formattedDate = cleanDate;
         }
+        // Handle format "2026-03-05" (date only, append default time)
+        else if (cleanDate.match(/^\d{4}-\d{2}-\d{2}$/)) {
+          formattedDate = `${cleanDate} 00:00:00`;
+        }
       }
-      
-      // If still no valid date, use today's date
+
+      // If still no valid date, use today's date and time
       if (!formattedDate || formattedDate === '') {
         const today = new Date();
         const year = today.getFullYear();
         const month = String(today.getMonth() + 1).padStart(2, '0');
         const day = String(today.getDate()).padStart(2, '0');
-        formattedDate = `${year}-${month}-${day}`;
+        const hours = String(today.getHours()).padStart(2, '0');
+        const minutes = String(today.getMinutes()).padStart(2, '0');
+        const seconds = String(today.getSeconds()).padStart(2, '0');
+        formattedDate = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
       }
-      
+
       console.log('[QCFormPage] Date extraction:', {
         trackerDate: trackerData.tracker_date,
         dateTime: trackerData.date_time,
         createdAt: trackerData.created_at,
+        dateOfFileSubmission: trackerData.date_of_file_submission,
         formattedDate
       });
 
-      // Validate date format
-      if (!formattedDate.match(/^\d{4}-\d{2}-\d{2}$/)) {
+      // Validate date format (now includes time)
+      if (!formattedDate.match(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/)) {
         console.error('[QCFormPage] Invalid date format:', formattedDate);
-        throw new Error('Invalid date format. Expected YYYY-MM-DD');
+        throw new Error('Invalid date format. Expected YYYY-MM-DD HH:mm:ss');
       }
 
       // Extract assistant manager ID from tracker data with multiple fallbacks
