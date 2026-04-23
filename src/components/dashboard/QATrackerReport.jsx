@@ -796,7 +796,9 @@ const QATrackerReport = () => {
         project_id: tracker.project_id,
         task_id: tracker.task_id,
         shift_type: normalizedShift,
-        production: tracker.production
+        production: tracker.production,
+        user_tenure: tracker.user_tenure,
+        tenure: tracker.tenure
       });
     } catch (error) {
       logError('[QATrackerReport] Error loading tracker data:', error);
@@ -855,10 +857,11 @@ const QATrackerReport = () => {
           updated.base_target = "";
         } else {
           const task = project?.tasks?.find(t => String(t.task_id) === String(prev.task_id));
-          const userTenure = editingTracker?.user_tenure || user?.user_tenure;
-          if (task && userTenure) {
+          // Use user_tenure from the tracker's API data
+          const userTenure = editingTracker?.user_tenure || editingTracker?.tenure || 1;
+          if (task) {
             const perHourTarget = task.task_target || task.per_hour_target || task.target || 0;
-            updated.base_target = Number(perHourTarget) * Number(userTenure);
+            updated.base_target = (Number(perHourTarget) * Number(userTenure)).toFixed(2);
           }
         }
       }
@@ -866,10 +869,13 @@ const QATrackerReport = () => {
       if (field === 'task_id' && value) {
         const project = editProjects.find(p => String(p.project_id) === String(updated.project_id));
         const task = project?.tasks?.find(t => String(t.task_id) === String(value));
-        const userTenure = editingTracker?.user_tenure || user?.user_tenure;
-        if (task && userTenure) {
+        // Use user_tenure from the tracker's API data (from /tracker/view response)
+        const userTenure = editingTracker?.user_tenure || editingTracker?.tenure || 1;
+        if (task) {
           const perHourTarget = task.task_target || task.per_hour_target || task.target || 0;
-          updated.base_target = Number(perHourTarget) * Number(userTenure);
+          const calculatedTarget = Number(perHourTarget) * Number(userTenure);
+          updated.base_target = calculatedTarget.toFixed(2);
+          log('[QATrackerReport] Base target calculated:', calculatedTarget, 'task_target:', perHourTarget, 'userTenure:', userTenure);
         }
       }
 
@@ -1477,6 +1483,20 @@ const QATrackerReport = () => {
                                   ? `${(tracker.tracker_note || tracker.notes).substring(0, 10)}...`
                                   : tracker.tracker_note || tracker.notes}
                               </span>
+                              {/* Copy button */}
+                              <button
+                                onClick={() => {
+                                  navigator.clipboard.writeText(tracker.tracker_note || tracker.notes);
+                                  toast.success('Note copied to clipboard!');
+                                }}
+                                className="ml-1 p-1 text-blue-500 hover:text-blue-700 hover:bg-blue-50 rounded transition-colors"
+                                title="Copy full note"
+                              >
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                  <rect width="14" height="14" x="8" y="8" rx="2" ry="2"></rect>
+                                  <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"></path>
+                                </svg>
+                              </button>
                               {(tracker.tracker_note || tracker.notes).length > 10 && (
                                 <div className="relative group/notes">
                                   <Info className="w-4 h-4 text-blue-500 cursor-pointer hover:text-blue-700 transition-colors" />
@@ -2088,6 +2108,26 @@ const QATrackerReport = () => {
                             </svg>
                             Notes
                           </span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const textToCopy = editFormData.tracker_note || '';
+                              if (textToCopy) {
+                                navigator.clipboard.writeText(textToCopy);
+                                toast.success('Note copied to clipboard!');
+                              } else {
+                                toast.error('No note to copy');
+                              }
+                            }}
+                            className="flex items-center gap-1.5 px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-600 text-xs font-semibold rounded-md transition-colors border border-blue-200 shadow-sm"
+                            title="Copy note to clipboard"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <rect width="14" height="14" x="8" y="8" rx="2" ry="2"></rect>
+                              <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"></path>
+                            </svg>
+                            Copy
+                          </button>
                         </label>
                         <div className="relative">
                           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="absolute left-3 top-3 text-blue-600 pointer-events-none">
