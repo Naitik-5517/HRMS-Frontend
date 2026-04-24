@@ -717,15 +717,15 @@ const Tracker = ({ embedded = false }) => {
     return task?.task_name || task?.label || "-";
   };
 
-  // Check if tracker entry is from today
+  // Check if tracker entry is from today (using UTC to match formatDateTime)
   const isToday = (dateTime) => {
     if (!dateTime) return false;
     const trackerDate = new Date(dateTime);
     const today = new Date();
     return (
-      trackerDate.getFullYear() === today.getFullYear() &&
-      trackerDate.getMonth() === today.getMonth() &&
-      trackerDate.getDate() === today.getDate()
+      trackerDate.getUTCFullYear() === today.getUTCFullYear() &&
+      trackerDate.getUTCMonth() === today.getUTCMonth() &&
+      trackerDate.getUTCDate() === today.getUTCDate()
     );
   };
 
