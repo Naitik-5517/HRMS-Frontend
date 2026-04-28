@@ -127,27 +127,28 @@ const ManagerQCReportsOverview = () => {
       });
     }
 
-    // Date range filter - applied to Evaluation Date (created_at)
+    // Date range filter - applied to Work Date (date_of_file_submission)
     if (startDate || endDate) {
       filtered = filtered.filter(record => {
-        if (!record.created_at) return false;
-        const recordDate = new Date(record.created_at);
-        recordDate.setHours(0, 0, 0, 0);
+        if (!record.date_of_file_submission) return false;
+        // Use UTC methods to avoid timezone issues
+        const recordDate = new Date(record.date_of_file_submission);
+        const recordDateUTC = new Date(Date.UTC(recordDate.getUTCFullYear(), recordDate.getUTCMonth(), recordDate.getUTCDate()));
         
         if (startDate && endDate) {
-          const start = new Date(startDate);
-          const end = new Date(endDate);
-          start.setHours(0, 0, 0, 0);
-          end.setHours(23, 59, 59, 999);
-          return recordDate >= start && recordDate <= end;
+          const startParts = startDate.split('-');
+          const endParts = endDate.split('-');
+          const startUTC = new Date(Date.UTC(parseInt(startParts[0]), parseInt(startParts[1]) - 1, parseInt(startParts[2]), 0, 0, 0));
+          const endUTC = new Date(Date.UTC(parseInt(endParts[0]), parseInt(endParts[1]) - 1, parseInt(endParts[2]), 23, 59, 59, 999));
+          return recordDateUTC >= startUTC && recordDateUTC <= endUTC;
         } else if (startDate) {
-          const start = new Date(startDate);
-          start.setHours(0, 0, 0, 0);
-          return recordDate >= start;
+          const startParts = startDate.split('-');
+          const startUTC = new Date(Date.UTC(parseInt(startParts[0]), parseInt(startParts[1]) - 1, parseInt(startParts[2]), 0, 0, 0));
+          return recordDateUTC >= startUTC;
         } else if (endDate) {
-          const end = new Date(endDate);
-          end.setHours(23, 59, 59, 999);
-          return recordDate <= end;
+          const endParts = endDate.split('-');
+          const endUTC = new Date(Date.UTC(parseInt(endParts[0]), parseInt(endParts[1]) - 1, parseInt(endParts[2]), 23, 59, 59, 999));
+          return recordDateUTC <= endUTC;
         }
         return true;
       });
@@ -546,11 +547,11 @@ const ManagerQCReportsOverview = () => {
             </div>
           </div>
 
-          {/* Date Range Filter - Applied to Evaluation Date */}
+          {/* Date Range Filter - Applied to Work Date */}
           <div className="date-range-compact">
             <label className="flex items-center gap-1.5 text-xs font-bold text-slate-600 uppercase mb-1.5">
               <Calendar className="w-3 h-3 text-blue-600" />
-              Evaluation Date Range
+              Work Date Range
             </label>
             <DateRangePicker
               startDate={startDate}
