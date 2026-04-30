@@ -12,6 +12,7 @@ import { useAuth } from "../context/AuthContext";
 import AgentProjectList from "../components/AgentDashboard/AgentProjectList";
 import QCFormPage from "../pages/QCFormPage";
 import AIEvaluation from "../components/AgentDashboard/AIEvaluation.jsx";
+import UserRosterReport from "../pages/UserRosterReport";
 
 const AppRoutes = () => {
   const { user } = useAuth();
@@ -139,6 +140,18 @@ const AppRoutes = () => {
             <ProtectedRoute allowedRoles={[6]}>
               <AppLayout>
                 <AgentProjectList />
+              </AppLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        {/* User Roster Report (All roles) */}
+        <Route
+          path="/my-roster-report"
+          element={
+            <ProtectedRoute allowedRoles={[1, 2, 3, 4, 5, 6]}>
+              <AppLayout>
+                <UserRosterReport />
               </AppLayout>
             </ProtectedRoute>
           }

@@ -367,6 +367,44 @@ const ProjectMonthlyReport = () => {
     }));
   };
 
+  // Export to CSV function
+  const exportToCSV = (data, filename) => {
+    if (!data || data.length === 0) {
+      toast.error('No data to export');
+      return;
+    }
+
+    // Get headers from first object
+    const headers = Object.keys(data[0]);
+
+    // Convert data to CSV string
+    const csvContent = [
+      headers.join(','), // Header row
+      ...data.map(row => 
+        headers.map(header => {
+          const value = row[header];
+          // Escape commas and quotes in values
+          const stringValue = String(value || '');
+          if (stringValue.includes(',') || stringValue.includes('"')) {
+            return `"${stringValue.replace(/"/g, '""')}"`;
+          }
+          return stringValue;
+        }).join(',')
+      )
+    ].join('\n');
+
+    // Create and download CSV file
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', filename);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   // Export to Excel function for a specific month
   const handleExportToExcel = async (monthYear) => {
     try {
